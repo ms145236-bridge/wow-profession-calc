@@ -430,7 +430,9 @@ local function compute()
         end
         local oath = ctx.talents.oath
         -- 實測：誓約的固定量也會乘上治療之光等天賦加成（33 級聖光術：507–568＋220×1.12，實測 766／808／815）
-        row.oathAdd = ((oath and not oath.unknown and oath[f.key]) or 0) * mult
+        -- 實測：學會等級 20 以上的技能拿全部；20 以下依 (學會等級−1)÷19 遞減（聖光術 1 階 0%、2 階約 26%、3 階約 68%）
+        row.oathRatio = math.max(0, math.min(1, (row.learn - 1) / 19))
+        row.oathAdd = ((oath and not oath.unknown and oath[f.key]) or 0) * mult * row.oathRatio
         if db.oath and row.oathAdd > 0 then per = per + row.oathAdd; row.withOath = true end
         row.perHeal = per
         local total, used = per, 1
@@ -764,6 +766,7 @@ local function buildFrame()
       GameTooltip:AddDoubleLine("學習等級", tostring(r.learn), .8, .8, .8, 1, 1, 1)
       if r.down < 0.9995 then GameTooltip:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
       if r.cd > 0 then GameTooltip:AddDoubleLine("冷卻", fmt1(r.cd) .. " 秒", .8, .8, .8, 1, 1, 1) end
+      if r.oathAdd and r.oathAdd > 0 then GameTooltip:AddDoubleLine("聖光誓約", string.format("+%s（%d%%）", fint(r.oathAdd), math.floor(r.oathRatio * 100 + .5)), .8, .8, .8, 1, 1, 1) end
       if r.srcText ~= "遊戲" then GameTooltip:AddLine("部分數值來自資料表（遊戲讀不到）", 1, .6, .3) end
       if r.f.note ~= "" then GameTooltip:AddLine(r.f.note, .6, .6, .6, true) end
       GameTooltip:Show()
@@ -836,7 +839,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.7.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.7.2　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
