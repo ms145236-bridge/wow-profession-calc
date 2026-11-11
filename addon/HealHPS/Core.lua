@@ -5,7 +5,7 @@
 local ADDON = ...
 local D = HealHPS_Data
 local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
-  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false }
+  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false }
 local LOGO = "Interface\\AddOns\\HealHPS\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
@@ -152,7 +152,7 @@ local function traitRanks()
         end
         local name = sid and API.SpellInfo(sid)
         -- 客戶端有重複的孤兒節點：同名取點數多的
-        if name and (not out[name] or rank > out[name].rank) then out[name] = { rank = rank, max = maxR } end
+        if name and (not out[name] or rank > out[name].rank) then out[name] = { rank = rank, max = maxR, sid = sid } end
       end
     end
   end
@@ -160,11 +160,36 @@ local function traitRanks()
   return out
 end
 
+-- 聖光誓約：對誓約目標的聖光術／聖光閃現／神聖震擊固定加量，隨等級成長；從天賦說明讀目前的數值
+local OATH = { ids = { 1328548 }, names = { "聖光誓約", "聖光誓言" } }
+local OATH_SPELLS = { { "hl", 635, "聖光術" }, { "fol", 19750, "聖光閃現" }, { "hs", 20473, "神聖震擊" } }
+local function parseOath(desc)
+  if not desc or desc == "" then return nil end
+  desc = desc:gsub("(%d),(%d)", "%1%2")
+  local out, found = {}, 0
+  for _, v in ipairs(OATH_SPELLS) do
+    local name = API.SpellInfo(v[2]) or v[3]
+    local p = desc:find(name, 1, true)
+    local n = p and tonumber(desc:match("(%d+)", p + #name))
+    out[v[1]] = n or 0
+    if n then found = found + 1 end
+  end
+  -- 三個名稱都在數字前面（例如「聖光術、聖光閃現和神聖震擊分別提高 400、115、230」）會讀成同一個數字，
+  -- 這時改取說明裡最後三個數字（照聖光術、聖光閃現、神聖震擊的順序）
+  if found < 3 or (out.hl == out.fol and out.fol == out.hs) then
+    local nums = {}
+    for d in desc:gmatch("%d+") do nums[#nums + 1] = tonumber(d) end
+    if #nums >= 3 then out.hl, out.fol, out.hs = nums[#nums - 2], nums[#nums - 1], nums[#nums]; found = 3 end
+  end
+  return found > 0 and out or nil
+end
+
 local function scanTalents(class)
   local res = { heal = 0, absorb = 0, found = {}, source = "讀不到" }
-  local defs = TALENTS[class]
-  if not defs then return res end
+  local defs = TALENTS[class] or {}
   for _, def in ipairs(defs) do def.set = def.set or nameSet(def.ids, def.names) end
+  OATH.set = OATH.set or nameSet(OATH.ids, OATH.names)
+  local oathRank, oathSid = 0, nil
   local function add(def, name, rank, maxRank)
     if rank and rank > 0 then
       res[def.what] = res[def.what] + rank * def.per
@@ -176,20 +201,26 @@ local function scanTalents(class)
     res.source = "C_Traits"
     for name, v in pairs(tr) do
       for _, def in ipairs(defs) do if def.set[name] then add(def, name, v.rank, v.max) end end
+      if OATH.set[name] and v.rank > oathRank then oathRank, oathSid = v.rank, v.sid end
     end
-    return res
-  end
-  if not GetTalentInfo or not GetNumTalents then return res end
-  res.source = "經典"
-  local tabs = GetNumTalentTabs and GetNumTalentTabs() or 3
-  for t = 1, tabs do
-    local okN, nTal = pcall(GetNumTalents, t)
-    for i = 1, (okN and nTal or 0) do
-      local name, _, _, _, rank, maxRank = GetTalentInfo(t, i)
-      for _, def in ipairs(defs) do
-        if name and def.set[name] then add(def, name, rank, maxRank) end
+  elseif GetTalentInfo and GetNumTalents then
+    res.source = "經典"
+    local tabs = GetNumTalentTabs and GetNumTalentTabs() or 3
+    for t = 1, tabs do
+      local okN, nTal = pcall(GetNumTalents, t)
+      for i = 1, (okN and nTal or 0) do
+        local name, _, _, _, rank, maxRank = GetTalentInfo(t, i)
+        for _, def in ipairs(defs) do
+          if name and def.set[name] then add(def, name, rank, maxRank) end
+        end
+        if name and OATH.set[name] and (rank or 0) > oathRank then oathRank = rank end
       end
     end
+  end
+  if class == "PALADIN" and oathRank > 0 then
+    local desc = API.Desc(oathSid) or API.Desc(OATH.ids[1])
+    res.oathDesc = desc
+    res.oath = parseOath(desc) or { unknown = true }
   end
   return res
 end
@@ -397,6 +428,9 @@ local function compute()
           per = (avg + ctx.bonus * row.coeff * row.down) * mult
           if f.parse == "regrowth" then per = per + row.hotBase * mult end -- HoT 係數未公開，不加治療效果
         end
+        local oath = ctx.talents.oath
+        row.oathAdd = (oath and not oath.unknown and oath[f.key]) or 0
+        if db.oath and row.oathAdd > 0 then per = per + row.oathAdd; row.withOath = true end
         row.perHeal = per
         local total, used = per, 1
         if f.key == "bh" then total, used = per * 2, 2
@@ -479,7 +513,12 @@ local function addTooltip(tt, id)
   local catName = cat == "group" and "群補" or "單補"
   for _, r in ipairs(rows) do
     local tag = r.f.parse == "regrowth" and "（含HoT）" or ((r.f.group or r.f.key == "bh") and string.format("（%d人）", r.targets) or "")
+    if r.withOath then tag = "（誓約目標）" end
     tt:AddLine(string.format("|cffd9b25fHPS|r %s　|cffd9b25fHPM|r %s%s", fmt1(r.hpsT), fmt2(r.hpmT), tag), 1, 1, 1)
+    if r.oathAdd > 0 and not r.withOath then
+      local h = r.perHeal + r.oathAdd
+      tt:AddLine(string.format("誓約目標 |cffd9b25fHPS|r %s　|cffd9b25fHPM|r %s", fmt1(r.time > 0 and h / r.time or 0), fmt2(r.manaEff > 0 and h / r.manaEff or 0)), .8, .8, .8)
+    end
     if sameRow(r, bh) then tt:AddLine("★ " .. catName .. " HPS最高", 1, .82, 0) end
     if sameRow(r, bm) then tt:AddLine("★ " .. catName .. " HPM最高", .4, 1, .4) end
   end
@@ -537,6 +576,13 @@ local function refreshImpl()
   local list, ctx = filtered()
   local tal = ctx.talents
   frame.talTxt = db.pct and ("治療加成 " .. db.pct .. "%（手動）") or (#tal.found > 0 and table.concat(tal.found, "、") or "")
+  local o = tal.oath
+  if o then
+    frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. (o.unknown and "聖光誓約：讀不到加成量（請執行 /hps debug 回報）"
+      or string.format("聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d", o.hl, o.fol, o.hs))
+  end
+  frame.oathBtn:SetText(not o and "聖光誓約：沒學" or (db.oath and "聖光誓約：計入" or "聖光誓約：不計入"))
+  frame.oathBtn:SetShown(select(2, UnitClass("player")) == "PALADIN")
   frame.info:SetText(string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus))
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" } }) do
     local on = db.mode == m[2]
@@ -660,7 +706,7 @@ local function buildFrame()
   infoHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 設定：平常收起來
   frame.opts = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-  frame.opts:SetSize(186, 94); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
+  frame.opts:SetSize(186, 118); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
   frame.opts:SetFrameLevel(frame:GetFrameLevel() + 20)
   if frame.opts.SetBackdrop then
     frame.opts:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
@@ -673,6 +719,15 @@ local function buildFrame()
   frame.cdBtn:SetPoint("TOP", 0, -44)
   frame.tgtBtn = button(frame.opts, 170, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
   frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -3)
+  frame.oathBtn = button(frame.opts, 170, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
+  frame.oathBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -3)
+  frame.oathBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("聖光誓約")
+    GameTooltip:AddLine("計入：比較表用「對誓約目標施放」的治療量計算聖光術、聖光閃現、神聖震擊。", 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  frame.oathBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.opts:Hide()
   -- 表頭（點 有效量／HPS／HPM 排序）
   local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 18); head:SetPoint("TOPLEFT", 14, -(TOP - 22))
@@ -780,11 +835,16 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.6.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.7.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
     (#ctx.talents.found > 0 and table.concat(ctx.talents.found, "、") or "沒找到") .. "（" .. ctx.talents.source .. "）"))
+  local o = ctx.talents.oath
+  if o then
+    msg(o.unknown and ("聖光誓約：讀不到加成量。天賦說明：" .. tostring(ctx.talents.oathDesc))
+      or string.format("聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d（%s）", o.hl, o.fol, o.hs, db.oath and "比較表已計入" or "比較表未計入"))
+  end
   local keys, anyFound = {}, false
   for k, st in pairs(scan.families) do table.insert(keys, k); if st.maxRank > 0 then anyFound = true end end
   table.sort(keys)
