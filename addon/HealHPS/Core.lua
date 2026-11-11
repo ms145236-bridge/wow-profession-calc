@@ -429,7 +429,8 @@ local function compute()
           if f.parse == "regrowth" then per = per + row.hotBase * mult end -- HoT 係數未公開，不加治療效果
         end
         local oath = ctx.talents.oath
-        row.oathAdd = (oath and not oath.unknown and oath[f.key]) or 0
+        -- 實測：誓約的固定量也會乘上治療之光等天賦加成（33 級聖光術：507–568＋220×1.12，實測 766／808／815）
+        row.oathAdd = ((oath and not oath.unknown and oath[f.key]) or 0) * mult
         if db.oath and row.oathAdd > 0 then per = per + row.oathAdd; row.withOath = true end
         row.perHeal = per
         local total, used = per, 1
@@ -835,7 +836,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.7.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.7.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
