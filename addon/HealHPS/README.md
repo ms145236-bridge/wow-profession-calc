@@ -1,4 +1,6 @@
-# 治療 HPS 計算器（魔獸世界：永恆插件）
+# Codex · 治療 HPS 計算器（魔獸世界：永恆插件）
+
+![Codex](Media/Logo256.png)
 
 比較治療職各技能、各階級的 HPS（每秒治療）與 HPM（每點法力治療）。網頁版：https://ms145236-bridge.github.io/wow-profession-calc/healer.html
 
@@ -20,6 +22,7 @@
   - 底部一行是同類裡整體 HPS 最高、HPM 最高的技能。
 - `/hps pct 12`：手動指定治療加成 %（`/hps pct auto` 改回依天賦自動判斷）。
 - `/hps desc incl|base|auto`：技能說明的數字是否已含治療效果（永恆實測已含，預設自動）。
+- 小地圖按鈕：左鍵開關比較表，右鍵開關技能提示的 HPS，按住拖曳可以沿著小地圖移動。`/hps minimap` 隱藏或顯示按鈕。
 - `/hps tip`：開關滑鼠提示。`/hps downrank`：開關降級衰減。
 - `/hps debug`：在聊天視窗列出插件讀到的東西。數值看起來不對時，請把這段輸出回報。
 - `/hps reset`：重設這個角色的設定。設定是每個角色分開存的。

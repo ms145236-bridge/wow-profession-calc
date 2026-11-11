@@ -5,7 +5,8 @@
 local ADDON = ...
 local D = HealHPS_Data
 local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
-  includeCd = false, pct = nil, absorb = nil }
+  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false }
+local LOGO = "Interface\\AddOns\\HealHPS\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
 -- 技能說明的數字是否已經含治療效果：永恆（新版引擎）實測會含；經典版不含。/hps desc 可手動指定
@@ -653,7 +654,8 @@ local function buildFrame()
     frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
-  frame.TitleText:SetText("治療 HPS")
+  frame.TitleText:SetText("Codex · 治療 HPS")
+  local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(LOGO); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：單補／群補切換、設定
   frame.singleBtn = button(frame, 52, "單補", function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
   frame.singleBtn:SetPoint("TOPLEFT", 12, -26)
@@ -728,11 +730,64 @@ local function buildFrame()
   frame:Hide()
 end
 
+local function toggleWindow()
+  if not frame then buildFrame() end
+  if frame:IsShown() then frame:Hide() else frame:Show() end
+end
+
+-- ── 小地圖按鈕 ─────────────────────────────────────────────────────────────
+local mmBtn
+local function placeMinimap()
+  local a = math.rad(db.minimapAngle or 225)
+  local r = (Minimap:GetWidth() / 2) + 5
+  mmBtn:ClearAllPoints()
+  mmBtn:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
+end
+local function buildMinimapButton()
+  if mmBtn or not Minimap then return end
+  local b = CreateFrame("Button", "HealHPSMinimapButton", Minimap)
+  mmBtn = b
+  b:SetSize(31, 31); b:SetFrameStrata("MEDIUM"); b:SetFrameLevel(8)
+  b:RegisterForClicks("LeftButtonUp", "RightButtonUp"); b:RegisterForDrag("LeftButton")
+  b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+  local bg = b:CreateTexture(nil, "BACKGROUND"); bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+  bg:SetSize(20, 20); bg:SetPoint("TOPLEFT", 7, -5)
+  local icon = b:CreateTexture(nil, "ARTWORK"); icon:SetTexture(LOGO); icon:SetSize(21, 21); icon:SetPoint("TOPLEFT", 6, -5)
+  local border = b:CreateTexture(nil, "OVERLAY"); border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+  border:SetSize(53, 53); border:SetPoint("TOPLEFT")
+  b:SetScript("OnClick", function(_, btn)
+    if btn == "RightButton" then
+      db.tip = not db.tip; msg("技能提示的 HPS：" .. (db.tip and "開" or "關"))
+    else toggleWindow() end
+  end)
+  b:SetScript("OnDragStart", function(self)
+    self:SetScript("OnUpdate", function()
+      local mx, my = Minimap:GetCenter()
+      local cx, cy = GetCursorPosition()
+      local sc = Minimap:GetEffectiveScale()
+      db.minimapAngle = math.deg(math.atan2(cy / sc - my, cx / sc - mx))
+      placeMinimap()
+    end)
+  end)
+  b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+  b:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Codex · 治療 HPS")
+    GameTooltip:AddLine("左鍵：開關比較表", 1, 1, 1)
+    GameTooltip:AddLine("右鍵：開關技能提示的 HPS（目前" .. (db.tip and "開" or "關") .. "）", 1, 1, 1)
+    GameTooltip:AddLine("拖曳：沿著小地圖移動", .6, .6, .6)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  placeMinimap()
+  if db.minimapHide then b:Hide() end
+end
+
 -- ── 指令 ───────────────────────────────────────────────────────────────────
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.4.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.5.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
@@ -765,8 +820,11 @@ SlashCmdList.HEALHPS = function(input)
   ensureDB()
   local cmd, arg = (input or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
   if cmd == "" then
-    if not frame then buildFrame() end
-    if frame:IsShown() then frame:Hide() else frame:Show() end
+    toggleWindow()
+  elseif cmd == "minimap" then
+    db.minimapHide = not db.minimapHide
+    if mmBtn then if db.minimapHide then mmBtn:Hide() else mmBtn:Show() end end
+    msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /hps minimap 顯示）" or "顯示"))
   elseif cmd == "pct" then
     db.pct = arg ~= "auto" and tonumber(arg) or nil
     msg("治療加成 %：" .. (db.pct and db.pct .. "（手動）" or "依天賦自動"))
@@ -788,7 +846,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
   else
-    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-5　/hps tip　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
+    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-5　/hps tip　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
   end
   if frame then HealHPS_Refresh() end
 end
@@ -803,6 +861,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
     safe("掛上滑鼠提示", hookTooltips)
+    safe("小地圖按鈕", buildMinimapButton)
   elseif RESCAN_EVENTS[e] then
     scan.dirty = true; scan.unmatchedRetry = 0
     if frame and frame:IsShown() then HealHPS_Refresh() end
