@@ -464,10 +464,11 @@ local function compute()
         local sitAdd = 0
         row.oathRatio = nil
         if ctx.class == "PALADIN" then
-          -- 聖光誓約，遊戲內實測（33 級）：固定量也乘治療之光等加成（聖光術 507–568＋220×1.12，實測 766／808／815）；
-          -- 比例＝(學會等級−1)×5%，最多 100%（聖光術 1 階 0～1%、2 階 22～27%、3 階 64～70%、聖光閃現 1 階 92～97%、4／5 階 100%）
+          -- 聖光誓約，遊戲內實測（33、34 級）：固定量也乘治療之光等加成（聖光術 507–568＋220×1.12，實測 766／808／815）；
+          -- 比例＝1 −（角色等級 − 學會等級 − 12）× 5%，0～100%：比技能高 12 級內拿全部，之後每級少 5%
+          -- （34 級：聖光術 2 階實測平均 213.1，預測 214.1；3 階實測 457.1，預測 456.9）
           local oath = ctx.talents.oath
-          row.oathRatio = math.max(0, math.min(1, (row.learn - 1) * 0.05))
+          row.oathRatio = math.max(0, math.min(1, 1 - (ctx.level - row.learn - 12) * 0.05))
           sitAdd = ((oath and not oath.unknown and oath[f.key]) or 0) * mult * row.oathRatio
         elseif ctx.class == "PRIEST" and ctx.talents.sitLearned and f.key == "fh" then
           sitAdd = per * 0.5 -- 聖光束縛：快速治療施放在別人身上時自己回復 50%
@@ -983,7 +984,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.5　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.8.6　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",

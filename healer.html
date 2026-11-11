@@ -133,7 +133,7 @@ code{background:#0b0a08;border:1px solid var(--line);border-radius:4px;padding:1
   <h2>來源與注意事項</h2>
   <div class="fine">
     <p>數值以 ForeverChanges 1.60.1.70790 為主，核對時間 2026-11-06（台北時間）。不混用經典版與現行版資料。「可靠」欄：<span class="tag ok">已交叉核對</span> <span class="tag mid">單一來源待核</span> <span class="tag bad">係數未確認</span>。</p>
-    <p><b>聖光誓約</b>（Oath of Light）對誓約目標的固定加成，依遊戲內實測（33 級聖騎，2026-11-11）：加成 ＝ 60 級上限（聖光術 400、聖光閃現 115、神聖震擊 230）× 你的等級 ÷ 60，小數捨去，33 級即 220／63／126，與天賦說明一致；會再乘上治療之光等治療加成 %（不受裝備影響）；20 級前學的技能依「(學會等級 − 1) × 5%」遞減，聖光術 1 階 0%、2 階 25%、3 階 65%、聖光閃現 1 階 95%。比例是否也隨角色等級變化尚待驗證。愈合的 HoT 只有 1 階（91）和 9 階（994）有客戶端數值，2～8 階不列；HoT 係數未公開，預設 0。</p>
+    <p><b>聖光誓約</b>（Oath of Light）對誓約目標的固定加成，依遊戲內實測（33 級聖騎，2026-11-11）：加成 ＝ 60 級上限（聖光術 400、聖光閃現 115、神聖震擊 230）× 你的等級 ÷ 60，小數捨去，33 級即 220／63／126，與天賦說明一致；會再乘上治療之光等治療加成 %（不受裝備影響）；比例 ＝ 1 −（你的等級 − 技能學會等級 − 12）× 5%：比技能高 12 級以內拿全部，之後每多 1 級少 5%，高 32 級以後就沒有（33、34 級實測）。愈合的 HoT 只有 1 階（91）和 9 階（994）有客戶端數值，2～8 階不列；HoT 係數未公開，預設 0。</p>
     <p>資料改在 <code>healer-data.js</code>，計算邏輯在本頁。
       <a href="https://foreverchanges.pro/zh-cn/downrank-calculator" target="_blank" rel="noopener">ForeverChanges 降級計算器</a> ·
       <a href="https://foreverchanges.pro/class/priest" target="_blank" rel="noopener">ForeverChanges 牧師變更</a></p>
@@ -150,10 +150,10 @@ const store = {
 const SPEC_DEF = { level: '60', heal: '300', healPct: '0', absorbPct: '0', manaReduce: '0', castReduce: '0',
   oath: false, rgHotCoeff: '0', vigilShock: true };
 // 聖光誓約（遊戲內實測，33 級聖騎）：加成＝60 級上限 × 等級 ÷ 60（小數捨去）；再乘治療加成 %；
-// 20 級前學的技能依 (學會等級−1)×5% 遞減（聖光術 1 階 0%、2 階 25%、3 階 65%、聖光閃現 1 階 95%）
+// 比例＝1 −（角色等級 − 學會等級 − 12）× 5%：比技能高 12 級內拿全部，之後每級少 5%（33、34 級實測）
 const OATH_MAX = { hl: 400, fol: 115, hs: 230 };
 const oathAt = (key, level) => Math.floor(OATH_MAX[key] * level / 60);
-const oathRatio = learnLevel => Math.max(0, Math.min(1, (learnLevel - 1) * 0.05));
+const oathRatio = (learnLevel, level) => Math.max(0, Math.min(1, 1 - (level - learnLevel - 12) * 0.05));
 const VIEW_DEF = { spec: 'paladin_holy', mode: 'single', groupMetric: 'total', sortKey: 'hps', rateMode: 'cast', targets: '5',
   applyDownrank: true, onlyAvail: true, includeTalent: true, includeHot: true, includeAbsorb: true, includeCd: false };
 const SPEC_IDS = SPEC_OPTIONS.map(s => s.value);
@@ -200,7 +200,7 @@ function compute() {
     const avg = (s.healMin + s.healMax) / 2;
     const mult = s.kind === 'absorb' ? (s.absorbPctApplies ? 1 + absorbPct : 1) : (s.healPctApplies ? 1 + healPct : 1);
     let oathAdd = 0;
-    if (p.oath && spec === 'paladin_holy' && OATH_MAX[s.id] != null) oathAdd = oathAt(s.id, level) * oathRatio(s.learnLevel);
+    if (p.oath && spec === 'paladin_holy' && OATH_MAX[s.id] != null) oathAdd = oathAt(s.id, level) * oathRatio(s.learnLevel, level);
     // 誓約固定量跟基礎量一起乘治療加成 %，不受降級影響
     let perHeal = (avg + oathAdd + healing * coeffEff) * mult;
     if (s.id === 'rgh') perHeal += ((s.hotBase || 0) + healing * rgHotCoeff * down) * mult;
@@ -263,7 +263,7 @@ function renderControls() {
     if (P().oath) {
       const lv = clamp(Math.floor(num(P().level, 60)), 1, 60);
       box += `<div class="dim">依你填的等級（${lv} 級）自動計算：聖光術 +${oathAt('hl', lv)}、聖光閃現 +${oathAt('fol', lv)}、神聖震擊 +${oathAt('hs', lv)}。
-        再乘上治療加成 %；20 級前學的技能只拿一部分（學會等級每高 1 級多 5%，例如聖光術 1 階 0%、2 階 25%、3 階 65%）。</div>`;
+        再乘上治療加成 %；你比技能高 12 級以內拿全部，之後每多 1 級少 5%（例如 33 級時聖光術 2 階 25%、3 階 65%）。</div>`;
     }
     box += '</div>';
   } else if (spec === 'druid_resto') {
