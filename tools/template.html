@@ -174,8 +174,9 @@ tr.owned .qty{text-decoration:line-through}
   </div>
   <div class="foot">
     <span id="shopMeta" style="color:var(--muted);font-size:13px"></span>
-    <button class="btn" id="copy">複製購物清單</button>
+    <span style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="copyTxt">複製文字清單</button><button class="btn" id="copy">複製 Auctionator 購物清單</button></span>
   </div>
+  <p class="privacy" style="text-align:right">在拍賣行打開 Auctionator 的「購物」分頁，按「匯入」並貼上，就會建立一份含數量的購物清單。勾選「已有」的物品和商人販售的物品不會放進去。</p>
 
   <p class="fine">
     拍賣行價格全部來自你上傳的 Auctionator 掃描（有「目前最低價」就用它，沒有就用最近一天的最低價）；商人販售的物品用商人固定售價。
@@ -406,6 +407,8 @@ function render(){
   }).join('') || `<tr><td colspan="5" class="empty">不需要購買任何東西</td></tr>`;
   $('shopMeta').innerHTML = `共 ${list.length} 項` + (hasScan ? ` · 合計 ${money(r.total)}` : '');
   window.__list = list.filter(x=>!x.owned).map(x=>`${info('i',x.id)[0]} ×${x.qty}`);
+  const atrName = s => String(s).replace(/["^;\r\n]/g, '');
+  window.__atr = atrName(`${pname} ${S}-${T}`) + list.filter(x=>!x.owned && DATA.vendor[x.id]==null).map(x=>'^"' + atrName(info('i',x.id)[0]) + '";;;;;;;;;;;#;;' + x.qty).join('');
   window.__title = `${pname} ${S}–${T}` + (hasScan ? `（約 ${moneyText(r.total)}）` : '');
   $('nVar').textContent = DATA.variants[state.prof].length;
 
@@ -440,12 +443,14 @@ $('file').addEventListener('change', async e=>{
     renderSource(); render();
   } catch (ex) { err.textContent = '讀不到價格：' + ex.message; err.hidden = false; }
 });
-$('copy').addEventListener('click', async ()=>{
-  const txt = window.__title + '\n' + window.__list.join('\n');
+async function copyText(txt, btn) {
+  const label = btn.textContent;
   try { await navigator.clipboard.writeText(txt); }
   catch(e){ const t=document.createElement('textarea'); t.value=txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
-  $('copy').textContent='已複製'; setTimeout(()=>$('copy').textContent='複製購物清單',1500);
-});
+  btn.textContent='已複製'; setTimeout(()=>btn.textContent=label,1500);
+}
+$('copy').addEventListener('click', ()=>copyText(window.__atr, $('copy')));
+$('copyTxt').addEventListener('click', ()=>copyText(window.__title + '\n' + window.__list.join('\n'), $('copyTxt')));
 renderSource();
 render();
 </script>
