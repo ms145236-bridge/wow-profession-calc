@@ -46,7 +46,7 @@
 
 ## 更新技能資料
 
-`Data.lua` 是由網頁的 `healer-data.js` 產生的。改了 `healer-data.js` 之後，在 repo 根目錄執行：
+`Data.lua` 是由網頁的 `healer-data.js` 產生的。LOGO 原圖在 `Media/LogoSource.png`，換圖後執行 `python tools/convert-logo.py 新圖路徑`。改了 `healer-data.js` 之後，在 repo 根目錄執行：
 
 ```
 node tools/addon-data.mjs
