@@ -20,6 +20,7 @@ local function ensureDB()
   HealHPSCharDB = HealHPSCharDB or {}
   for k, v in pairs(DEFAULTS) do if HealHPSCharDB[k] == nil then HealHPSCharDB[k] = v end end
   db = HealHPSCharDB
+  if type(db.expanded) ~= "table" then db.expanded = {} end -- 展開了哪些技能
   return db
 end
 
@@ -499,74 +500,145 @@ local function hookTooltips()
 end
 
 -- ── 比較表視窗 ─────────────────────────────────────────────────────────────
-local ROWS = 14      -- 最多顯示幾列（多的用滾輪捲動）
-local ROW_H = 19
-local W = 400        -- 內容寬度
-local TOP = 110      -- 第一列的位置
--- { 標題, x, 寬, 對齊, 排序鍵 }
-local COLS = { { "技能", 0, 150, "LEFT" }, { "有效量", 150, 62, "RIGHT", "heal" }, { "法力", 214, 40, "RIGHT" },
-  { "秒", 256, 30, "RIGHT" }, { "HPS", 290, 54, "RIGHT", "hps" }, { "HPM", 348, 48, "RIGHT", "hpm" } }
+-- 依技能分組：每個技能直接標出「HPS最高」「HPM最高」的階級，點技能名稱展開所有階級
+local W = 380        -- 內容寬度
+local ROW_H = 18
+local MAXLINES = 22  -- 最多顯示幾行（多的用滾輪捲動）
+local TOP = 66       -- 第一行的位置
+local BAR_X, BAR_W = 178, 132
 local frame, offset = nil, 0
+local GOLD, GREEN, DIM = { 1, .82, 0 }, { .4, 1, .4 }, { .6, .57, .5 }
 
-local function cell(parent, x, w, just)
-  local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  fs:SetPoint("LEFT", parent, "LEFT", x, 0); fs:SetWidth(w); fs:SetJustifyH(just); fs:SetWordWrap(false)
-  return fs
+local function text(parent, x, w, just)
+  local f = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  f:SetPoint("LEFT", parent, "LEFT", x, 0); f:SetWidth(w); f:SetJustifyH(just); f:SetWordWrap(false)
+  return f
 end
 
-local function button(parent, w, onClick)
+local function button(parent, w, label, onClick)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w, 20); b:SetScript("OnClick", onClick)
+  b:SetSize(w, 20); b:SetText(label); b:SetScript("OnClick", onClick)
   return b
+end
+
+local function downTxt(r)
+  return r.down < 0.9995 and string.format(" |cffff9d5c降級%d%%|r", math.floor(r.down * 100 + .5)) or ""
+end
+
+-- 把計算結果整理成要顯示的行
+local function buildDisplay(rows)
+  local cat = db.mode
+  local fams, order = {}, {}
+  for _, r in ipairs(rows) do
+    if (cat == "group") == (r.f.group and true or false) then
+      local F = fams[r.key]
+      if not F then F = { key = r.key, label = r.label, rows = {} }; fams[r.key] = F; table.insert(order, F) end
+      table.insert(F.rows, r)
+    end
+  end
+  local maxH, maxM, allH, allM = 0, 0, nil, nil
+  for _, F in ipairs(order) do
+    table.sort(F.rows, function(a, b) return a.rank > b.rank end)
+    local top = F.rows[1]
+    F.cd = top.cd
+    F.excluded = not (db.includeCd or cat == "group" or db.rate == "cooldown" or top.cd <= 0 or top.f.kind == "absorb")
+    for _, r in ipairs(F.rows) do
+      if not F.bh or r.hps > F.bh.hps then F.bh = r end
+      if not F.bm or r.hpm > F.bm.hpm then F.bm = r end
+    end
+    if not F.excluded then
+      if F.bh.hps > maxH then maxH = F.bh.hps; allH = F.bh end
+      if F.bm.hpm > maxM then maxM = F.bm.hpm; allM = F.bm end
+    end
+  end
+  table.sort(order, function(a, b)
+    if a.excluded ~= b.excluded then return not a.excluded end
+    return a.bh.hps > b.bh.hps
+  end)
+  local disp = {}
+  for _, F in ipairs(order) do
+    if F.excluded then
+      table.insert(disp, { kind = "ex", F = F })
+    else
+      table.insert(disp, { kind = "fam", F = F })
+      table.insert(disp, { kind = "pickH", F = F, r = F.bh })
+      table.insert(disp, { kind = "pickM", F = F, r = F.bm })
+      if db.expanded[F.key] then
+        table.insert(disp, { kind = "rhead" })
+        for _, r in ipairs(F.rows) do table.insert(disp, { kind = "rank", F = F, r = r }) end
+      end
+    end
+  end
+  return disp, allH, allM, maxH, maxM
+end
+
+local function setLine(l, e, maxH, maxM)
+  l.fam, l.row = nil, nil
+  l.bar:Hide(); l.barBg:Hide()
+  for _, k in ipairs({ "a", "b", "m", "c" }) do l[k]:SetText(""); l[k]:SetTextColor(1, 1, 1) end
+  if e.kind == "fam" then
+    local open = db.expanded[e.F.key]
+    l.a:SetText((open and "－ " or "＋ ") .. e.F.label); l.a:SetTextColor(.94, .81, .5)
+    l.c:SetText(#e.F.rows .. " 階"); l.c:SetTextColor(unpack(DIM))
+    l.fam = e.F.key
+  elseif e.kind == "pickH" or e.kind == "pickM" then
+    local isH = e.kind == "pickH"
+    local col = isH and GOLD or GREEN
+    l.a:SetText(isH and "    HPS最高" or "    HPM最高"); l.a:SetTextColor(unpack(col))
+    l.b:SetText(e.r.rank .. " 階" .. downTxt(e.r))
+    local v, mx = isH and e.r.hps or e.r.hpm, isH and maxH or maxM
+    l.barBg:Show(); l.bar:Show()
+    l.bar:SetWidth(math.max(1, BAR_W * (mx > 0 and v / mx or 0)))
+    l.bar:SetColorTexture(col[1] * .85, col[2] * .85, col[3] * .3 + .1, .9)
+    l.c:SetText(isH and fmt1(v) or fmt2(v))
+    l.row = e.r
+  elseif e.kind == "rhead" then
+    l.a:SetText("        階"); l.m:SetText("HPS"); l.c:SetText("HPM")
+    for _, k in ipairs({ "a", "m", "c" }) do l[k]:SetTextColor(unpack(DIM)) end
+  elseif e.kind == "rank" then
+    local r = e.r
+    l.a:SetText("        " .. r.rank .. " 階" .. downTxt(r)); l.a:SetTextColor(.85, .82, .75)
+    l.m:SetText(fmt1(r.hps)); l.c:SetText(fmt2(r.hpm))
+    if sameRow(r, e.F.bh) then l.m:SetTextColor(unpack(GOLD)) end
+    if sameRow(r, e.F.bm) then l.c:SetTextColor(unpack(GREEN)) end
+    l.row = r
+  elseif e.kind == "ex" then
+    l.a:SetText("    " .. e.F.label); l.a:SetTextColor(unpack(DIM))
+    l.c:SetText(string.format("冷卻 %s 秒，已排除", fmt1(e.F.cd))); l.c:SetTextColor(unpack(DIM))
+  end
 end
 
 local function refreshImpl()
   if not frame or not frame:IsShown() then return end
-  local list, ctx = filtered()
+  local rows, ctx = compute()
   local tal = ctx.talents
-  local talTxt = db.pct and ("治療加成 " .. db.pct .. "%") or (#tal.found > 0 and table.concat(tal.found, "、") or "")
-  frame.info:SetText(string.format("%d 級　治療效果 %d", ctx.level, ctx.bonus))
-  frame.talTxt = talTxt -- 天賦加成不佔版面，滑鼠移到資訊列才顯示
-  frame.modeBtn:SetText(db.mode == "group" and "群補" or "單補")
-  frame.rateBtn:SetText(RATE_LABEL[db.rate])
-  frame.cdBtn:SetText(db.includeCd and "含冷卻" or "不含冷卻")
-  local bh, bm = bests(list)
-  frame.best:SetText(#list == 0 and "" or string.format("|cffffd100★HPS|r %s %d　　|cff66ff66★HPM|r %s %d",
-    bh.label, bh.rank, bm.label, bm.rank))
-  for _, h in ipairs(frame.heads) do
-    h.fs:SetText(h.label .. (h.key == db.sort and "▼" or ""))
-    if h.key == db.sort then h.fs:SetTextColor(1, .82, 0) else h.fs:SetTextColor(.6, .57, .5) end
+  frame.talTxt = db.pct and ("治療加成 " .. db.pct .. "%（手動）") or (#tal.found > 0 and table.concat(tal.found, "、") or "")
+  frame.info:SetText(string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus))
+  for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" } }) do
+    local on = db.mode == m[2]
+    m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
-  local maxOff = math.max(0, #list - ROWS)
+  frame.rateBtn:SetText("速率：" .. RATE_LABEL[db.rate])
+  frame.cdBtn:SetText(db.includeCd and "冷卻技能：列入" or "冷卻技能：排除")
+  frame.tgtBtn:SetText("群補人數：" .. (db.targets or 5))
+  local disp, allH, allM, maxH, maxM = buildDisplay(rows)
+  local maxOff = math.max(0, #disp - MAXLINES)
   if offset > maxOff then offset = maxOff end
-  for i = 1, ROWS do
-    local line, r = frame.lines[i], list[i + offset]
-    if r then
-      local f = r.f
-      local amt
-      if db.mode == "group" then amt = fint(r.totalHeal)
-      elseif f.key == "bh" then amt = fint(r.perHeal) .. "×2"
-      else amt = fint(r.perHeal) end
-      local isH, isM = sameRow(r, bh), sameRow(r, bm)
-      local name = (isH and "|cffffd100★|r" or "") .. (isM and "|cff66ff66★|r" or "") .. r.label .. " " .. r.rank
-        .. (r.down < 0.9995 and string.format(" |cffff9d5c%d%%|r", math.floor(r.down * 100 + .5)) or "")
-      if isH then line.hl:SetColorTexture(1, .82, 0, .18); line.hl:Show()
-      elseif isM then line.hl:SetColorTexture(.3, 1, .3, .14); line.hl:Show()
-      else line.hl:Hide() end
-      local vals = { name, amt, fint(r.manaEff), fmt1(r.time), fmt1(r.hps), fmt2(r.hpm) }
-      for c = 1, #COLS do line.c[c]:SetText(vals[c]) end
-      line.row = r
-      line:Show()
-    else line:Hide(); line.row = nil end
+  local n = 0
+  for i = 1, MAXLINES do
+    local l, e = frame.lines[i], disp[i + offset]
+    if e then setLine(l, e, maxH, maxM); l:Show(); n = i else l:Hide(); l.fam, l.row = nil, nil end
   end
-  -- 視窗高度跟著列數縮放
-  local shown = math.min(#list, ROWS)
-  local footTxt = #list == 0 and "沒有符合的技能，可以切換單補／群補或含冷卻。"
-    or (#list > ROWS and string.format("還有 %d 筆，用滾輪捲動", #list - ROWS) or "")
-  frame.foot:SetText(footTxt)
+  local foot
+  if #disp == 0 then foot = "沒有符合的技能，可以切換單補／群補，或在設定裡列入冷卻技能。"
+  elseif allH then
+    foot = string.format("|cffffd100★ HPS最高|r %s %d　|cff66ff66★ HPM最高|r %s %d", allH.label, allH.rank, allM.label, allM.rank)
+    if #disp > MAXLINES then foot = foot .. string.format("　|cff9a9282（滾輪看更多）|r") end
+  else foot = "" end
+  frame.foot:SetText(foot)
   frame.foot:ClearAllPoints()
-  frame.foot:SetPoint("TOPLEFT", 14, -(TOP + shown * ROW_H + 4))
-  frame:SetHeight(TOP + shown * ROW_H + (footTxt ~= "" and 26 or 12))
+  frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 6))
+  frame:SetHeight(TOP + n * ROW_H + 30)
 end
 
 function HealHPS_Refresh() safe("比較表", refreshImpl) end
@@ -584,8 +656,16 @@ local function buildFrame()
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
   frame.TitleText:SetText("治療 HPS")
-  frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  frame.info:SetPoint("TOPLEFT", 14, -30); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
+  -- 第一列：單補／群補切換、設定
+  frame.singleBtn = button(frame, 52, "單補", function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
+  frame.singleBtn:SetPoint("TOPLEFT", 12, -26)
+  frame.groupBtn = button(frame, 52, "群補", function() db.mode = "group"; offset = 0; HealHPS_Refresh() end)
+  frame.groupBtn:SetPoint("LEFT", frame.singleBtn, "RIGHT", 2, 0)
+  frame.gearBtn = button(frame, 52, "設定", function() if frame.opts:IsShown() then frame.opts:Hide() else frame.opts:Show() end end)
+  frame.gearBtn:SetPoint("TOPRIGHT", -12, -26)
+  -- 資訊列：等級與治療效果；天賦加成滑鼠移上去才顯示
+  frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  frame.info:SetPoint("TOPLEFT", 14, -50); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
   local infoHit = CreateFrame("Frame", nil, frame); infoHit:SetAllPoints(frame.info); infoHit:EnableMouse(true)
   infoHit:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -594,38 +674,53 @@ local function buildFrame()
     GameTooltip:Show()
   end)
   infoHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  frame.modeBtn = button(frame, 56, function() db.mode = db.mode == "group" and "single" or "group"; offset = 0; HealHPS_Refresh() end)
-  frame.modeBtn:SetPoint("TOPLEFT", 12, -46)
-  local rates = { cast = "effect", effect = "cooldown", cooldown = "cast" }
-  frame.rateBtn = button(frame, 80, function() db.rate = rates[db.rate]; HealHPS_Refresh() end)
-  frame.rateBtn:SetPoint("LEFT", frame.modeBtn, "RIGHT", 4, 0)
-  frame.cdBtn = button(frame, 72, function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
-  frame.cdBtn:SetPoint("LEFT", frame.rateBtn, "RIGHT", 4, 0)
-  frame.best = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  frame.best:SetPoint("TOPLEFT", 14, -74); frame.best:SetWidth(W); frame.best:SetJustifyH("LEFT"); frame.best:SetWordWrap(false)
-  local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 16); head:SetPoint("TOPLEFT", 14, -(TOP - 18))
-  frame.heads = {}
-  for _, c in ipairs(COLS) do
-    local fs = cell(head, c[2], c[3], c[4]); fs:SetText(c[1]); fs:SetTextColor(.6, .57, .5)
-    if c[5] then -- 點表頭依這欄排序
-      local b = CreateFrame("Button", nil, head)
-      b:SetPoint("LEFT", head, "LEFT", c[2], 0); b:SetSize(c[3], 16)
-      b:SetScript("OnClick", function() db.sort = c[5]; offset = 0; HealHPS_Refresh() end)
-      table.insert(frame.heads, { fs = fs, key = c[5], label = c[1] })
-    end
+  -- 設定：平常收起來
+  frame.opts = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+  frame.opts:SetSize(150, 80); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
+  frame.opts:SetFrameLevel(frame:GetFrameLevel() + 20)
+  if frame.opts.SetBackdrop then
+    frame.opts:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
+    frame.opts:SetBackdropColor(.08, .07, .05, .97); frame.opts:SetBackdropBorderColor(.35, .29, .15, 1)
   end
+  local rates = { cast = "effect", effect = "cooldown", cooldown = "cast" }
+  frame.rateBtn = button(frame.opts, 140, "", function() db.rate = rates[db.rate]; HealHPS_Refresh() end)
+  frame.rateBtn:SetPoint("TOP", 0, -5)
+  frame.rateBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("HPS 的分母")
+    GameTooltip:AddLine("施法占用：施法時間（至少一個 GCD），連續施放的治療速度", 1, 1, 1, true)
+    GameTooltip:AddLine("效果期間：HoT 用持續時間", 1, 1, 1, true)
+    GameTooltip:AddLine("冷卻上限：有冷卻的技能用冷卻時間", 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  frame.rateBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  frame.cdBtn = button(frame.opts, 140, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
+  frame.cdBtn:SetPoint("TOP", frame.rateBtn, "BOTTOM", 0, -3)
+  frame.tgtBtn = button(frame.opts, 140, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
+  frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -3)
+  frame.opts:Hide()
+  -- 內容行
   frame.lines = {}
-  for i = 1, ROWS do
-    local line = CreateFrame("Frame", nil, frame)
-    line:SetSize(W, ROW_H); line:SetPoint("TOPLEFT", 14, -TOP - (i - 1) * ROW_H)
-    line.hl = line:CreateTexture(nil, "BORDER"); line.hl:SetAllPoints(); line.hl:Hide()
-    line.c = {}
-    for c, col in ipairs(COLS) do line.c[c] = cell(line, col[2], col[3], col[4]) end
-    line:EnableMouse(true)
-    line:SetScript("OnEnter", function(self)
+  for i = 1, MAXLINES do
+    local l = CreateFrame("Button", nil, frame)
+    l:SetSize(W, ROW_H); l:SetPoint("TOPLEFT", 14, -TOP - (i - 1) * ROW_H)
+    l.a = text(l, 0, 176, "LEFT")
+    l.b = text(l, 110, 66, "LEFT")
+    l.m = text(l, BAR_X, BAR_W, "RIGHT")
+    l.c = text(l, BAR_X + BAR_W + 4, W - BAR_X - BAR_W - 4, "RIGHT")
+    l.barBg = l:CreateTexture(nil, "ARTWORK"); l.barBg:SetPoint("LEFT", BAR_X, 0); l.barBg:SetSize(BAR_W, 6); l.barBg:SetColorTexture(1, 1, 1, .07)
+    l.bar = l:CreateTexture(nil, "OVERLAY"); l.bar:SetPoint("LEFT", BAR_X, 0); l.bar:SetSize(BAR_W, 6)
+    l.hl = l:CreateTexture(nil, "BACKGROUND"); l.hl:SetAllPoints(); l.hl:SetColorTexture(1, 1, 1, .06); l.hl:Hide()
+    l:SetScript("OnClick", function(self)
+      if self.fam then db.expanded[self.fam] = not db.expanded[self.fam]; HealHPS_Refresh() end
+    end)
+    l:SetScript("OnEnter", function(self)
+      if self.fam then self.hl:Show() end
       local r = self.row; if not r then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:AddLine(r.label .. " " .. r.rank)
+      GameTooltip:AddLine(r.label .. " " .. r.rank .. " 階")
+      GameTooltip:AddDoubleLine("HPS／HPM", fmt1(r.hps) .. "／" .. fmt2(r.hpm), .8, .8, .8, 1, 1, 1)
+      GameTooltip:AddDoubleLine("法力", fint(r.manaEff), .8, .8, .8, 1, 1, 1)
       GameTooltip:AddDoubleLine("學習等級", tostring(r.learn), .8, .8, .8, 1, 1, 1)
       if r.down < 0.9995 then GameTooltip:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
       if r.cd > 0 then GameTooltip:AddDoubleLine("冷卻", fmt1(r.cd) .. " 秒", .8, .8, .8, 1, 1, 1) end
@@ -633,13 +728,13 @@ local function buildFrame()
       if r.f.note ~= "" then GameTooltip:AddLine(r.f.note, .6, .6, .6, true) end
       GameTooltip:Show()
     end)
-    line:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    if i % 2 == 0 then local bg = line:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetColorTexture(1, 1, 1, .04) end
-    frame.lines[i] = line
+    l:SetScript("OnLeave", function(self) self.hl:Hide(); GameTooltip:Hide() end)
+    frame.lines[i] = l
   end
   frame:EnableMouseWheel(true)
   frame:SetScript("OnMouseWheel", function(_, delta) offset = math.max(0, offset - delta * 3); HealHPS_Refresh() end)
-  frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  frame.foot:SetWidth(W); frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(false)
   frame:SetScript("OnShow", HealHPS_Refresh)
   frame:Hide()
 end
@@ -648,7 +743,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.3.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.4.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
