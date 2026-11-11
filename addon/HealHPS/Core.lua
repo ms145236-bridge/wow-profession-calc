@@ -586,7 +586,12 @@ local function refreshImpl()
       or string.format("聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d", o.hl, o.fol, o.hs))
   end
   frame.oathBtn:SetText(not o and "聖光誓約：沒學" or (db.oath and "聖光誓約：計入" or "聖光誓約：不計入"))
-  frame.oathBtn:SetShown(select(2, UnitClass("player")) == "PALADIN")
+  local isPal = select(2, UnitClass("player")) == "PALADIN"
+  frame.oathBtn:SetShown(isPal)
+  local th = frame.how.GetStringHeight and frame.how:GetStringHeight()
+  th = (type(th) == "number" and th > 0) and th or 40
+  frame.cdBtn:ClearAllPoints(); frame.cdBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(8 + th + 10))
+  frame.opts:SetHeight(8 + th + 10 + (isPal and 3 or 2) * 26 + 6)
   frame.info:SetText(string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus))
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" } }) do
     local on = db.mode == m[2]
@@ -710,21 +715,22 @@ local function buildFrame()
   infoHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 設定：平常收起來
   frame.opts = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-  frame.opts:SetSize(186, 118); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
+  frame.opts:SetSize(240, 130); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
   frame.opts:SetFrameLevel(frame:GetFrameLevel() + 20)
   if frame.opts.SetBackdrop then
     frame.opts:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
     frame.opts:SetBackdropColor(.08, .07, .05, .97); frame.opts:SetBackdropBorderColor(.35, .29, .15, 1)
   end
   local how = frame.opts:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  how:SetPoint("TOPLEFT", 8, -6); how:SetWidth(170); how:SetJustifyH("LEFT"); how:SetSpacing(2)
-  how:SetText("HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒；有冷卻的技能用冷卻時間算|r")
-  frame.cdBtn = button(frame.opts, 170, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
-  frame.cdBtn:SetPoint("TOP", 0, -44)
-  frame.tgtBtn = button(frame.opts, 170, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
-  frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -3)
-  frame.oathBtn = button(frame.opts, 170, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
-  frame.oathBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -3)
+  how:SetPoint("TOPLEFT", 10, -8); how:SetWidth(220); how:SetJustifyH("LEFT"); how:SetSpacing(3)
+  how:SetText("HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n有冷卻的技能用冷卻時間算|r")
+  frame.how = how
+  frame.cdBtn = button(frame.opts, 220, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
+  frame.cdBtn:SetHeight(22)
+  frame.tgtBtn = button(frame.opts, 220, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
+  frame.tgtBtn:SetHeight(22); frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -4)
+  frame.oathBtn = button(frame.opts, 220, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
+  frame.oathBtn:SetHeight(22); frame.oathBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
   frame.oathBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine("聖光誓約")
@@ -840,7 +846,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.7.3　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.7.4　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
