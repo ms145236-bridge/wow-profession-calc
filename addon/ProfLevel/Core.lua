@@ -1,4 +1,4 @@
--- 專業衝級計算器（魔獸世界：永恆）
+-- 專業助手（魔獸世界：永恆）
 -- 依 Auctionator 的價格，從候選路線挑最省的一條，列出每段要做什麼、做幾次，以及要買的材料與花費。
 -- 自動偵測已學專業與目前點數、扣掉背包與銀行已有的材料，可一鍵建立 Auctionator 購物清單。
 
@@ -29,7 +29,7 @@ local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .
 local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = true }
 local db
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業衝級|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業助手|r " .. s) end
 local reported = {}
 local function safe(where, fn, ...)
   local ok, err = pcall(fn, ...)
@@ -883,7 +883,7 @@ local function createShoppingList()
     end
   end
   if #terms == 0 then msg("沒有要在拍賣行買的東西"); return end
-  local listName = current.queue and "專業衝級 製作佇列" or string.format("專業衝級 %s %d-%d", current.prof.name, current.S, current.T)
+  local listName = current.queue and "專業助手 製作佇列" or string.format("專業助手 %s %d-%d", current.prof.name, current.S, current.T)
   if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then
     msg(string.format("已建立 Auctionator 購物清單「%s」，共 %d 項（已扣掉背包和銀行裡的數量，商人物品不列入）", listName, #terms))
   end
@@ -920,7 +920,7 @@ local function buildFrame()
     frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
-  frame.TitleText:SetText("專業衝級")
+  frame.TitleText:SetText("專業助手")
   local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(ICON); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：專業切換、起點、目標
   frame.prevBtn = button(frame, 24, "<", function() end)
@@ -1169,7 +1169,7 @@ local function setupProfUI()
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   fitButton(b, 110)
   local o = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  o:SetSize(110, 24); o:SetText("衝級計算器"); o:SetPoint("LEFT", b, "RIGHT", 6, 0)
+  o:SetSize(110, 24); o:SetText("專業助手"); o:SetPoint("LEFT", b, "RIGHT", 6, 0)
   o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else db.dock = true; dockOpen() end end)
   fitButton(o, 110)
   if sf.Init then hooksecurefunc(sf, "Init", function() C_Timer.After(0, function() safe("專業視窗", updateProfUI) end) end) end
@@ -1212,7 +1212,7 @@ local function buildMinimapButton()
   b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("專業衝級計算器")
+    GameTooltip:AddLine("專業助手")
     GameTooltip:AddLine("左鍵：開關視窗", 1, 1, 1)
     GameTooltip:AddLine("拖曳：沿著小地圖移動", .6, .6, .6)
     GameTooltip:Show()
@@ -1235,7 +1235,7 @@ SlashCmdList.PROFLEVEL = function(input)
     msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /prof minimap 顯示）" or "顯示"))
   elseif cmd == "dock" then
     db.dock = not db.dock
-    msg("打開專業視窗時自動顯示衝級計算器：" .. (db.dock and "開" or "關"))
+    msg("打開專業視窗時自動顯示專業助手：" .. (db.dock and "開" or "關"))
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
     if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
@@ -1244,7 +1244,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.4.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.4.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
