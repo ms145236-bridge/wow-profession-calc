@@ -23,7 +23,7 @@ PROF_BY_NAME["工程"] = PROF_BY_KEY.engineering
 PROF_BY_NAME["製皮匠"] = PROF_BY_KEY.leatherworking
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1 }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業衝級|r " .. s) end
@@ -246,11 +246,11 @@ local function pickRoute(prof, S, T)
 end
 
 -- ── 視窗 ───────────────────────────────────────────────────────────────────
-local W, ROW_H, MAXLINES, TOP, GAP = 460, 20, 18, 144, 10
+local W, ROW_H, MAXLINES, TOP, GAP = 600, 24, 20, 170, 16
 local frame, offset = nil, 0
 local TABS = {
-  steps = { { "等級", 50, "RIGHT" }, { "製作", 150, "LEFT", true }, { "次數", 40, "RIGHT" }, { "來源", 70, "LEFT" } },
-  shop = { { "物品", 150, "LEFT", true }, { "需要", 36, "RIGHT" }, { "已有", 36, "RIGHT" }, { "要買", 36, "RIGHT" }, { "單價", 60, "RIGHT" }, { "小計", 70, "RIGHT" } },
+  steps = { { "等級", 80, "RIGHT" }, { "製作", 220, "LEFT", true }, { "次數", 56, "RIGHT" }, { "來源", 140, "LEFT" } },
+  shop = { { "物品", 220, "LEFT", true }, { "需要", 52, "RIGHT" }, { "已有", 52, "RIGHT" }, { "要買", 52, "RIGHT" }, { "單價", 90, "RIGHT" }, { "小計", 100, "RIGHT" } },
 }
 local NCOL = 6
 local current -- 最近一次計算的結果
@@ -277,7 +277,7 @@ local function autoFit(cols)
     local col = cols[c]
     local hf = frame.headFs[c]
     if col then
-      local iconW = col[4] and 20 or 0
+      local iconW = col[4] and 26 or 0
       local w = math.max(col[2], measure(hf) + 4)
       for i = 1, MAXLINES do
         local l = frame.lines[i]
@@ -377,7 +377,7 @@ local function refreshImpl()
   frame.foot:SetText(#rows == 0 and "這個範圍不需要製作任何東西"
     or (#rows > MAXLINES and string.format("共 %d 列，用滾輪捲動", #rows) or ""))
   frame.foot:ClearAllPoints(); frame.foot:SetPoint("TOPLEFT", 14, -(TOP + shown * ROW_H + 6))
-  frame:SetHeight(TOP + shown * ROW_H + (frame.foot:GetText() ~= "" and 30 or 16))
+  frame:SetHeight(TOP + shown * ROW_H + (frame.foot:GetText() ~= "" and 36 or 18))
   autoFit(cols)
 end
 
@@ -408,13 +408,13 @@ end
 
 local function button(parent, w, label, onClick)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w, 22); b:SetText(label); b:SetScript("OnClick", onClick)
+  b:SetSize(w + 16, 26); b:SetText(label); b:SetScript("OnClick", onClick)
   return b
 end
 
 local function numBox(parent, onSet)
   local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-  e:SetSize(38, 20); e:SetAutoFocus(false); e:SetNumeric(true); e:SetMaxLetters(3)
+  e:SetSize(46, 24); e:SetAutoFocus(false); e:SetNumeric(true); e:SetMaxLetters(3)
   local function commit(self) onSet(tonumber(self:GetText())); self:ClearFocus(); ProfLevel_Refresh() end
   e:SetScript("OnEnterPressed", commit)
   e:SetScript("OnEditFocusLost", function(self) onSet(tonumber(self:GetText())); ProfLevel_Refresh() end)
@@ -424,7 +424,7 @@ end
 
 local function buildFrame()
   frame = CreateFrame("Frame", "ProfLevelFrame", UIParent, "BasicFrameTemplateWithInset")
-  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER")
+  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1)
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
@@ -435,10 +435,10 @@ local function buildFrame()
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
   frame.TitleText:SetText("專業衝級")
-  local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(ICON); logo:SetSize(16, 16); logo:SetPoint("TOPLEFT", 7, -4)
+  local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(ICON); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：專業切換、起點、目標
   frame.prevBtn = button(frame, 24, "<", function() end)
-  frame.prevBtn:SetPoint("TOPLEFT", 12, -28)
+  frame.prevBtn:SetPoint("TOPLEFT", 12, -30)
   frame.profBtn = button(frame, 130, "", function() end)
   frame.profBtn:SetPoint("LEFT", frame.prevBtn, "RIGHT", 2, 0)
   frame.nextBtn = button(frame, 24, ">", function() end)
@@ -452,11 +452,11 @@ local function buildFrame()
   frame.prevBtn:SetScript("OnClick", function() cycle(-1) end)
   frame.nextBtn:SetScript("OnClick", function() cycle(1) end)
   frame.profBtn:SetScript("OnClick", function() cycle(1) end)
-  local fromLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); fromLbl:SetText("從")
+  local fromLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fromLbl:SetText("從")
   fromLbl:SetPoint("LEFT", frame.nextBtn, "RIGHT", 12, 0)
   frame.fromBox = numBox(frame, function(v) db.from[db.prof] = v end)
   frame.fromBox:SetPoint("LEFT", fromLbl, "RIGHT", 8, 0)
-  local toLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); toLbl:SetText("到")
+  local toLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); toLbl:SetText("到")
   toLbl:SetPoint("LEFT", frame.fromBox, "RIGHT", 8, 0)
   frame.toBox = numBox(frame, function(v) db.to[db.prof] = v end)
   frame.toBox:SetPoint("LEFT", toLbl, "RIGHT", 8, 0)
@@ -467,10 +467,10 @@ local function buildFrame()
   end)
   frame.nowBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第二、三列：價格來源、總花費
-  frame.status = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  frame.status:SetPoint("TOPLEFT", 14, -58); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
-  frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  frame.total:SetPoint("TOPLEFT", 14, -76); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
+  frame.status = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+  frame.status:SetPoint("TOPLEFT", 14, -66); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
+  frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  frame.total:SetPoint("TOPLEFT", 14, -88); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
   -- 分頁與購物清單按鈕
   frame.stepsBtn = button(frame, 60, "步驟", function() db.tab = "steps"; offset = 0; ProfLevel_Refresh() end)
   frame.shopBtn = button(frame, 76, "購物清單", function() db.tab = "shop"; offset = 0; ProfLevel_Refresh() end)
@@ -483,27 +483,27 @@ local function buildFrame()
   end)
   frame.atrBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 表頭與內容
-  local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 18); head:SetPoint("TOPLEFT", 14, -(TOP - 22))
+  local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 22); head:SetPoint("TOPLEFT", 14, -(TOP - 26))
   local line = head:CreateTexture(nil, "ARTWORK"); line:SetColorTexture(1, 1, 1, .12); line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", 0, -1); line:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, -1)
   frame.head, frame.headFs = head, {}
   for c = 1, NCOL do
-    local fs = head:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); fs:SetWordWrap(false); fs:SetTextColor(.6, .57, .5)
+    local fs = head:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fs:SetWordWrap(false); fs:SetTextColor(.6, .57, .5)
     frame.headFs[c] = fs
   end
   -- 分頁按鈕自成一列（在花費那行下面、表頭上面），不會壓到文字
-  frame.stepsBtn:SetPoint("TOPLEFT", 12, -98)
+  frame.stepsBtn:SetPoint("TOPLEFT", 12, -116)
   frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
-  frame.atrBtn:SetPoint("TOPRIGHT", -12, -98)
+  frame.atrBtn:SetPoint("TOPRIGHT", -12, -116)
   frame.lines = {}
   for i = 1, MAXLINES do
     local l = CreateFrame("Frame", nil, frame)
     l:SetSize(W, ROW_H); l:SetPoint("TOPLEFT", 14, -TOP - (i - 1) * ROW_H)
     if i % 2 == 0 then local bg = l:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetColorTexture(1, 1, 1, .035) end
-    l.icon = l:CreateTexture(nil, "ARTWORK"); l.icon:SetSize(16, 16)
+    l.icon = l:CreateTexture(nil, "ARTWORK"); l.icon:SetSize(20, 20)
     l.c = {}
     for c = 1, NCOL do
-      local fs = l:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); fs:SetWordWrap(false)
+      local fs = l:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fs:SetWordWrap(false)
       l.c[c] = fs
     end
     l:EnableMouse(true)
@@ -534,7 +534,7 @@ local function buildFrame()
   end
   frame:EnableMouseWheel(true)
   frame:SetScript("OnMouseWheel", function(_, delta) offset = math.max(0, offset - delta * 3); ProfLevel_Refresh() end)
-  frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   frame:SetScript("OnShow", function() safe("比較表", refreshImpl) end)
   frame:Hide()
 end
@@ -599,11 +599,15 @@ SlashCmdList.PROFLEVEL = function(input)
     db.minimapHide = not db.minimapHide
     if mmBtn then if db.minimapHide then mmBtn:Hide() else mmBtn:Show() end end
     msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /prof minimap 顯示）" or "顯示"))
+  elseif cmd == "scale" then
+    local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
+    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
+    else msg("用法：/prof scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
   elseif cmd == "debug" then
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.1.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.1.2　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
@@ -630,7 +634,7 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/prof 開關視窗　/prof minimap 隱藏小地圖按鈕　/prof debug 列出偵測結果")
+    msg("/prof 開關視窗　/prof scale 1.2 調整視窗大小　/prof minimap 隱藏小地圖按鈕　/prof debug 列出偵測結果")
   end
 end
 

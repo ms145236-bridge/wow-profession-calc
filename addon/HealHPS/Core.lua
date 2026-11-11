@@ -5,7 +5,7 @@
 local ADDON = ...
 local D = HealHPS_Data
 local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
-  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false }
+  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1 }
 local LOGO = "Interface\\AddOns\\HealHPS\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
@@ -611,33 +611,33 @@ end
 
 -- ── 比較表視窗 ─────────────────────────────────────────────────────────────
 -- 比較表：一列一個技能等級；★ 與等級各自一欄，數字一律靠右對齊
-local W = 404        -- 內容寬度
-local ROW_H = 20
+local W = 520        -- 內容寬度
+local ROW_H = 24
 local MAXLINES = 18  -- 最多顯示幾列（多的用滾輪捲動）
-local TOP = 98       -- 第一列的位置
+local TOP = 120      -- 第一列的位置
 -- { 標題, x, 寬, 對齊, 排序鍵 }
 local COLS = {
-  { "",     0,   18, "CENTER" },
-  { "技能", 16,  120, "LEFT" },
-  { "等級", 150, 34,  "RIGHT" },
-  { "有效量", 184, 56, "RIGHT", "heal" },
-  { "法力", 240, 44,  "RIGHT" },
-  { "秒",   284, 34,  "RIGHT" },
-  { "HPS",  318, 56,  "RIGHT", "hps" },
-  { "HPM",  366, 46,  "RIGHT", "hpm" },
+  { "",     0,   24, "CENTER" },
+  { "技能", 16,  160, "LEFT" },
+  { "等級", 150, 44,  "RIGHT" },
+  { "有效量", 184, 72, "RIGHT", "heal" },
+  { "法力", 240, 56,  "RIGHT" },
+  { "秒",   284, 44,  "RIGHT" },
+  { "HPS",  318, 72,  "RIGHT", "hps" },
+  { "HPM",  366, 60,  "RIGHT", "hpm" },
 }
 local frame, offset = nil, 0
 local GOLD, GREEN, DIM = { 1, .82, 0 }, { .4, 1, .4 }, { .6, .57, .5 }
 
 local function cell(parent, col)
-  local f = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  local f = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   f:SetPoint("LEFT", parent, "LEFT", col[2], 0); f:SetWidth(col[3]); f:SetJustifyH(col[4]); f:SetWordWrap(false)
   return f
 end
 
 local function button(parent, w, label, onClick)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w, 20); b:SetText(label); b:SetScript("OnClick", onClick)
+  b:SetSize(w + 16, 26); b:SetText(label); b:SetScript("OnClick", onClick)
   return b
 end
 
@@ -662,8 +662,8 @@ local function refreshImpl()
   frame.sitHelp = sit and sit.help or ""
   local th = frame.how.GetStringHeight and frame.how:GetStringHeight()
   th = (type(th) == "number" and th > 0) and th or 40
-  frame.cdBtn:ClearAllPoints(); frame.cdBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(8 + th + 10))
-  frame.opts:SetHeight(8 + th + 10 + (isPal and 3 or 2) * 26 + 6)
+  frame.cdBtn:ClearAllPoints(); frame.cdBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(10 + th + 12))
+  frame.opts:SetHeight(10 + th + 12 + (isPal and 3 or 2) * 30 + 8)
   frame.info:SetText(string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus))
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" } }) do
     local on = db.mode == m[2]
@@ -712,12 +712,12 @@ local function refreshImpl()
   end
   frame.foot:SetText(foot)
   frame.foot:ClearAllPoints()
-  frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 8))
-  frame:SetHeight(TOP + n * ROW_H + 34)
+  frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 10))
+  frame:SetHeight(TOP + n * ROW_H + 40)
   autoFit()
 end
 
-local GAP = 10
+local GAP = 16
 local function measure(fsObj)
   if fsObj.GetUnboundedStringWidth then
     local w = fsObj:GetUnboundedStringWidth()
@@ -757,7 +757,7 @@ function HealHPS_Refresh() safe("比較表", refreshImpl) end
 
 local function buildFrame()
   frame = CreateFrame("Frame", "HealHPSFrame", UIParent, "BasicFrameTemplateWithInset")
-  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER")
+  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1)
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
@@ -771,14 +771,14 @@ local function buildFrame()
   local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(LOGO); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：單補／群補、設定
   frame.singleBtn = button(frame, 52, "單補", function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
-  frame.singleBtn:SetPoint("TOPLEFT", 12, -28)
+  frame.singleBtn:SetPoint("TOPLEFT", 12, -30)
   frame.groupBtn = button(frame, 52, "群補", function() db.mode = "group"; offset = 0; HealHPS_Refresh() end)
   frame.groupBtn:SetPoint("LEFT", frame.singleBtn, "RIGHT", 2, 0)
   frame.gearBtn = button(frame, 52, "設定", function() if frame.opts:IsShown() then frame.opts:Hide() else frame.opts:Show() end end)
-  frame.gearBtn:SetPoint("TOPRIGHT", -12, -28)
+  frame.gearBtn:SetPoint("TOPRIGHT", -12, -30)
   -- 資訊列：等級與治療效果；天賦加成滑鼠移上去才顯示
-  frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  frame.info:SetPoint("TOPLEFT", 14, -56); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
+  frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+  frame.info:SetPoint("TOPLEFT", 14, -66); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
   local infoHit = CreateFrame("Frame", nil, frame); infoHit:SetAllPoints(frame.info); infoHit:EnableMouse(true)
   infoHit:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -789,22 +789,22 @@ local function buildFrame()
   infoHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 設定：平常收起來
   frame.opts = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-  frame.opts:SetSize(240, 130); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
+  frame.opts:SetSize(290, 150); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
   frame.opts:SetFrameLevel(frame:GetFrameLevel() + 20)
   if frame.opts.SetBackdrop then
     frame.opts:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
     frame.opts:SetBackdropColor(.08, .07, .05, .97); frame.opts:SetBackdropBorderColor(.35, .29, .15, 1)
   end
-  local how = frame.opts:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  how:SetPoint("TOPLEFT", 10, -8); how:SetWidth(220); how:SetJustifyH("LEFT"); how:SetSpacing(3)
+  local how = frame.opts:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  how:SetPoint("TOPLEFT", 12, -10); how:SetWidth(266); how:SetJustifyH("LEFT"); how:SetSpacing(3)
   how:SetText("HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n有冷卻的技能用冷卻時間算|r")
   frame.how = how
-  frame.cdBtn = button(frame.opts, 220, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
-  frame.cdBtn:SetHeight(22)
-  frame.tgtBtn = button(frame.opts, 220, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
-  frame.tgtBtn:SetHeight(22); frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -4)
-  frame.oathBtn = button(frame.opts, 220, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
-  frame.oathBtn:SetHeight(22); frame.oathBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
+  frame.cdBtn = button(frame.opts, 250, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
+  frame.cdBtn:SetHeight(26)
+  frame.tgtBtn = button(frame.opts, 250, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
+  frame.tgtBtn:SetHeight(26); frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -4)
+  frame.oathBtn = button(frame.opts, 250, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
+  frame.oathBtn:SetHeight(26); frame.oathBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
   frame.oathBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     local sit = SIT[select(2, UnitClass("player"))]
@@ -815,7 +815,7 @@ local function buildFrame()
   frame.oathBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.opts:Hide()
   -- 表頭（點 有效量／HPS／HPM 排序）
-  local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 18); head:SetPoint("TOPLEFT", 14, -(TOP - 22))
+  local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 22); head:SetPoint("TOPLEFT", 14, -(TOP - 26))
   frame.head, frame.headFs, frame.headBtns = head, {}, {}
   local line = head:CreateTexture(nil, "ARTWORK"); line:SetColorTexture(1, 1, 1, .12); line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", 0, -1); line:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, -1)
@@ -869,7 +869,7 @@ local function buildFrame()
   end
   frame:EnableMouseWheel(true)
   frame:SetScript("OnMouseWheel", function(_, delta) offset = math.max(0, offset - delta * 3); HealHPS_Refresh() end)
-  frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   frame.foot:SetWidth(W); frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(false)
   frame:SetScript("OnShow", HealHPS_Refresh)
   frame:Hide()
@@ -932,7 +932,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.8.2　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
@@ -997,6 +997,10 @@ SlashCmdList.HEALHPS = function(input)
     db.tip = not db.tip; msg("滑鼠提示：" .. (db.tip and "開" or "關"))
   elseif cmd == "downrank" then
     db.downrank = not db.downrank; msg("降級衰減：" .. (db.downrank and "開" or "關"))
+  elseif cmd == "scale" then
+    local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
+    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
+    else msg("用法：/hps scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
   elseif cmd == "desc" then
     db.desc = (arg == "incl" or arg == "base") and arg or "auto"
     msg("技能說明數字：" .. (db.desc == "incl" and "已含治療效果（手動）" or db.desc == "base" and "只有基礎量（手動）" or "自動判斷")
@@ -1006,7 +1010,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
   else
-    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-5　/hps tip　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
+    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-5　/hps tip　/hps scale 1.2　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
   end
   if frame then HealHPS_Refresh() end
 end

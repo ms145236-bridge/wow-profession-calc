@@ -3,7 +3,7 @@
 ## Notes: 魔獸世界：永恆專業衝級。依 Auctionator 價格挑最省的路線，列出製作步驟與購物清單，可一鍵建立 Auctionator 購物清單。/prof 開啟。
 ## IconTexture: Interface\Icons\Trade_BlackSmithing
 ## Author: ms145236-bridge
-## Version: 0.1.1
+## Version: 0.1.2
 ## OptionalDeps: Auctionator
 ## SavedVariablesPerCharacter: ProfLevelCharDB
 
