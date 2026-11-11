@@ -16,6 +16,10 @@ local function descIncludesBonus()
   return (C_Spell and C_Spell.GetSpellDescription) and true or false
 end
 
+-- 有治療技能的職業；其他職業不掛滑鼠提示、不建小地圖按鈕
+local HEALER_CLASSES = { PALADIN = true, PRIEST = true, DRUID = true, SHAMAN = true }
+local function isHealerClass() return HEALER_CLASSES[select(2, UnitClass("player"))] == true end
+
 local function ensureDB()
   if db then return db end
   HealHPSCharDB = HealHPSCharDB or {}
@@ -846,7 +850,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.7.4　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.7.5　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
@@ -883,6 +887,10 @@ SLASH_HEALHPS1 = "/hps"
 SlashCmdList.HEALHPS = function(input)
   ensureDB()
   local cmd, arg = (input or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
+  if not isHealerClass() and cmd ~= "debug" then
+    msg("這個職業沒有治療技能，插件不會運作。")
+    return
+  end
   if cmd == "" then
     toggleWindow()
   elseif cmd == "minimap" then
@@ -924,8 +932,10 @@ ev:SetScript("OnEvent", function(_, e, a1)
     ensureDB()
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
-    safe("掛上滑鼠提示", hookTooltips)
-    safe("小地圖按鈕", buildMinimapButton)
+    if isHealerClass() then
+      safe("掛上滑鼠提示", hookTooltips)
+      safe("小地圖按鈕", buildMinimapButton)
+    end
   elseif RESCAN_EVENTS[e] then
     scan.dirty = true; scan.unmatchedRetry = 0
     if frame and frame:IsShown() then HealHPS_Refresh() end
