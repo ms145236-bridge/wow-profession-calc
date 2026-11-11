@@ -5,7 +5,7 @@
 local ADDON = ...
 local D = HealHPS_Data
 local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
-  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1 }
+  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25 }
 local LOGO = "Interface\\AddOns\\HealHPS\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
@@ -635,9 +635,44 @@ local function cell(parent, col)
   return f
 end
 
+
+-- 右下角的調整把手：拖曳放大縮小整個視窗（左上角固定），大小記在設定裡
+local function addResizeGrip(f)
+  local g = CreateFrame("Button", nil, f)
+  g:SetSize(18, 18); g:SetPoint("BOTTOMRIGHT", -4, 4); g:SetFrameLevel(f:GetFrameLevel() + 10)
+  g:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  g:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  g:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+  g:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine("拖曳調整視窗大小"); GameTooltip:Show()
+  end)
+  g:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  g:SetScript("OnMouseDown", function(self)
+    local s0, eff0 = f:GetScale(), f:GetEffectiveScale()
+    local leftPx, topPx, widthPx = f:GetLeft() * eff0, f:GetTop() * eff0, f:GetWidth() * eff0
+    self:SetScript("OnUpdate", function()
+      local cx = GetCursorPosition()
+      local s = math.max(0.6, math.min(2.5, s0 * (cx - leftPx) / widthPx))
+      f:SetScale(s); db.scale = s
+      local eff = f:GetEffectiveScale()
+      f:ClearAllPoints(); f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", leftPx / eff, topPx / eff)
+    end)
+  end)
+  g:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+  g:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
+end
+
+-- 按鈕寬度配合文字（字型較大時不會超出按鈕）
+local function fitButton(b, minW)
+  local fs = b:GetFontString()
+  local w = fs and fs.GetStringWidth and fs:GetStringWidth()
+  if type(w) == "number" and w > 0 then b:SetWidth(math.max(minW or 0, w + 24)) end
+end
+
 local function button(parent, w, label, onClick)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   b:SetSize(w + 16, 26); b:SetText(label); b:SetScript("OnClick", onClick)
+  fitButton(b, w + 16)
   return b
 end
 
@@ -758,6 +793,7 @@ function HealHPS_Refresh() safe("比較表", refreshImpl) end
 local function buildFrame()
   frame = CreateFrame("Frame", "HealHPSFrame", UIParent, "BasicFrameTemplateWithInset")
   frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1)
+  addResizeGrip(frame)
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
@@ -932,7 +968,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.2　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.8.3　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
@@ -1024,6 +1060,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
     ensureDB()
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
+    if db.scale == 1 then db.scale = 1.25 end -- 舊預設值改成新的預設大小
     if isHealerClass() then
       safe("掛上滑鼠提示", hookTooltips)
       safe("小地圖按鈕", buildMinimapButton)

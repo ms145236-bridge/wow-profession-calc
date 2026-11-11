@@ -26,7 +26,7 @@ local MINING = { key = "mining", name = "採礦", line = 186 }
 PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1, decompose = true }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業衝級|r " .. s) end
@@ -437,6 +437,40 @@ local function autoFit(cols)
   frame:SetWidth(total + 28)
 end
 
+-- 右下角的調整把手：拖曳放大縮小整個視窗（左上角固定），大小記在設定裡
+local function addResizeGrip(f)
+  local g = CreateFrame("Button", nil, f)
+  g:SetSize(18, 18); g:SetPoint("BOTTOMRIGHT", -4, 4); g:SetFrameLevel(f:GetFrameLevel() + 10)
+  g:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  g:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+  g:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+  g:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine("拖曳調整視窗大小"); GameTooltip:Show()
+  end)
+  g:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  g:SetScript("OnMouseDown", function(self)
+    local s0, eff0 = f:GetScale(), f:GetEffectiveScale()
+    local leftPx, topPx, widthPx = f:GetLeft() * eff0, f:GetTop() * eff0, f:GetWidth() * eff0
+    self:SetScript("OnUpdate", function()
+      local cx = GetCursorPosition()
+      local s = math.max(0.6, math.min(2.5, s0 * (cx - leftPx) / widthPx))
+      f:SetScale(s); db.scale = s
+      local eff = f:GetEffectiveScale()
+      f:ClearAllPoints(); f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", leftPx / eff, topPx / eff)
+    end)
+  end)
+  g:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+  g:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
+end
+
+-- 按鈕寬度配合文字（字型較大時不會超出按鈕）
+local function fitButton(b, minW)
+  local fs = b:GetFontString()
+  local w = fs and fs.GetStringWidth and fs:GetStringWidth()
+  if type(w) == "number" and w > 0 then b:SetWidth(math.max(minW or 0, w + 24)) end
+end
+
+
 local function refreshImpl()
   if not frame or not frame:IsShown() then return end
   priceCache = {}
@@ -449,7 +483,7 @@ local function refreshImpl()
   local T = tonumber(db.to[p.key]) or 300
   S = math.max(1, math.min(299, math.floor(S)))
   T = math.max(S + 1, math.min(300, math.floor(T)))
-  frame.profBtn:SetText(p.name .. (L and string.format("（%d）", L.cur) or "（沒學）"))
+  frame.profBtn:SetText(p.name .. (L and string.format("（%d）", L.cur) or "（沒學）")); fitButton(frame.profBtn, 146)
   if not frame.fromBox:HasFocus() then frame.fromBox:SetText(tostring(S)) end
   if not frame.toBox:HasFocus() then frame.toBox:SetText(tostring(T)) end
   local route, r, nVar = pickRoute(p.key, S, T)
@@ -461,7 +495,7 @@ local function refreshImpl()
   frame.total:SetText(string.format("%s %d–%d　預計花費 %s%s%s", p.name, S, T, money(r.total),
     (r.saved and r.saved > 0.5) and ("　|cff9fd18b自己做中間材料省 " .. money(r.saved) .. "|r") or "",
     r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
-  frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關")
+  frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關"); fitButton(frame.decBtn, 120)
   for _, t in ipairs({ { frame.stepsBtn, "steps" }, { frame.shopBtn, "shop" } }) do
     local on = db.tab == t[2]
     t[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
@@ -560,9 +594,11 @@ local function createShoppingList()
   end
 end
 
+
 local function button(parent, w, label, onClick)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   b:SetSize(w + 16, 26); b:SetText(label); b:SetScript("OnClick", onClick)
+  fitButton(b, w + 16)
   return b
 end
 
@@ -579,6 +615,7 @@ end
 local function buildFrame()
   frame = CreateFrame("Frame", "ProfLevelFrame", UIParent, "BasicFrameTemplateWithInset")
   frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1)
+  addResizeGrip(frame)
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
@@ -784,7 +821,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.2.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.2.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
@@ -824,6 +861,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
     ensureDB()
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
+    if db.scale == 1 then db.scale = 1.25 end -- 舊預設值改成新的預設大小
     safe("小地圖按鈕", buildMinimapButton)
   elseif REFRESH_EVENTS[e] then
     if frame and frame:IsShown() then ProfLevel_Refresh() end
