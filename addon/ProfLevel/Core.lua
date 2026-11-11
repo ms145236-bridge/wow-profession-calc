@@ -108,6 +108,25 @@ local function price(id)
   return v or nil
 end
 
+-- 拍賣場在架數量：Auctionator 每次掃描記下「當天看到的最多在架數量」（遊戲沒有成交量資料）
+local function ahStats(id)
+  local dbx = Auctionator and Auctionator.Database and Auctionator.Database.db
+  local d = type(dbx) == "table" and dbx[tostring(id)]
+  if type(d) ~= "table" or type(d.a) ~= "table" then return nil end
+  local latest
+  for k in pairs(d.a) do local n = tonumber(k); if n and (not latest or n > latest) then latest = n end end
+  if not latest then return nil end
+  local sum, days, last = 0, 0, 0
+  for k, v in pairs(d.a) do
+    local n = tonumber(k)
+    if n and latest - n < 14 and type(v) == "number" then
+      sum = sum + v; days = days + 1
+      if n == latest then last = v end
+    end
+  end
+  return { last = last, avg = days > 0 and sum / days or 0, days = days }
+end
+
 local function have(id)
   local f = (C_Item and C_Item.GetItemCount) or GetItemCount
   if not f then return 0 end
@@ -239,6 +258,30 @@ local function calcRoute(route, S, T)
 end
 
 -- 從候選路線挑最省的（沒價格的項目越少越優先）
+-- 衝級做出來的成品賣掉能回收多少：產量扣掉後面步驟當材料用掉的，乘拍賣價（扣 5% 手續費）
+local function payback(route, r)
+  local made, used = {}, {}
+  for i, s in ipairs(route.steps) do
+    local n = r.stepCrafts[i] + r.extraCrafts[i]
+    if n > 0 then
+      if s.k == "i" then made[s.id] = (made[s.id] or 0) + n * (route.yields[s.id] or 1) end
+      for _, m in ipairs(s.m) do used[m[1]] = (used[m[1]] or 0) + n * m[2] / s.c end
+    end
+  end
+  local value, total = {}, 0
+  for id, q in pairs(made) do
+    local sellQty = math.max(0, q - (used[id] or 0))
+    local pr = (not D.vendor[id]) and price(id)
+    if pr and sellQty > 0 then value[id] = pr * sellQty * 0.95; total = total + value[id] end
+  end
+  local stepVal = {}
+  for i, s in ipairs(route.steps) do
+    local n = r.stepCrafts[i] + r.extraCrafts[i]
+    if n > 0 and s.k == "i" and value[s.id] then stepVal[i] = value[s.id] * n * (route.yields[s.id] or 1) / made[s.id] end
+  end
+  return total, stepVal
+end
+
 local function pickRoute(prof, S, T)
   local vs = D.variants[prof]
   if not auctionator() then return vs[D.defaultVariant[prof]], calcRoute(vs[D.defaultVariant[prof]], S, T), #vs end
@@ -600,13 +643,13 @@ end
 local W, ROW_H, MAXLINES, TOP, GAP = 600, 24, 20, 170, 16
 local frame, offset = nil, 0
 local TABS = {
-  steps = { { "等級", 80, "RIGHT" }, { "製作", 220, "LEFT", true }, { "次數", 56, "RIGHT" }, { "來源", 140, "LEFT" } },
+  steps = { { "等級", 80, "RIGHT" }, { "製作", 220, "LEFT", true }, { "次數", 56, "RIGHT" }, { "來源", 140, "LEFT" }, { "回本", 80, "RIGHT" } },
   profit = { { "配方", 220, "LEFT", true }, { "成本", 80, "RIGHT", nil, "cost" }, { "售價", 80, "RIGHT", nil, "sell" }, { "利潤", 90, "RIGHT", nil, "profit" },
-    { "利潤%", 60, "RIGHT", nil, "pct" }, { "可做", 44, "RIGHT", nil, "can" }, { "佇列", 44, "RIGHT", nil, "queued" } },
+    { "利潤%", 60, "RIGHT", nil, "pct" }, { "在架", 50, "RIGHT", nil, "listed" }, { "可做", 44, "RIGHT", nil, "can" }, { "佇列", 44, "RIGHT", nil, "queued" } },
   queue = { { "製作", 220, "LEFT", true }, { "次數", 50, "RIGHT" }, { "專業", 60, "LEFT" }, { "材料", 110, "LEFT" }, { "可做", 50, "RIGHT" } },
   shop = { { "物品", 220, "LEFT", true }, { "需要", 52, "RIGHT" }, { "已有", 52, "RIGHT" }, { "要買", 52, "RIGHT" }, { "單價", 90, "RIGHT" }, { "小計", 100, "RIGHT" } },
 }
-local NCOL = 7
+local NCOL = 8
 
 local function measure(fs)
   if fs.GetUnboundedStringWidth then
@@ -709,6 +752,7 @@ local function refreshImpl()
   local route, r, nVar = pickRoute(p.key, S, T)
   if db.decompose then r = decompose(r, learned) end
   current = { prof = p, S = S, T = T, route = route, r = r }
+  local pbTotal, stepVal = payback(route, r)
   local qr
   if db.tab == "queue" then qr = queueNeeds(learned); current.r = qr; current.queue = true end
   local api = auctionator()
@@ -726,9 +770,11 @@ local function refreshImpl()
     frame.total:SetText(nr > 0 and string.format("%s 已記下 %d 個配方　點一下加入佇列（Shift 加 5、右鍵減 1）", p.name, nr)
       or string.format("|cffff9d5c打開%s的專業視窗一次，插件就會記下你學會的配方|r", p.name))
   else
-    frame.total:SetText(string.format("%s %d–%d　預計花費 %s%s%s", p.name, S, T, money(r.total),
-      (r.saved and r.saved > 0.5) and ("　|cff9fd18b自己做中間材料省 " .. money(r.saved) .. "|r") or "",
-      r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
+    frame.total:SetText(string.format("%s %d–%d　花費 %s%s", p.name, S, T, money(r.total),
+      pbTotal > 0.5 and string.format("　|cff9fd18b回本 %s|r　淨花費 %s", money(pbTotal), money(math.max(0, r.total - pbTotal))) or ""))
+    -- 次要資訊放在價格來源那行，避免花費這行太長被截斷
+    frame.status:SetText((frame.status:GetText() or "") .. ((r.saved and r.saved > 0.5) and ("　|cff9fd18b自製中間材料省 " .. money(r.saved) .. "|r") or "")
+      .. (r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
   end
   frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關"); fitButton(frame.decBtn, 120)
   local isLv = db.tab == "steps" or db.tab == "shop"
@@ -757,7 +803,7 @@ local function refreshImpl()
     end
     for i, s in ipairs(route.steps) do
       local n = r.stepCrafts[i] + r.extraCrafts[i]
-      if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i] }) end
+      if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i], val = stepVal[i] }) end
     end
   elseif db.tab == "profit" then
     local qc = {}
@@ -765,7 +811,9 @@ local function refreshImpl()
     for id, rec in pairs(db.recipes[p.key] or {}) do
       local cost, sell, profit = profitOf(rec, learned)
       local pct = (profit and cost and cost > 0) and (profit / cost * 100) or nil
-      table.insert(rows, { recipe = rec, id = id, prof = p.key, cost = cost, sell = sell, profit = profit, pct = pct, can = canMakeNow(rec), queued = qc[id] or 0 })
+      local st = rec.out and ahStats(rec.out)
+      table.insert(rows, { recipe = rec, id = id, prof = p.key, cost = cost, sell = sell, profit = profit, pct = pct, can = canMakeNow(rec), queued = qc[id] or 0,
+        listed = st and st.last or nil, stats = st })
     end
     local k, desc = db.psort or "profit", db.pdesc ~= false
     table.sort(rows, function(a, b)
@@ -797,7 +845,7 @@ local function refreshImpl()
         local pf = e.profit and ((e.profit >= 0 and "|cff9fd18b" or "|cffff7b7b") .. (e.profit >= 0 and "" or "-") .. money(math.abs(e.profit)) .. "|r") or "—"
         local pc = e.pct and string.format("%s%d%%|r", e.pct >= 0 and "|cff9fd18b" or "|cffff7b7b", math.floor(e.pct + 0.5)) or "—"
         vals = { name, e.cost and money(e.cost) or "|cffff9d5c沒價格|r", e.sell and money(e.sell) or "—", pf, pc,
-          e.can > 0 and e.can or "0", e.queued > 0 and ("|cffffd100" .. e.queued .. "|r") or "" }
+          e.listed and tostring(e.listed) or "—", e.can > 0 and e.can or "0", e.queued > 0 and ("|cffffd100" .. e.queued .. "|r") or "" }
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.queue then
         local q = e.queue
@@ -825,7 +873,7 @@ local function refreshImpl()
         local lo, hi = math.max(s.f, S), math.min(s.t, T)
         local name, icon, col = info(s.k, s.id)
         l.icon:SetTexture(icon); l.icon:Show()
-        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, srcName(s.src) }
+        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, srcName(s.src), e.val and ("|cff9fd18b" .. money(e.val) .. "|r") or "—" }
         l.c[2]:SetTextColor(col[1], col[2], col[3])
       else
         local it = e.item
@@ -1052,6 +1100,13 @@ local function buildFrame()
         end
         if e.recipe then
           if e.sell then GameTooltip:AddLine(string.format("售價 %s（已扣拍賣行 5%% 手續費）", money(e.sell)), .8, .8, .8) end
+          local st = e.stats
+          if st then
+            GameTooltip:AddLine(string.format("拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到，平均在架 %d 個", st.last, st.days, math.floor(st.avg + 0.5)), .55, .75, 1, true)
+            GameTooltip:AddLine("（只代表有多少人在賣，不代表賣得掉：賣不掉的也會一直重新上架。遊戲沒有成交量資料）", .6, .6, .6, true)
+          else
+            GameTooltip:AddLine("拍賣場：Auctionator 沒有這個成品的掃描紀錄", .6, .6, .6, true)
+          end
           GameTooltip:AddLine("左鍵加入佇列、Shift+左鍵加 5、右鍵減 1", .6, .6, .6)
         else
           GameTooltip:AddLine("左鍵 +1、右鍵 −1（Shift 一次 5）", .6, .6, .6)
@@ -1076,6 +1131,9 @@ local function buildFrame()
           table.insert(mats, string.format("%s ×%d", nm, math.ceil(e.n * m[2] / s.c)))
         end
         if #mats > 0 then GameTooltip:AddLine("材料：" .. table.concat(mats, "、"), 1, 1, 1, true) end
+        if e.val then GameTooltip:AddLine("做出來的成品賣掉約可回本 " .. money(e.val) .. "（已扣 5% 手續費、扣掉後面步驟會用掉的）", .6, 1, .6, true) end
+        local st = s.k == "i" and ahStats(s.id)
+        if st then GameTooltip:AddLine(string.format("拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到", st.last, st.days), .55, .75, 1, true) end
         if s.d and #s.d == 4 then
           GameTooltip:AddLine(string.format("難度：|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", s.d[1], s.d[2], s.d[3], s.d[4]), .8, .8, .8)
         end
@@ -1252,7 +1310,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.5.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.6.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
