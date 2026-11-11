@@ -414,6 +414,8 @@ local function compute()
         row.shown = shown
         row.hps = t > 0 and shown / t or 0
         row.hpm = manaEff > 0 and shown / manaEff or 0
+        row.hpsT = t > 0 and total / t or 0
+        row.hpmT = manaEff > 0 and total / manaEff or 0
         table.insert(rows, row)
         if row.id then byId[row.id] = byId[row.id] or {}; table.insert(byId[row.id], row) end
       end
@@ -463,32 +465,23 @@ local function addTooltip(tt, id)
   ensureDB()
   if not db.tip or not id then return end
   if scan.dirty or not scan.ctx then compute() end
+  if not scan.byId[id] then return end
+  compute() -- 治療效果、增益可能改變，重新算
   local rows = scan.byId[id]
   if not rows then return end
-  compute() -- 數值（治療效果、增益）可能改變，重新算
-  rows = scan.byId[id]
-  if not rows then return end
-  tt:AddLine(" ")
-  for _, r in ipairs(rows) do
-    local f = r.f
-    local head = r.f.parse == "regrowth" and "含完整HoT" or (f.kind == "absorb" and "吸收" or "有效治療")
-    tt:AddDoubleLine("|cffd9b25f治療HPS|r " .. head, fint(r.perHeal) .. (r.inclDesc and "（技能說明值，已含治療效果）" or (r.bonusPart > 0.5 and string.format("（治療效果 +%s）", fint(r.bonusPart)) or "")), 1, 1, 1, 1, 1, 1)
-    if f.group or f.key == "bh" then tt:AddDoubleLine("  總量", string.format("%s（%d 人）", fint(r.totalHeal), r.targets), .8, .8, .8, 1, 1, 1) end
-    tt:AddDoubleLine(string.format("  HPS（%s）", RATE_LABEL[db.rate]), string.format("%s　HPM %s", fmt1(r.hps), fmt2(r.hpm)), .8, .8, .8, 1, 1, 1)
-    if r.down < 0.9995 then tt:AddLine(string.format("  降級：治療效果只算 %d%%", math.floor(r.down * 100 + 0.5)), 1, .6, .3) end
-  end
   local cat = rows[1].f.group and "group" or "single"
-  local bh, bm = bests(filterRows(scan.rows, cat))
-  local catName = cat == "group" and "群補" or "單補"
-  local isH, isM = false, false
-  for _, r in ipairs(rows) do
-    if sameRow(r, bh) then isH = true end
-    if sameRow(r, bm) then isM = true end
+  local bh, bm
+  for _, r in ipairs(filterRows(scan.rows, cat)) do
+    if not bh or r.hpsT > bh.hpsT then bh = r end
+    if not bm or r.hpmT > bm.hpmT then bm = r end
   end
-  if isH then tt:AddLine("  ★ 目前" .. catName .. "最佳 HPS", 1, .82, 0)
-  elseif bh then tt:AddDoubleLine("  " .. catName .. "最佳 HPS", string.format("%s %d（%s）", bh.label, bh.rank, fmt1(bh.hps)), 1, .82, 0, 1, .82, 0) end
-  if isM then tt:AddLine("  ★ 目前" .. catName .. "最佳 HPM", .4, 1, .4)
-  elseif bm then tt:AddDoubleLine("  " .. catName .. "最佳 HPM", string.format("%s %d（%s）", bm.label, bm.rank, fmt2(bm.hpm)), .4, 1, .4, .4, 1, .4) end
+  local catName = cat == "group" and "群補" or "單補"
+  for _, r in ipairs(rows) do
+    local tag = r.f.parse == "regrowth" and "（含HoT）" or ((r.f.group or r.f.key == "bh") and string.format("（%d人）", r.targets) or "")
+    tt:AddLine(string.format("|cffd9b25fHPS|r %s　|cffd9b25fHPM|r %s%s", fmt1(r.hpsT), fmt2(r.hpmT), tag), 1, 1, 1)
+    if sameRow(r, bh) then tt:AddLine("★ " .. catName .. "最佳 HPS", 1, .82, 0) end
+    if sameRow(r, bm) then tt:AddLine("★ " .. catName .. "最佳 HPM", .4, 1, .4) end
+  end
   tt:Show()
 end
 
@@ -528,9 +521,8 @@ local function refreshImpl()
   local list, ctx = filtered()
   local tal = ctx.talents
   local pctTxt = db.pct and (db.pct .. "%（手動）") or (tal.heal .. "%（天賦自動）")
-  frame.info:SetText(string.format("等級 %d　治療效果 %d　治療加成 %s　%s　%s", ctx.level, ctx.bonus, pctTxt,
-    ctx.descIncl and "|cff9fd18b有效量＝技能說明值|r" or "有效量＝基礎＋治療效果×係數",
-    #tal.found > 0 and ("|cff9a9282" .. table.concat(tal.found, "、") .. "|r") or ""))
+  local talTxt = db.pct and ("治療加成 " .. db.pct .. "%（手動）") or (#tal.found > 0 and table.concat(tal.found, "、") or "")
+  frame.info:SetText(string.format("等級 %d　治療效果 %d　%s", ctx.level, ctx.bonus, talTxt))
   frame.modeBtn:SetText(db.mode == "group" and "群補" or "單補")
   frame.rateBtn:SetText(RATE_LABEL[db.rate])
   frame.sortBtn:SetText("排序：" .. SORT_LABEL[db.sort])
@@ -647,7 +639,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.2.2　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.2.3　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
