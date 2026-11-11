@@ -8,6 +8,13 @@ local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, do
   includeCd = false, pct = nil, absorb = nil }
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
+-- 技能說明的數字是否已經含治療效果：永恆（新版引擎）實測會含；經典版不含。/hps desc 可手動指定
+local function descIncludesBonus()
+  local m = HealHPSCharDB and HealHPSCharDB.desc or "auto"
+  if m == "incl" then return true elseif m == "base" then return false end
+  return (C_Spell and C_Spell.GetSpellDescription) and true or false
+end
+
 local function ensureDB()
   if db then return db end
   HealHPSCharDB = HealHPSCharDB or {}
@@ -276,7 +283,7 @@ local function readRank(st, r, id, ctx)
   local gmin, gmax, ghot = parseDesc(f.parse, desc)
   if gmin and gmax then
     -- 若說明已經把治療效果加進去，扣回來
-    if d and ctx.bonus > 0 then
+    if d and ctx.bonus > 0 and not ctx.descIncl then
       local dataAvg, gAvg = (d.min + d.max) / 2, (gmin + gmax) / 2
       local add = ctx.bonus * row.coeff * down
       local exp = dataAvg + add
@@ -301,6 +308,7 @@ local function compute()
   if scan.dirty then rescan() end
   local _, class = UnitClass("player")
   local ctx = { level = UnitLevel("player"), bonus = (GetSpellBonusHealing and GetSpellBonusHealing()) or 0 }
+  ctx.descIncl = descIncludesBonus()
   local tal = scanTalents(class)
   ctx.healPct = (db.pct or tal.heal) / 100
   ctx.absorbPct = (db.absorb or tal.absorb) / 100
@@ -326,9 +334,17 @@ local function compute()
         local mult = 1
         if f.kind == "absorb" then mult = f.absorbPct and (1 + ctx.absorbPct) or 1
         elseif f.healPct then mult = 1 + ctx.healPct end
-        local per = (avg + ctx.bonus * row.coeff * row.down) * mult
-        if f.parse == "regrowth" then per = per + row.hotBase * mult end -- HoT 係數未公開，不加治療效果
-        row.bonusPart = ctx.bonus * row.coeff * row.down * mult
+        local per
+        row.bonusPart = ctx.bonus * row.coeff * row.down * mult -- 估計值，只用來顯示
+        if ctx.descIncl and row.src.base == "遊戲" then
+          -- 說明的數字已含治療效果與加成：直接當有效量，不再重複加
+          per = avg
+          if f.parse == "regrowth" then per = per + row.hotBase end
+          row.inclDesc = true
+        else
+          per = (avg + ctx.bonus * row.coeff * row.down) * mult
+          if f.parse == "regrowth" then per = per + row.hotBase * mult end -- HoT 係數未公開，不加治療效果
+        end
         row.perHeal = per
         local total, used = per, 1
         if f.key == "bh" then total, used = per * 2, 2
@@ -406,7 +422,7 @@ local function addTooltip(tt, id)
   for _, r in ipairs(rows) do
     local f = r.f
     local head = r.f.parse == "regrowth" and "含完整HoT" or (f.kind == "absorb" and "吸收" or "有效治療")
-    tt:AddDoubleLine("|cffd9b25f治療HPS|r " .. head, fint(r.perHeal) .. (r.bonusPart > 0.5 and string.format("（治療效果 +%s）", fint(r.bonusPart)) or ""), 1, 1, 1, 1, 1, 1)
+    tt:AddDoubleLine("|cffd9b25f治療HPS|r " .. head, fint(r.perHeal) .. (r.inclDesc and "（技能說明值，已含治療效果）" or (r.bonusPart > 0.5 and string.format("（治療效果 +%s）", fint(r.bonusPart)) or "")), 1, 1, 1, 1, 1, 1)
     if f.group or f.key == "bh" then tt:AddDoubleLine("  總量", string.format("%s（%d 人）", fint(r.totalHeal), r.targets), .8, .8, .8, 1, 1, 1) end
     tt:AddDoubleLine(string.format("  HPS（%s）", RATE_LABEL[db.rate]), string.format("%s　HPM %s", fmt1(r.hps), fmt2(r.hpm)), .8, .8, .8, 1, 1, 1)
     if r.down < 0.9995 then tt:AddLine(string.format("  降級：治療效果只算 %d%%", math.floor(r.down * 100 + 0.5)), 1, .6, .3) end
@@ -462,7 +478,8 @@ local function refreshImpl()
   local list, ctx = filtered()
   local tal = ctx.talents
   local pctTxt = db.pct and (db.pct .. "%（手動）") or (tal.heal .. "%（天賦自動）")
-  frame.info:SetText(string.format("等級 %d　治療效果 %d　治療加成 %s　%s", ctx.level, ctx.bonus, pctTxt,
+  frame.info:SetText(string.format("等級 %d　治療效果 %d　治療加成 %s　%s　%s", ctx.level, ctx.bonus, pctTxt,
+    ctx.descIncl and "|cff9fd18b有效量＝技能說明值|r" or "有效量＝基礎＋治療效果×係數",
     #tal.found > 0 and ("|cff9a9282" .. table.concat(tal.found, "、") .. "|r") or ""))
   frame.modeBtn:SetText(db.mode == "group" and "群補" or "單補")
   frame.rateBtn:SetText(RATE_LABEL[db.rate])
@@ -580,10 +597,10 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.2.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.2.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
-  msg(string.format("職業 %s　等級 %d　治療效果 %d　天賦：%s", class, ctx.level, ctx.bonus,
+  msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
     #ctx.talents.found > 0 and table.concat(ctx.talents.found, "、") or "沒找到"))
   local keys, anyFound = {}, false
   for k, st in pairs(scan.families) do table.insert(keys, k); if st.maxRank > 0 then anyFound = true end end
@@ -627,12 +644,16 @@ SlashCmdList.HEALHPS = function(input)
     db.tip = not db.tip; msg("滑鼠提示：" .. (db.tip and "開" or "關"))
   elseif cmd == "downrank" then
     db.downrank = not db.downrank; msg("降級衰減：" .. (db.downrank and "開" or "關"))
+  elseif cmd == "desc" then
+    db.desc = (arg == "incl" or arg == "base") and arg or "auto"
+    msg("技能說明數字：" .. (db.desc == "incl" and "已含治療效果（手動）" or db.desc == "base" and "只有基礎量（手動）" or "自動判斷")
+      .. "　目前：" .. (descIncludesBonus() and "直接採用說明數字" or "基礎＋治療效果×係數"))
   elseif cmd == "debug" then
     safe("除錯指令", debugDump)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
   else
-    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-5　/hps tip　/hps downrank　/hps debug　/hps reset")
+    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-5　/hps tip　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
   end
   if frame then HealHPS_Refresh() end
 end
