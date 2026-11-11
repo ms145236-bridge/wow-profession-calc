@@ -77,13 +77,7 @@ const SPELLS = [
   r({ id: "poh", name: "治療禱言", rank: 4, learnLevel: 60, mana: 1030, cast: 3, healMin: 567, healMax: 599, coeff: 0.286, kind: "direct", group: true, groupModel: "full_each", maxTargets: 5, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對" }),
   r({ id: "poh", name: "治療禱言", rank: 5, learnLevel: 60, mana: 1070, cast: 3, healMin: 631, healMax: 667, coeff: 0.286, kind: "direct", group: true, groupModel: "full_each", maxTargets: 5, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對" }),
 
-  // —— 束縛治療（ForeverChanges：現為訓練師技能；聖光束縛=被動另計）——
-  r({ id: "bh", name: "束縛治療", rank: 1, learnLevel: 25, mana: 155, cast: 1.5, healMin: 236, healMax: 284, coeff: 0.429, kind: "direct", group: false, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對", note: "自+友各此量；R1 ForeverChanges／Overcity" }),
-  r({ id: "bh", name: "束縛治療", rank: 2, learnLevel: 32, mana: 185, cast: 1.5, healMin: 283, healMax: 341, coeff: 0.429, kind: "direct", group: false, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對" }),
-  r({ id: "bh", name: "束縛治療", rank: 3, learnLevel: 38, mana: 215, cast: 1.5, healMin: 349, healMax: 417, coeff: 0.429, kind: "direct", group: false, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對" }),
-  r({ id: "bh", name: "束縛治療", rank: 4, learnLevel: 44, mana: 265, cast: 1.5, healMin: 463, healMax: 551, coeff: 0.429, kind: "direct", group: false, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對" }),
-  r({ id: "bh", name: "束縛治療", rank: 5, learnLevel: 50, mana: 315, cast: 1.5, healMin: 589, healMax: 699, coeff: 0.429, kind: "direct", group: false, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對" }),
-  r({ id: "bh", name: "束縛治療", rank: 6, learnLevel: 56, mana: 380, cast: 1.5, healMin: 757, healMax: 893, coeff: 0.429, kind: "direct", group: false, talent: false, specs: ["priest_holy", "priest_disc"], reliability: "已交叉核對" }),
+  // 束縛治療：永恆 11/2 已移除，改為聖光束縛天賦（快速治療施放在別人身上時自療 50%，插件的情境加成處理）
 
   // —— 戒律：苦修 ——
   r({ id: "pen", name: "苦修", rank: 1, learnLevel: 30, mana: 150, cast: 2, cd: 12, healMin: 399, healMax: 399, coeff: 0.57, kind: "channel", group: false, talent: true, specs: ["priest_disc"], duration: 2, reliability: "單一來源待核", note: "3×133／跳；CD 12；係數待核" }),
