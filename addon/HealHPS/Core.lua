@@ -430,8 +430,9 @@ local function compute()
         end
         local oath = ctx.talents.oath
         -- 實測：誓約的固定量也會乘上治療之光等天賦加成（33 級聖光術：507–568＋220×1.12，實測 766／808／815）
-        -- 實測：學會等級 20 以上的技能拿全部；20 以下依 (學會等級−1)÷19 遞減（聖光術 1 階 0%、2 階約 26%、3 階約 68%）
-        row.oathRatio = math.max(0, math.min(1, (row.learn - 1) / 19))
+        -- 實測（33 級，誓約 +220）：比例＝(學會等級−1)×5%，最多 100%
+        -- 聖光術 1 階 0～1%、2 階 22～27%、3 階 64～70%、聖光閃現 1 階 92～97%、聖光術 4／5 階 100%
+        row.oathRatio = math.max(0, math.min(1, (row.learn - 1) * 0.05))
         row.oathAdd = ((oath and not oath.unknown and oath[f.key]) or 0) * mult * row.oathRatio
         if db.oath and row.oathAdd > 0 then per = per + row.oathAdd; row.withOath = true end
         row.perHeal = per
@@ -839,7 +840,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.7.2　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.7.3　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
