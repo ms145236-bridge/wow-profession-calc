@@ -7,6 +7,14 @@ local D = HealHPS_Data
 local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil }
 local db
+-- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
+local function ensureDB()
+  if db then return db end
+  HealHPSCharDB = HealHPSCharDB or {}
+  for k, v in pairs(DEFAULTS) do if HealHPSCharDB[k] == nil then HealHPSCharDB[k] = v end end
+  db = HealHPSCharDB
+  return db
+end
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f治療HPS|r " .. s) end
 
@@ -289,6 +297,7 @@ local function readRank(st, r, id, ctx)
 end
 
 local function compute()
+  ensureDB()
   if scan.dirty then rescan() end
   local _, class = UnitClass("player")
   local ctx = { level = UnitLevel("player"), bonus = (GetSpellBonusHealing and GetSpellBonusHealing()) or 0 }
@@ -372,7 +381,8 @@ end
 
 -- ── 滑鼠提示 ───────────────────────────────────────────────────────────────
 local function addTooltip(tt, id)
-  if not db or not db.tip or not id then return end
+  ensureDB()
+  if not db.tip or not id then return end
   if scan.dirty or not scan.ctx then compute() end
   local rows = scan.byId[id]
   if not rows then return end
@@ -519,7 +529,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.1.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.1.2　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　天賦：%s", class, ctx.level, ctx.bonus,
@@ -549,6 +559,7 @@ end
 
 SLASH_HEALHPS1 = "/hps"
 SlashCmdList.HEALHPS = function(input)
+  ensureDB()
   local cmd, arg = (input or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
   if cmd == "" then
     if not frame then buildFrame() end
@@ -577,24 +588,21 @@ end
 
 -- ── 事件 ───────────────────────────────────────────────────────────────────
 local ev = CreateFrame("Frame")
-ev:RegisterEvent("ADDON_LOADED")
-ev:RegisterEvent("PLAYER_LOGIN")
-ev:RegisterEvent("SPELLS_CHANGED")
-ev:RegisterEvent("LEARNED_SPELL_IN_TAB")
-ev:RegisterEvent("CHARACTER_POINTS_CHANGED")
-ev:RegisterEvent("PLAYER_LEVEL_UP")
-ev:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+local RESCAN_EVENTS = { SPELLS_CHANGED = true, LEARNED_SPELL_IN_TAB = true, LEARNED_SPELL_IN_SKILL_LINE = true,
+  PLAYER_LEVEL_UP = true, CHARACTER_POINTS_CHANGED = true, PLAYER_TALENT_UPDATE = true }
 ev:SetScript("OnEvent", function(_, e, a1)
   if e == "ADDON_LOADED" and a1 == ADDON then
-    HealHPSCharDB = HealHPSCharDB or {}
-    for k, v in pairs(DEFAULTS) do if HealHPSCharDB[k] == nil then HealHPSCharDB[k] = v end end
-    db = HealHPSCharDB
+    ensureDB()
   elseif e == "PLAYER_LOGIN" then
-    hookTooltips()
-  elseif e == "SPELLS_CHANGED" or e == "LEARNED_SPELL_IN_TAB" or e == "PLAYER_LEVEL_UP" or e == "CHARACTER_POINTS_CHANGED" then
+    ensureDB()
+    safe("掛上滑鼠提示", hookTooltips)
+  elseif RESCAN_EVENTS[e] then
     scan.dirty = true; scan.unmatchedRetry = 0
     if frame and frame:IsShown() then HealHPS_Refresh() end
   elseif e == "PLAYER_EQUIPMENT_CHANGED" then
     if frame and frame:IsShown() then HealHPS_Refresh() end
   end
 end)
+-- 不同版本的遊戲事件名稱不一樣；註冊不存在的事件會出錯，所以逐一試、失敗就跳過
+for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_EQUIPMENT_CHANGED" }) do pcall(ev.RegisterEvent, ev, e) end
+for e in pairs(RESCAN_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
