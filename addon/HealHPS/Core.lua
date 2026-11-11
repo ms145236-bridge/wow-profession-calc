@@ -121,21 +121,71 @@ local function nameSet(ids, names)
   return set
 end
 
+-- 永恆（新版引擎）沒有 GetTalentInfo，天賦改用 C_ClassTalents／C_Traits 讀；回傳 { [名稱] = {rank, max} } 或 nil
+local function traitRanks()
+  if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo
+    and C_Traits.GetTreeNodes and C_Traits.GetNodeInfo) then return nil end
+  local ok, cfg = pcall(C_ClassTalents.GetActiveConfigID)
+  if not ok or not cfg then return nil end
+  local ok1, info = pcall(C_Traits.GetConfigInfo, cfg)
+  if not ok1 or type(info) ~= "table" or type(info.treeIDs) ~= "table" then return nil end
+  local out, seen = {}, 0
+  for _, tree in ipairs(info.treeIDs) do
+    local okN, nodes = pcall(C_Traits.GetTreeNodes, tree)
+    for _, nid in ipairs((okN and type(nodes) == "table") and nodes or {}) do
+      local ok2, ni = pcall(C_Traits.GetNodeInfo, cfg, nid)
+      local maxR = ok2 and type(ni) == "table" and tonumber(ni.maxRanks) or 0
+      if maxR > 0 then
+        seen = seen + 1
+        local rank = tonumber(ni.activeRank) or 0
+        if rank == 0 then rank = tonumber(ni.ranksPurchased) or 0 end
+        local eid = (type(ni.activeEntry) == "table" and ni.activeEntry.entryID) or (type(ni.entryIDs) == "table" and ni.entryIDs[1]) or nil
+        local sid
+        if eid and C_Traits.GetEntryInfo and C_Traits.GetDefinitionInfo then
+          local ok3, ei = pcall(C_Traits.GetEntryInfo, cfg, eid)
+          if ok3 and type(ei) == "table" and ei.definitionID then
+            local ok4, di = pcall(C_Traits.GetDefinitionInfo, ei.definitionID)
+            sid = ok4 and type(di) == "table" and tonumber(di.spellID) or nil
+          end
+        end
+        local name = sid and API.SpellInfo(sid)
+        -- 客戶端有重複的孤兒節點：同名取點數多的
+        if name and (not out[name] or rank > out[name].rank) then out[name] = { rank = rank, max = maxR } end
+      end
+    end
+  end
+  if seen == 0 then return nil end
+  return out
+end
+
 local function scanTalents(class)
-  local res = { heal = 0, absorb = 0, found = {} }
+  local res = { heal = 0, absorb = 0, found = {}, source = "讀不到" }
   local defs = TALENTS[class]
-  if not defs or not GetTalentInfo or not GetNumTalents then return res end
+  if not defs then return res end
   for _, def in ipairs(defs) do def.set = def.set or nameSet(def.ids, def.names) end
+  local function add(def, name, rank, maxRank)
+    if rank and rank > 0 then
+      res[def.what] = res[def.what] + rank * def.per
+      table.insert(res.found, string.format("%s %d/%d（+%d%%）", name, rank, maxRank or 0, rank * def.per))
+    end
+  end
+  local tr = traitRanks()
+  if tr then
+    res.source = "C_Traits"
+    for name, v in pairs(tr) do
+      for _, def in ipairs(defs) do if def.set[name] then add(def, name, v.rank, v.max) end end
+    end
+    return res
+  end
+  if not GetTalentInfo or not GetNumTalents then return res end
+  res.source = "經典"
   local tabs = GetNumTalentTabs and GetNumTalentTabs() or 3
   for t = 1, tabs do
     local okN, nTal = pcall(GetNumTalents, t)
     for i = 1, (okN and nTal or 0) do
       local name, _, _, _, rank, maxRank = GetTalentInfo(t, i)
       for _, def in ipairs(defs) do
-        if name and def.set[name] and rank then
-          res[def.what] = res[def.what] + rank * def.per
-          table.insert(res.found, string.format("%s %d/%d（+%d%%）", name, rank, maxRank or 0, rank * def.per))
-        end
+        if name and def.set[name] then add(def, name, rank, maxRank) end
       end
     end
   end
@@ -597,11 +647,11 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.2.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.2.2　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
-    #ctx.talents.found > 0 and table.concat(ctx.talents.found, "、") or "沒找到"))
+    (#ctx.talents.found > 0 and table.concat(ctx.talents.found, "、") or "沒找到") .. "（" .. ctx.talents.source .. "）"))
   local keys, anyFound = {}, false
   for k, st in pairs(scan.families) do table.insert(keys, k); if st.maxRank > 0 then anyFound = true end end
   table.sort(keys)

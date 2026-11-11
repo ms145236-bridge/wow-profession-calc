@@ -2,7 +2,7 @@
 ## Title: 治療 HPS 計算器
 ## Notes: 魔獸世界：永恆治療職 HPS／HPM 比較。滑鼠提示顯示每個技能的 HPS，/hps 開啟比較表。
 ## Author: ms145236-bridge
-## Version: 0.2.1
+## Version: 0.2.2
 ## SavedVariablesPerCharacter: HealHPSCharDB
 
 Data.lua
