@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>專業衝級計算器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0d0b; --panel:#17150f; --panel2:#1f1c15; --line:#2e2a20; --text:#e8e2d4; --muted:#9a9282;
+  --gold:#d9b25f; --gold2:#f0cf7f; --silver:#c7c9cc; --copper:#c9814a; --warn:#ff9d5c; --ok:#9fd18b;
+  --q-poor:#9d9d9d; --q-common:#ffffff; --q-uncommon:#1eff00; --q-rare:#0070dd; --q-epic:#a335ee;
+  --d-orange:#ff8040; --d-yellow:#ffff00; --d-green:#40bf40; --d-gray:#808080;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Noto Sans TC",system-ui,sans-serif}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+h1{font-family:"Noto Serif TC",serif;font-size:28px;margin:0 0 4px;color:var(--gold2);letter-spacing:.02em}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.controls{display:grid;gap:14px}
+.profs{display:flex;flex-wrap:wrap;gap:6px}
+.prof{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:6px 12px;border-radius:999px;cursor:pointer;font:inherit;font-size:14px}
+.prof:hover{border-color:#5a4f35}
+.prof[aria-pressed=true]{background:var(--gold);color:#1a1408;border-color:var(--gold);font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:end}
+label.f{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+select,input[type=number]{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit;max-width:100%}
+input[type=number]{width:84px}
+.quick{display:flex;gap:4px}
+.quick button,.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:7px 9px;cursor:pointer;font:inherit;font-size:13px}
+.quick button:hover,.ghost:hover{color:var(--text);border-color:#5a4f35}
+.btn{background:var(--gold);color:#1a1408;border:0;border-radius:6px;padding:8px 14px;font:inherit;font-weight:700;cursor:pointer}
+.btn:hover{background:var(--gold2)}
+/* 價格來源 */
+.source{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:14px;border-top:1px solid var(--line)}
+.source .st{font-size:14px}
+.source .st b{color:var(--ok)}
+.source .st.none{color:var(--warn)}
+.upl{margin-top:14px;background:var(--panel2);border:1px solid #4a3d1f;border-radius:10px;padding:16px}
+.upl[hidden]{display:none}
+.upl h3{margin:0 0 10px;font-size:16px;color:var(--gold2)}
+.upl ol{margin:0 0 14px;padding-left:22px;color:var(--text)}
+.upl li{margin:6px 0}
+.upl .dim{color:var(--muted);font-size:13px}
+.path{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+.path code{background:#0b0a08;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px;word-break:break-all}
+.drop{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.err{color:var(--warn);font-size:14px;margin-top:8px}
+.privacy{font-size:12px;color:var(--muted);margin-top:10px}
+/* 摘要 */
+.summary{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;padding:14px 16px;background:linear-gradient(90deg,#231d10,#17150f);border:1px solid #4a3d1f;border-radius:10px}
+.summary .big{font-size:24px;font-weight:700}
+.summary .meta{color:var(--muted);font-size:13px}
+.summary .warn{color:var(--warn);font-size:13px}
+h2{font-family:"Noto Serif TC",serif;font-size:20px;color:var(--gold2);margin:28px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h2 .hint{font-family:"Noto Sans TC";font-size:13px;color:var(--muted);font-weight:400}
+table{width:100%;border-collapse:collapse}
+th{white-space:nowrap;font-size:12px;color:var(--muted);font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.lv{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;color:var(--gold2)}
+.it{display:flex;align-items:center;gap:8px;min-width:0}
+.ic{display:block;width:30px;height:30px;border-radius:5px;border:1px solid #000;box-shadow:0 0 0 1px #3a3528;flex:none;background:#222 center/cover}
+.ic.sm{width:24px;height:24px}
+.nm{font-weight:500}
+.src{font-size:12px;color:var(--muted)}
+.q-poor{color:var(--q-poor)}.q-common{color:var(--q-common)}.q-uncommon{color:var(--q-uncommon)}.q-rare{color:var(--q-rare)}.q-epic{color:var(--q-epic)}
+.times{font-weight:700;font-size:17px;white-space:nowrap}
+.note{display:block;font-size:12px;color:var(--d-orange);font-weight:400;white-space:normal}
+.reag{display:flex;flex-wrap:wrap;gap:6px}
+.rg{position:relative;display:inline-block}
+.rg b{position:absolute;right:-2px;bottom:-4px;font-size:11px;background:#000c;padding:0 3px;border-radius:3px;line-height:15px}
+.diff{font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.diff span{margin-right:5px}
+.d0{color:var(--d-orange)}.d1{color:var(--d-yellow)}.d2{color:var(--d-green)}.d3{color:var(--d-gray)}
+.seg td{background:var(--panel2);font-size:13px;color:var(--muted);padding:6px 10px}
+.seg td b{color:var(--text)}
+.money{white-space:nowrap;font-variant-numeric:tabular-nums}
+.money .g{color:var(--gold)}.money .s{color:var(--silver)}.money .c{color:var(--copper)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qty{font-weight:700;font-size:16px}
+.na{color:var(--warn);font-size:12px}
+tr.owned td{opacity:.4}
+tr.owned .qty{text-decoration:line-through}
+.chk{width:16px;height:16px;accent-color:var(--gold)}
+.tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:4px;white-space:nowrap}
+.tag.v{color:var(--ok);border-color:#3d5a33}
+.tag.r{color:var(--gold2);border-color:#5a4a25}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.empty{color:var(--muted);text-align:center;padding:24px}
+.nav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.nav a{border:1px solid var(--line);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:13px}
+.nav a:hover{color:var(--text);border-color:#5a4f35}
+.nav a[aria-current=page]{color:var(--gold2);border-color:#5a4a25;background:#231d10}
+.fine{color:var(--muted);font-size:12px;margin-top:28px;line-height:1.7}
+@media (max-width:720px){
+  .hide-m{display:none}
+  td,th{padding:7px 6px}
+  .ic{width:26px;height:26px}
+  .times{font-size:15px}
+}
+</style>
+<script>const whTooltips={colorLinks:false,iconizeLinks:false,renameLinks:false};</script>
+<script src="https://wow.zamimg.com/js/tooltips.js" async></script>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav" aria-label="工具"><a href="./" aria-current="page">專業衝級計算器</a><a href="healer.html">治療 HPS 計算器</a></nav>
+  <h1>專業衝級計算器</h1>
+  <p class="sub">魔獸世界：永恆 · 上傳你自己的 Auctionator 掃描，依你伺服器現在的價格，算出每段要做什麼、做幾次，以及要買的材料與花費。</p>
+
+  <div class="panel controls">
+    <div class="profs" id="profs" role="group" aria-label="專業"></div>
+    <div class="row">
+      <label class="f">目前等級
+        <input type="number" id="from" min="1" max="299" value="1">
+      </label>
+      <label class="f">目標等級
+        <input type="number" id="to" min="2" max="300" value="300">
+      </label>
+      <div class="quick" aria-label="快速設定目標等級">
+        <button data-to="75">75</button><button data-to="150">150</button><button data-to="225">225</button><button data-to="300">300</button>
+      </div>
+    </div>
+    <div class="source">
+      <span class="st" id="srcStatus"></span>
+      <select id="realm" hidden aria-label="選擇伺服器"></select>
+      <button class="btn" id="openUpl">上傳我的掃描</button>
+      <button class="ghost" id="clearScan" hidden>清除掃描</button>
+    </div>
+    <div class="upl" id="upl" hidden>
+      <h3>上傳我的掃描：整套 30 秒</h3>
+      <ol>
+        <li>安裝 <b>Auctionator</b> 插件（已經裝了就跳過）。</li>
+        <li>在拍賣行打開 Auctionator，點「<b>完整掃描</b>」，等它掃完，大約 5～10 秒。</li>
+        <li>輸入 <b>/reload</b> 或下線。<span class="dim">遊戲只有這時候才會把掃描寫進檔案，這一步不能省。</span></li>
+        <li>點下面的「選擇 Auctionator.lua」，選這個檔案：
+          <div class="path"><code id="pathText">World of Warcraft\_forever_\WTF\Account\&lt;帳號&gt;\SavedVariables\Auctionator.lua</code><button class="ghost" id="copyPath">複製路徑</button></div>
+          <div class="dim">&lt;帳號&gt; 是以你的帳號命名的資料夾。要選的是 <b>Auctionator.lua</b>，不是 Auctionator.lua.bak，也不是角色資料夾裡的檔案。</div>
+        </li>
+      </ol>
+      <div class="drop">
+        <label class="btn" for="file" style="display:inline-block">選擇 Auctionator.lua</label>
+        <input type="file" id="file" accept=".lua" hidden>
+        <button class="ghost" id="closeUpl">關閉</button>
+      </div>
+      <div class="err" id="uplErr" hidden></div>
+      <div class="privacy">檔案只在你的瀏覽器裡讀取，不會上傳到任何伺服器。讀到的價格會記在這個瀏覽器裡，下次打開不用重傳。</div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div><div class="meta" id="sumLabel"></div><div class="big" id="sumTotal"></div></div>
+    <div class="meta" id="sumMeta" style="text-align:right"></div>
+  </div>
+
+  <h2>衝級步驟 <span class="hint">次數為期望值，黃、綠色配方不一定每次加點，建議多備一些材料</span></h2>
+  <div class="panel" style="padding:4px 6px">
+    <table>
+      <thead><tr><th>等級</th><th>配方</th><th>製作</th><th class="hide-m">材料</th><th class="hide-m">難度</th></tr></thead>
+      <tbody id="steps"></tbody>
+    </table>
+  </div>
+
+  <h2>購物清單 <span class="hint">勾選「已有」可從花費中扣除</span></h2>
+  <div class="panel" style="padding:4px 6px">
+    <table>
+      <thead><tr><th style="width:40px">已有</th><th>物品</th><th class="num">數量</th><th class="num hide-m">單價</th><th class="num">小計</th></tr></thead>
+      <tbody id="shop"></tbody>
+    </table>
+  </div>
+  <div class="foot">
+    <span id="shopMeta" style="color:var(--muted);font-size:13px"></span>
+    <button class="btn" id="copy">複製購物清單</button>
+  </div>
+
+  <p class="fine">
+    拍賣行價格全部來自你上傳的 Auctionator 掃描（有「目前最低價」就用它，沒有就用最近一天的最低價）；商人販售的物品用商人固定售價。
+    候選路線取自 Kovarel 的衝級路線，網頁會用你的價格在 <span id="nVar"></span> 條候選路線中挑出最省的一條。物品名稱取自 Wowhead 繁體中文版。
+    若起點或終點落在某一步的中間，該步次數依等級比例估算。標示 <span class="tag">自訂</span> 的是 WoW Forever 新增物品，Wowhead 沒有收錄，名稱為暫譯。
+  </p>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+/*CALC*/
+// ── Auctionator.lua 解析（在瀏覽器本機進行）──────────────────────────
+// AUCTIONATOR_PRICE_DATABASE = { ["__dbversion"] = n, ["伺服器鍵"] = "<CBOR 序列化字串>", ... }
+const LUA_ESC = {97:7,98:8,102:12,110:10,114:13,116:9,118:11};
+function parseLuaAssign(bytes, name) {
+  // 找到行首的 NAME =
+  const nb = [...name].map(c => c.charCodeAt(0));
+  let at = -1;
+  outer: for (let i = 0; i + nb.length < bytes.length; i++) {
+    if (i > 0 && bytes[i-1] !== 10 && bytes[i-1] !== 13) continue;
+    for (let j = 0; j < nb.length; j++) if (bytes[i+j] !== nb[j]) continue outer;
+    let k = i + nb.length; while (bytes[k] === 32 || bytes[k] === 9) k++;
+    if (bytes[k] === 61) { at = k + 1; break; }
+  }
+  if (at < 0) return null;
+  const skip = () => { for (;;) { const c = bytes[at];
+    if (c === 32 || c === 9 || c === 10 || c === 13) at++;
+    else if (c === 45 && bytes[at+1] === 45) { while (at < bytes.length && bytes[at] !== 10) at++; }
+    else return; } };
+  const str = () => { const q = bytes[at++], out = [];
+    for (;;) { const c = bytes[at++]; if (c === undefined) throw new Error('字串沒有結束');
+      if (c === q) return Uint8Array.from(out);
+      if (c !== 92) { out.push(c); continue; }
+      const n = bytes[at++];
+      if (n >= 48 && n <= 57) { let v = n - 48; for (let t = 0; t < 2 && bytes[at] >= 48 && bytes[at] <= 57; t++) v = v * 10 + bytes[at++] - 48; out.push(v); }
+      else if (n === 13) { if (bytes[at] === 10) at++; out.push(10); }
+      else out.push(LUA_ESC[n] ?? n);
+    } };
+  const word = () => { const s = at; while (at < bytes.length && /[A-Za-z0-9_.+\-]/.test(String.fromCharCode(bytes[at]))) at++; return String.fromCharCode(...bytes.subarray(s, at)); };
+  const value = () => { skip(); const c = bytes[at];
+    if (c === 123) return table();
+    if (c === 34 || c === 39) return str();
+    const w = word(); if (w === 'true' || w === 'false') return w === 'true'; if (w === 'nil') return null;
+    const n = Number(w); if (w === '' || Number.isNaN(n)) throw new Error('看不懂的內容，位置 ' + at); return n; };
+  const table = () => { const e = []; let idx = 1; at++;
+    for (;;) { skip(); const c = bytes[at];
+      if (c === undefined) throw new Error('表格沒有結束');
+      if (c === 125) { at++; return e; }
+      if (c === 91) { at++; let k = value(); skip(); at++; /* ] */ skip(); at++; /* = */ if (k instanceof Uint8Array) k = new TextDecoder().decode(k); e.push([k, value()]); }
+      else e.push([idx++, value()]);
+      skip(); if (bytes[at] === 44 || bytes[at] === 59) at++; } };
+  return value();
+}
+function cborDecode(b) {
+  let at = 0; const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const need = n => { if (at + n > b.length) throw new Error('CBOR 資料不完整'); };
+  const len = ai => { if (ai < 24) return ai; if (ai === 24) { need(1); return b[at++]; } if (ai === 25) { need(2); at += 2; return view.getUint16(at-2); }
+    if (ai === 26) { need(4); at += 4; return view.getUint32(at-4); } if (ai === 27) { need(8); at += 8; return Number(view.getBigUint64(at-8)); } throw new Error('不支援的 CBOR 長度'); };
+  const half = () => { need(2); const h = view.getUint16(at); at += 2; const e = h >> 10 & 31, m = h & 1023;
+    const v = e === 0 ? m * 2 ** -24 : e === 31 ? (m ? NaN : Infinity) : (m + 1024) * 2 ** (e - 25); return h & 32768 ? -v : v; };
+  const brk = () => { if (b[at] === 255) { at++; return true; } return false; };
+  const val = (d) => { if (d > 16) throw new Error('CBOR 層數太深'); need(1);
+    const ib = b[at++], mt = ib >> 5, ai = ib & 31;
+    if (mt === 7) { if (ai === 20 || ai === 21) return ai === 21; if (ai === 22 || ai === 23) return null; if (ai === 25) return half();
+      if (ai === 26) { need(4); at += 4; return view.getFloat32(at-4); } if (ai === 27) { need(8); at += 8; return view.getFloat64(at-8); } throw new Error('不支援的 CBOR 值'); }
+    const indef = ai === 31, n = indef ? -1 : len(ai);
+    switch (mt) {
+      case 0: return n; case 1: return -1 - n;
+      case 2: case 3: { need(n); at += n; let s = ''; for (let i = at - n; i < at; i++) s += String.fromCharCode(b[i]); return s; }
+      case 4: { const a = []; for (let i = 0; indef ? !brk() : i < n; i++) a.push(val(d+1)); return a; }
+      case 5: { const m = new Map(); for (let i = 0; indef ? !brk() : i < n; i++) { const k = val(d+1); m.set(k, val(d+1)); } return m; }
+      default: return val(d+1); // tag
+    } };
+  return val(0);
+}
+const AUCTIONATOR_DAY0 = Date.UTC(2020, 0, 1) / 1000; // Auctionator 以 2020/1/1 起算天數
+function readAuctionator(buf, wanted) {
+  const bytes = new Uint8Array(buf);
+  const db = parseLuaAssign(bytes, 'AUCTIONATOR_PRICE_DATABASE');
+  if (db == null) throw new Error('這個檔案裡找不到 Auctionator 的價格資料。請確認選的是 SavedVariables 底下的 Auctionator.lua。');
+  if (!Array.isArray(db)) throw new Error('價格資料格式不對。');
+  const realms = [];
+  for (const [key, v] of db) {
+    if (typeof key !== 'string' || key === '__dbversion') continue;
+    if (!(v instanceof Uint8Array)) continue;
+    let m; try { m = cborDecode(v); } catch (e) { continue; }
+    if (!(m instanceof Map)) continue;
+    const prices = {}; let total = 0, lastDay = 0;
+    const days = x => { const o = new Map(); if (x instanceof Map) for (const [d, p] of x) { const dn = Number(d); if (Number.isInteger(dn) && typeof p === 'number' && p > 0) o.set(dn, p); } return o; };
+    for (const [ik, rec] of m) {
+      const id = typeof ik === 'number' ? ik : (typeof ik === 'string' && /^\d{1,9}$/.test(ik) ? +ik : null);
+      if (!id || !(rec instanceof Map)) continue;
+      const h = days(rec.get('h')), l = days(rec.get('l'));
+      const ds = [...new Set([...h.keys(), ...l.keys()])].sort((a, b) => a - b);
+      let last = null;
+      for (let i = ds.length - 1; i >= 0; i--) { const p = Math.min(l.get(ds[i]) ?? Infinity, h.get(ds[i]) ?? Infinity); if (isFinite(p) && p > 0) { last = [ds[i], p]; break; } }
+      const cur = rec.get('m');
+      const price = typeof cur === 'number' && cur > 0 ? Math.round(cur) : (last ? Math.round(last[1]) : null);
+      if (!price) continue;
+      total++; if (last && last[0] > lastDay) lastDay = last[0];
+      if (wanted.has(id)) prices[id] = price;
+    }
+    if (total) realms.push({ key, total, lastDay, prices });
+  }
+  if (!realms.length) throw new Error('檔案裡沒有任何物品價格。請先在拍賣行做一次「完整掃描」，再 /reload 後重選檔案。');
+  realms.sort((a, b) => b.lastDay - a.lastDay || b.total - a.total);
+  return realms;
+}
+
+// ── 頁面 ────────────────────────────────────────────────────────────
+const PROFS = [['alchemy','鍊金術'],['blacksmithing','鍛造'],['enchanting','附魔'],['engineering','工程學'],['leatherworking','製皮'],['tailoring','裁縫'],['cooking','烹飪'],['first-aid','急救']];
+const SRC = {'训练师':'訓練師','商人':'商人','拍卖行':'拍賣行'};
+const $ = id => document.getElementById(id);
+const store = { get(k,d){ try{ const v=localStorage.getItem('pl.'+k); return v==null?d:JSON.parse(v);}catch(e){return d} }, set(k,v){ try{ v==null?localStorage.removeItem('pl.'+k):localStorage.setItem('pl.'+k,JSON.stringify(v)); }catch(e){} } };
+let state = { prof: store.get('prof','alchemy'), from: store.get('from',1), to: store.get('to',300) };
+if (!DATA.variants[state.prof]) state.prof = 'alchemy';
+let owned = store.get('owned', {});
+let scan = store.get('scan', null); // {name, at, realms:[{key,total,lastDay,prices}], sel}
+
+// 所有路線會用到的物品（只保存這些價格）
+const WANTED = new Set();
+for (const vs of Object.values(DATA.variants)) for (const v of vs) {
+  v.steps.forEach(s => { if (s.k === 'i') WANTED.add(s.id); s.m.forEach(([r]) => WANTED.add(r)); });
+  Object.keys(v.recipes).forEach(r => WANTED.add(+r)); v.tools.forEach(t => WANTED.add(t));
+}
+
+function money(c){
+  c = Math.round(c);
+  if (!c) return '<span class="money">0</span>';
+  const g = Math.floor(c/10000), s = Math.floor(c%10000/100), cu = c%100, p = [];
+  if (g) p.push(`<span class="g">${g.toLocaleString()} 金</span>`);
+  if (s) p.push(`<span class="s">${s} 銀</span>`);
+  if (cu && g < 100) p.push(`<span class="c">${cu} 銅</span>`);
+  return `<span class="money">${p.join(' ')}</span>`;
+}
+const moneyText = c => { c=Math.round(c); const g=Math.floor(c/10000), s=Math.floor(c%10000/100), cu=c%100; return [g&&g+'金',s&&s+'銀',cu&&cu+'銅'].filter(Boolean).join('')||'0'; };
+const info = (k,id) => DATA.items[k+':'+id] || ['#'+id,null,null,1];
+const iconUrl = ic => `https://render.worldofwarcraft.com/us/icons/36/${ic || 'inv_misc_questionmark'}.jpg`;
+function link(k,id,inner){
+  if (info(k,id)[3]) return `<span>${inner}</span>`;
+  return `<a href="https://www.wowhead.com/classic/tw/${k==='s'?'spell':'item'}=${id}" target="_blank" rel="noopener">${inner}</a>`;
+}
+function itemCell(k,id,sub,small){
+  const [n,q,ic,custom] = info(k,id);
+  return `<div class="it">${link(k,id,`<span class="ic${small?' sm':''}" style="background-image:url(${iconUrl(ic)})"></span>`)}<div>${link(k,id,`<span class="nm q-${q||'common'}">${n}</span>`)}${custom?'<span class="tag">自訂</span>':''}${sub?`<div class="src">${sub}</div>`:''}</div></div>`;
+}
+const srcName = s => SRC[s] || ((DATA.npcs[s] || s) + '（商人）');
+const realmSel = () => scan && scan.realms[scan.sel || 0];
+const dayText = d => { if (!d) return ''; const t = new Date((AUCTIONATOR_DAY0 + d * 86400) * 1000); const age = (Date.now() - t) / 864e5; if (age < -2 || age > 400) return ''; return `${t.getMonth()+1}/${t.getDate()}`; };
+
+function priceFn() {
+  const r = realmSel();
+  return id => DATA.vendor[id] != null ? DATA.vendor[id] : (r && r.prices[id] != null ? r.prices[id] : null);
+}
+// 依目前價格，從候選路線挑最省的（沒價格的項目越少越優先）
+function pickRoute(S, T, price) {
+  const vs = DATA.variants[state.prof];
+  if (!realmSel()) return vs[DATA.defaultVariant[state.prof]];
+  let best = null;
+  for (const v of vs) {
+    const r = calcRoute(v, S, T, { price });
+    const missing = r.list.filter(x => price(x.id) == null).length;
+    if (!best || missing < best.missing || (missing === best.missing && r.total < best.total)) best = { v, missing, total: r.total };
+  }
+  return best.v;
+}
+
+function renderSource() {
+  const r = realmSel();
+  $('srcStatus').className = 'st' + (r ? '' : ' none');
+  $('srcStatus').innerHTML = r
+    ? `價格來源：<b>你的掃描</b> · ${r.total.toLocaleString()} 個物品${dayText(r.lastDay) ? ' · 最近一次 ' + dayText(r.lastDay) : ''}`
+    : '還沒有價格：上傳你的 Auctionator 掃描後才會算花費';
+  $('openUpl').textContent = r ? '重新上傳' : '上傳我的掃描';
+  $('clearScan').hidden = !r;
+  const sel = $('realm');
+  sel.hidden = !scan || scan.realms.length < 2;
+  if (scan) { sel.innerHTML = scan.realms.map((x,i)=>`<option value="${i}">${x.key.replace(/_/g,' · ')}（${x.total.toLocaleString()} 項）</option>`).join(''); sel.value = scan.sel || 0; }
+}
+
+function render(){
+  let S = Math.max(1, Math.min(299, parseInt(state.from)||1));
+  let T = Math.max(S+1, Math.min(300, parseInt(state.to)||300));
+  const price = priceFn();
+  const hasScan = !!realmSel();
+  const route = pickRoute(S, T, price);
+  const r = calcRoute(route, S, T, { price, owned: id => !!owned[state.prof+':'+id] });
+  const pname = PROFS.find(p=>p[0]===state.prof)[1];
+  const missing = r.list.filter(x => price(x.id) == null && !x.owned);
+
+  $('sumLabel').textContent = `${pname} ${S}–${T} · 預計花費`;
+  $('sumTotal').innerHTML = hasScan ? money(r.total) : '<span style="color:var(--muted);font-size:18px">上傳掃描後顯示</span>';
+  $('sumMeta').innerHTML = hasScan
+    ? (missing.length ? `<span class="warn">有 ${missing.length} 項你的掃描裡沒有價格，未計入</span><br>` : '') + `已用你的價格從 ${DATA.variants[state.prof].length} 條路線中選出最省的`
+    : (scan ? '' : '目前顯示的是預設路線，只有商人物品有價格');
+
+  // 步驟
+  const segs = [[1,75],[75,150],[150,225],[225,300]];
+  const segOf = lo => { const i = segs.findIndex(([a,b])=>lo>=a&&lo<b); return i < 0 ? 3 : i; };
+  const segCost = segs.map(()=>0), segMiss = segs.map(()=>false);
+  route.steps.forEach((s,i)=>{ const n=r.stepCrafts[i]+r.extraCrafts[i]; if(!n) return; const si=segOf(Math.max(s.f,S)); segCost[si]+=r.stepCost[i]; if (s.m.some(([rid])=>price(rid)==null && !(route.yields[rid]||route.steps.some(o=>o.id===rid)))) segMiss[si]=true; });
+  r.list.filter(x=>x.kind!=='mat').forEach(x=>{ const idxs=(route.recipes[x.id]||[]).filter(i=>r.stepCrafts[i]+r.extraCrafts[i]); const i=idxs.length?Math.min(...idxs):route.steps.findIndex((s,j)=>r.stepCrafts[j]+r.extraCrafts[j]); if(i<0) return; segCost[segOf(Math.max(route.steps[i].f,S))]+=x.sub; });
+  let html = '', segIdx = -1;
+  route.steps.forEach((s,i)=>{
+    const n = r.stepCrafts[i] + r.extraCrafts[i];
+    if (!n) return;
+    const lo = Math.max(s.f,S), hi = Math.min(s.t,T);
+    const si = segOf(lo);
+    if (si !== segIdx) { segIdx = si; html += `<tr class="seg"><td colspan="5"><b>${Math.max(segs[si][0],S)}–${Math.min(segs[si][1],T)}</b>${hasScan ? `　材料約 ${money(segCost[si])}${segMiss[si]?'<span class="na">（部分沒價格）</span>':''}` : ''}</td></tr>`; }
+    const extra = r.extraCrafts[i] ? `<span class="note">其中 ${r.extraCrafts[i]} 次是多做的，留給後面步驟當材料</span>` : '';
+    const reag = s.m.map(([rid,q])=>{ const [nm,,ic]=info('i',rid); const k=Math.ceil(n*q/s.c); return `<span class="rg" title="${nm} ×${k}">${link('i',rid,`<span class="ic sm" style="background-image:url(${iconUrl(ic)})"></span>`)}<b>${k}</b></span>`; }).join('');
+    const diff = s.d.map((v,j)=>`<span class="d${j}">${v}</span>`).join('');
+    html += `<tr><td class="lv">${hi>lo?`${lo}–${hi}`:'—'}</td><td>${itemCell(s.k,s.id,srcName(s.src))}</td><td class="times">×${n}${extra}</td><td class="hide-m"><div class="reag">${reag}</div></td><td class="hide-m diff">${diff}</td></tr>`;
+  });
+  $('steps').innerHTML = html || `<tr><td colspan="5" class="empty">這個範圍沒有需要製作的步驟</td></tr>`;
+
+  // 購物清單
+  const order = {recipe:0, tool:1, mat:2};
+  const list = r.list.slice().sort((a,b)=>order[a.kind]-order[b.kind]);
+  $('shop').innerHTML = list.map(it=>{
+    const vendor = DATA.vendor[it.id] != null;
+    const tag = (it.kind==='recipe' ? '<span class="tag r">配方</span>' : '') + (vendor ? '<span class="tag v">商人</span>' : '<span class="tag">拍賣行</span>');
+    const key = state.prof+':'+it.id;
+    const hasP = price(it.id) != null;
+    const unit = hasP ? money(it.unit) : `<span class="na">${hasScan ? '掃描沒有' : '—'}</span>`;
+    const sub = hasP ? money(it.sub) : `<span class="na">—</span>`;
+    return `<tr class="${it.owned?'owned':''}"><td><input type="checkbox" class="chk" data-k="${key}" ${it.owned?'checked':''} aria-label="已有"></td><td>${itemCell('i',it.id,tag,true)}</td><td class="num qty">${it.qty.toLocaleString()}</td><td class="num hide-m">${unit}</td><td class="num">${sub}</td></tr>`;
+  }).join('') || `<tr><td colspan="5" class="empty">不需要購買任何東西</td></tr>`;
+  $('shopMeta').innerHTML = `共 ${list.length} 項` + (hasScan ? ` · 合計 ${money(r.total)}` : '');
+  window.__list = list.filter(x=>!x.owned).map(x=>`${info('i',x.id)[0]} ×${x.qty}`);
+  window.__title = `${pname} ${S}–${T}` + (hasScan ? `（約 ${moneyText(r.total)}）` : '');
+  $('nVar').textContent = DATA.variants[state.prof].length;
+
+  document.querySelectorAll('.prof').forEach(b=>b.setAttribute('aria-pressed', b.dataset.p===state.prof));
+  if (window.$WowheadPower && $WowheadPower.refreshLinks) try{ $WowheadPower.refreshLinks(); }catch(e){}
+}
+
+// ── 事件 ────────────────────────────────────────────────────────────
+$('profs').innerHTML = PROFS.map(([k,n])=>`<button class="prof" data-p="${k}">${n}</button>`).join('');
+$('from').value = state.from; $('to').value = state.to;
+const save = () => { for (const k in state) store.set(k, state[k]); };
+$('profs').addEventListener('click', e=>{ const b=e.target.closest('.prof'); if(!b) return; state.prof=b.dataset.p; save(); render(); });
+$('from').addEventListener('input', e=>{ state.from=e.target.value; save(); render(); });
+$('to').addEventListener('input', e=>{ state.to=e.target.value; save(); render(); });
+document.querySelector('.quick').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; state.to=+b.dataset.to; $('to').value=state.to; if(+state.from>=state.to){state.from=Math.max(1,state.to-75); $('from').value=state.from;} save(); render(); });
+$('shop').addEventListener('change', e=>{ if(!e.target.dataset.k) return; if(e.target.checked) owned[e.target.dataset.k]=1; else delete owned[e.target.dataset.k]; store.set('owned',owned); render(); });
+$('openUpl').addEventListener('click', ()=>{ $('upl').hidden = false; $('upl').scrollIntoView({behavior:'smooth', block:'nearest'}); });
+$('closeUpl').addEventListener('click', ()=>{ $('upl').hidden = true; });
+$('clearScan').addEventListener('click', ()=>{ scan = null; store.set('scan', null); renderSource(); render(); });
+$('realm').addEventListener('change', e=>{ scan.sel = +e.target.value; store.set('scan', scan); renderSource(); render(); });
+$('copyPath').addEventListener('click', async ()=>{ const t = 'World of Warcraft\\_forever_\\WTF\\Account\\'; try { await navigator.clipboard.writeText(t); $('copyPath').textContent='已複製'; } catch(e){} setTimeout(()=>$('copyPath').textContent='複製路徑',1500); });
+$('file').addEventListener('change', async e=>{
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const err = $('uplErr'); err.hidden = true;
+  if (/\.bak$/i.test(f.name)) { err.textContent = '選到的是 .bak 備份檔，請改選 Auctionator.lua。'; err.hidden = false; return; }
+  try {
+    const realms = readAuctionator(await f.arrayBuffer(), WANTED);
+    scan = { name: f.name, at: Date.now(), realms, sel: 0 };
+    store.set('scan', scan);
+    $('upl').hidden = true;
+    renderSource(); render();
+  } catch (ex) { err.textContent = '讀不到價格：' + ex.message; err.hidden = false; }
+});
+$('copy').addEventListener('click', async ()=>{
+  const txt = window.__title + '\n' + window.__list.join('\n');
+  try { await navigator.clipboard.writeText(txt); }
+  catch(e){ const t=document.createElement('textarea'); t.value=txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+  $('copy').textContent='已複製'; setTimeout(()=>$('copy').textContent='複製購物清單',1500);
+});
+renderSource();
+render();
+</script>
+</body>
+</html>

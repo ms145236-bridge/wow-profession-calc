@@ -1,0 +1,6 @@
+{
+  "name": "wow-profession-calc-tools",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": { "cheerio": "^1.2.0" }
+}

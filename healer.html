@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>治療 HPS 計算器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0d0b; --panel:#17150f; --panel2:#1f1c15; --line:#2e2a20; --text:#e8e2d4; --muted:#9a9282;
+  --gold:#d9b25f; --gold2:#f0cf7f; --warn:#ff9d5c; --ok:#9fd18b; --bad:#ff7b7b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Noto Sans TC",system-ui,sans-serif}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+.nav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.nav a{border:1px solid var(--line);color:var(--muted);padding:5px 12px;border-radius:6px;font-size:13px}
+.nav a:hover{color:var(--text);border-color:#5a4f35}
+.nav a[aria-current=page]{color:var(--gold2);border-color:#5a4a25;background:#231d10}
+h1{font-family:"Noto Serif TC",serif;font-size:28px;margin:0 0 4px;color:var(--gold2);letter-spacing:.02em}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+h2{font-family:"Noto Serif TC",serif;font-size:20px;color:var(--gold2);margin:28px 0 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h2 .hint{font-family:"Noto Sans TC";font-size:13px;color:var(--muted);font-weight:400}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.controls{display:grid;gap:14px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:6px 12px;border-radius:999px;cursor:pointer;font:inherit;font-size:14px}
+.pill:hover{border-color:#5a4f35}
+.pill[aria-pressed=true]{background:var(--gold);color:#1a1408;border-color:var(--gold);font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:var(--panel2);color:var(--muted);border:0;border-right:1px solid var(--line);padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:#3a2f17;color:var(--gold2);font-weight:700}
+.segs{display:flex;flex-wrap:wrap;gap:14px;align-items:end}
+.segs .lab{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:end}
+label.f{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+input[type=number]{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit;width:96px}
+label.t{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
+label.t input{width:16px;height:16px;accent-color:var(--gold);margin-top:3px;flex:none}
+.toggles{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:7px 10px;cursor:pointer;font:inherit;font-size:13px}
+.ghost:hover{color:var(--text);border-color:#5a4f35}
+.box{background:var(--panel2);border:1px solid #4a3d1f;border-radius:8px;padding:12px 14px;display:grid;gap:10px}
+.dim{color:var(--muted);font-size:13px}
+.saved{font-size:12px;color:var(--ok)}
+details.adv>summary{cursor:pointer;color:var(--gold2);font-size:14px;list-style:none}
+details.adv>summary::before{content:"▸ ";}
+details.adv[open]>summary::before{content:"▾ ";}
+details.adv[open]>summary{margin-bottom:12px}
+.summary{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;margin-top:16px;padding:14px 16px;background:linear-gradient(90deg,#231d10,#17150f);border:1px solid #4a3d1f;border-radius:10px}
+.summary .k{color:var(--muted);font-size:13px}
+.summary .v{font-size:18px;font-weight:700}
+.summary .meta{color:var(--muted);font-size:13px;flex-basis:100%}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{white-space:nowrap;font-size:12px;color:var(--muted);font-weight:500;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);cursor:default}
+th.sort{cursor:pointer}
+th.sort:hover{color:var(--text)}
+th.on{color:var(--gold2)}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.nm{font-weight:500}
+.nm small{color:var(--muted);font-weight:400;margin-left:4px}
+tr.best td{background:#231d10}
+.tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:#3d5a33}
+.tag.mid{color:var(--warn);border-color:#5a4126}
+.tag.bad{color:var(--bad);border-color:#5a2a2a}
+.note{display:block;font-size:12px;color:var(--muted);white-space:normal;max-width:340px}
+.empty{color:var(--muted);text-align:center;padding:24px;white-space:normal}
+.fine{color:var(--muted);font-size:13px;line-height:1.8}
+.fine b{color:var(--text)}
+.fine a{color:var(--gold2);text-decoration:underline}
+code{background:#0b0a08;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:13px}
+@media (max-width:720px){ td,th{padding:7px 6px} .hide-m{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav" aria-label="工具"><a href="./">專業衝級計算器</a><a href="healer.html" aria-current="page">治療 HPS 計算器</a></nav>
+  <h1>治療 HPS 計算器</h1>
+  <p class="sub">魔獸世界：永恆 · 比較治療職各技能、各等級的 HPS（每秒治療）與 HPM（每點法力治療）。單補與群補分開比較。你填的數值會依職業分別存在這台電腦的瀏覽器裡。</p>
+
+  <div class="panel controls">
+    <div class="pills" id="specs" role="group" aria-label="專精"></div>
+    <div class="row" id="stats"></div>
+    <div id="specBox"></div>
+    <div class="segs">
+      <div class="lab">補法<div class="seg" id="mode"></div></div>
+      <div class="lab">速率分母<div class="seg" id="rate"></div></div>
+      <div class="lab">排序<div class="seg" id="sort"></div></div>
+    </div>
+    <div class="row" id="groupRow"></div>
+    <details class="adv" id="adv">
+      <summary>進階選項</summary>
+      <div class="controls">
+        <p class="dim" id="specHint" style="margin:0"></p>
+        <div class="row" id="advNums"></div>
+        <div class="toggles" id="advToggles"></div>
+        <div class="row">
+          <button class="ghost" id="resetSpec">重設這個職業的數值</button>
+          <button class="ghost" id="resetView">重設顯示選項</button>
+          <span class="saved" id="saved"></span>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <h2>比較表 <span class="hint" id="caption"></span></h2>
+  <div class="panel scroll" style="padding:4px 6px">
+    <table>
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <h2>公式</h2>
+  <div class="fine">
+    <p><b>有效量</b> ＝（基礎平均 ＋ 治療效果 × 係數 × 降級係數）× 對應加成。治療加成% 不乘真言術：盾；吸收加成% 只乘盾。</p>
+    <p><b>HPS</b> ＝ 顯示的有效量 ÷ 速率分母。分母有三種：<b>施法占用</b>＝max(施法或引導時間, GCD)；<b>效果期間</b>＝HoT 用持續時間，直接治療用施法占用；<b>冷卻上限</b>＝max(CD, 施法占用)。<b>HPM</b> ＝ 有效量 ÷ 實際法力。</p>
+    <p><b>降級衰減</b>（ForeverChanges 依 Beta 實測）：學會該階技能後 17 級內不打折，之後每多 1 級，係數 −5%，學會後 37 級歸零。只扣「治療效果 × 係數」那一段，基礎量不扣。經典版「低於 20 級的技能再打折」的規則，永恆沒有（永恆客戶端每一階都存完整係數）。</p>
+    <p><b>群補</b>：治療禱言、神聖新星、野性成長、寧靜、聖光守望、愈合禱言＝每人量 × 目標數；治療鏈＝1 ＋ 0.5 ＋ 0.25（每跳減半）。束縛治療在單補表顯示「單側 ×2」，HPS／HPM 用兩人總量。</p>
+    <p>不含爆擊、溢補與被覆蓋的 HoT；HoT 假設完整跑完。</p>
+  </div>
+
+  <h2>來源與注意事項</h2>
+  <div class="fine">
+    <p>數值以 ForeverChanges 1.60.1.70790 為主，核對時間 2026-11-06（台北時間）。不混用經典版與現行版資料。「可靠」欄：<span class="tag ok">已交叉核對</span> <span class="tag mid">單一來源待核</span> <span class="tag bad">係數未確認</span>。</p>
+    <p>聖光誓約（Oath of Light）60 級時最多聖光術 +400、聖光閃現 +115、神聖震擊 +230。60 級以下的數值、是否依技能階級縮減、是否吃治療之光，都是伺服器端腳本，未公開；進階選項裡的兩個開關只是假設。愈合的 HoT 只有 1 階（91）和 9 階（994）有客戶端數值，2～8 階不列；HoT 係數未公開，預設 0。</p>
+    <p>資料改在 <code>healer-data.js</code>，計算邏輯在本頁。
+      <a href="https://foreverchanges.pro/zh-cn/downrank-calculator" target="_blank" rel="noopener">ForeverChanges 降級計算器</a> ·
+      <a href="https://foreverchanges.pro/class/priest" target="_blank" rel="noopener">ForeverChanges 牧師變更</a></p>
+  </div>
+</div>
+
+<script src="healer-data.js"></script>
+<script>
+// ── 本機暫存：每個職業各自一份數值，顯示選項共用一份 ─────────────
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('hc.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('hc.' + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+};
+const SPEC_DEF = { level: '60', heal: '300', healPct: '0', absorbPct: '0', manaReduce: '0', castReduce: '0',
+  oath: false, oathHl: '0', oathFol: '0', oathHs: '0', oathDecay: false, oathMult: true, rgHotCoeff: '0', vigilShock: true };
+const VIEW_DEF = { spec: 'paladin_holy', mode: 'single', groupMetric: 'total', sortKey: 'hps', rateMode: 'cast', targets: '5',
+  applyDownrank: true, onlyAvail: true, includeTalent: true, includeHot: true, includeAbsorb: true, includeCd: false };
+const SPEC_IDS = SPEC_OPTIONS.map(s => s.value);
+let view = Object.assign({}, VIEW_DEF, store.get('view', {}));
+if (!SPEC_IDS.includes(view.spec)) view.spec = VIEW_DEF.spec;
+const profiles = {};
+SPEC_IDS.forEach(id => { profiles[id] = Object.assign({}, SPEC_DEF, store.get('spec.' + id, {})); });
+const P = () => profiles[view.spec];
+let savedTimer;
+function save() {
+  const ok = store.set('view', view) && store.set('spec.' + view.spec, P());
+  const el = document.getElementById('saved');
+  el.textContent = ok ? '已存在這台電腦' : '瀏覽器不允許本機儲存，關掉頁面後數值不會保留';
+  clearTimeout(savedTimer); savedTimer = setTimeout(() => { el.textContent = ''; }, 1800);
+}
+
+// ── 計算 ─────────────────────────────────────────────────────────
+const num = (s, fb) => { const n = Number(String(s).replace(/,/g, '')); return String(s).trim() !== '' && Number.isFinite(n) ? n : fb; };
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+function foreverDownrank(playerLevel, learnLevel) {
+  const after = playerLevel - learnLevel;
+  return after <= 17 ? 1 : Math.max(0, 1 - 0.05 * (after - 17));
+}
+function chainFactor(t) { let sum = 0, f = 1; for (let i = 0; i < t; i++) { sum += f; f *= 0.5; } return sum; }
+function castOccupy(s, castReduce) {
+  if (s.kind === 'channel') return Math.max(s.cast, s.duration || s.cast, s.gcd);
+  return Math.max(Math.max(0, s.cast - castReduce), s.gcd);
+}
+
+function compute() {
+  const p = P(), spec = view.spec;
+  const level = clamp(Math.floor(num(p.level, 60)), 1, 60);
+  const healing = Math.max(0, num(p.heal, 0));
+  const healPct = clamp(num(p.healPct, 0), 0, 50) / 100;
+  const absorbPct = clamp(num(p.absorbPct, 0), 0, 50) / 100;
+  const manaReduce = clamp(num(p.manaReduce, 0), 0, 50) / 100;
+  const castReduce = Math.max(0, num(p.castReduce, 0));
+  const targetsWanted = clamp(Math.floor(num(view.targets, 5)), 1, 5);
+  const rgHotCoeff = clamp(num(p.rgHotCoeff, 0), 0, 2);
+  const oath = { hl: Math.max(0, num(p.oathHl, 0)), fol: Math.max(0, num(p.oathFol, 0)), hs: Math.max(0, num(p.oathHs, 0)) };
+
+  const rows = SPELLS.filter(s => s.specs.includes(spec)).map(s => {
+    const down = view.applyDownrank ? foreverDownrank(level, s.learnLevel) : 1;
+    const coeffEff = s.coeff * down;
+    const avg = (s.healMin + s.healMax) / 2;
+    const mult = s.kind === 'absorb' ? (s.absorbPctApplies ? 1 + absorbPct : 1) : (s.healPctApplies ? 1 + healPct : 1);
+    let oathAdd = 0;
+    if (p.oath && spec === 'paladin_holy' && oath[s.id] != null) oathAdd = oath[s.id];
+    if (p.oathDecay) oathAdd *= down;
+    let perHeal = p.oathMult ? (avg + oathAdd + healing * coeffEff) * mult : (avg + healing * coeffEff) * mult + oathAdd;
+    if (s.id === 'rgh') perHeal += ((s.hotBase || 0) + healing * rgHotCoeff * down) * mult;
+
+    const tCap = Math.min(targetsWanted, s.maxTargets);
+    let totalHeal = perHeal, targetsUsed = 1;
+    if (s.id === 'bh') { totalHeal = perHeal * 2; targetsUsed = 2; }
+    else if (s.group) {
+      targetsUsed = tCap;
+      totalHeal = s.groupModel === 'chain50' ? perHeal * chainFactor(tCap) : perHeal * tCap;
+    }
+
+    let manaEff = s.mana * (1 - manaReduce);
+    let occupy = castOccupy(s, castReduce);
+    // 聖光守望要接一發神聖震擊才有治療：法力加上震擊，時間多一個 GCD
+    if (s.id === 'vigil' && p.vigilShock) {
+      const hs = SPELLS.filter(x => x.id === 'hs' && level >= x.learnLevel).sort((a, b) => b.rank - a.rank)[0];
+      if (hs) manaEff += hs.mana * (1 - manaReduce);
+      occupy += 1.5;
+    }
+    let timeEff = occupy;
+    if (view.rateMode === 'effect' && (s.kind === 'hot' || s.kind === 'channel')) timeEff = Math.max(s.duration || occupy, occupy);
+    else if (view.rateMode === 'cooldown') timeEff = Math.max(s.cd > 0 ? s.cd : occupy, occupy);
+
+    const displayHeal = s.id === 'bh' || (view.mode === 'group' && s.group && view.groupMetric === 'total') ? totalHeal : perHeal;
+    return Object.assign({}, s, { perHeal, totalHeal, displayHeal, manaEff, timeEff, targetsUsed, down,
+      hps: timeEff > 0 ? displayHeal / timeEff : 0, hpm: manaEff > 0 ? displayHeal / manaEff : 0 });
+  });
+
+  let list = rows.filter(r => view.mode === 'group' ? r.group : !r.group);
+  if (view.onlyAvail) list = list.filter(r => level >= r.learnLevel);
+  if (!view.includeTalent) list = list.filter(r => !r.talent);
+  if (!view.includeHot) list = list.filter(r => r.kind !== 'hot' && r.kind !== 'channel');
+  if (!view.includeAbsorb) list = list.filter(r => r.kind !== 'absorb');
+  if (!view.includeCd) list = list.filter(r => r.cd <= 0 || r.id === 'hs');
+  const key = { hps: 'hps', hpm: 'hpm', heal: 'displayHeal' }[view.sortKey];
+  list.sort((a, b) => b[key] - a[key]);
+  return { list, level, targetsWanted };
+}
+
+// ── 畫面 ─────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = (n, d = 1) => Number.isFinite(n) ? n.toLocaleString('zh-Hant', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—';
+const fmtInt = n => Number.isFinite(n) ? Math.round(n).toLocaleString('zh-Hant') : '—';
+const numField = (src, k, label, extra = '') => `<label class="f">${label}<input type="number" data-src="${src}" data-k="${k}" value="${esc((src === 'p' ? P() : view)[k])}" ${extra}></label>`;
+const toggle = (src, k, label) => `<label class="t"><input type="checkbox" data-src="${src}" data-k="${k}" ${(src === 'p' ? P() : view)[k] ? 'checked' : ''}><span>${label}</span></label>`;
+const seg = (k, opts) => opts.map(([v, l]) => `<button type="button" data-seg="${k}" data-v="${v}" aria-pressed="${view[k] === v}">${l}</button>`).join('');
+const RATE_LABEL = { cast: '施法占用', effect: '效果期間', cooldown: '冷卻上限' };
+const REL_CLASS = { '已交叉核對': 'ok', '單一來源待核': 'mid', '係數未確認': 'bad' };
+
+function renderControls() {
+  const spec = view.spec, isPriest = spec === 'priest_holy' || spec === 'priest_disc';
+  $('specs').innerHTML = SPEC_OPTIONS.map(s => `<button class="pill" data-spec="${s.value}" aria-pressed="${s.value === spec}">${s.label}</button>`).join('');
+  $('stats').innerHTML = numField('p', 'level', '角色等級', 'min="1" max="60"') + numField('p', 'heal', '治療效果', 'min="0"')
+    + numField('p', 'healPct', '治療加成 %', 'min="0" max="50"') + (isPriest ? numField('p', 'absorbPct', '吸收加成 %（只算盾）', 'min="0" max="50"') : '');
+  let box = '';
+  if (spec === 'paladin_holy') {
+    box = `<div class="box">${toggle('p', 'oath', '聖光誓約 Oath of Light（對誓約目標）')}`;
+    if (P().oath) box += `<div class="dim">60 級上限：聖光術 400、聖光閃現 115、神聖震擊 230（客戶端）。60 級以下的數值未公開，請自行填寫；下面兩個開關只是假設，結果不是確定值。</div>
+      <div class="row">${numField('p', 'oathHl', '聖光術 ＋固定量')}${numField('p', 'oathFol', '聖光閃現 ＋固定量')}${numField('p', 'oathHs', '神聖震擊 ＋固定量')}</div>
+      <div class="toggles">${toggle('p', 'oathDecay', '假設：誓約加成也照降級衰減')}${toggle('p', 'oathMult', '假設：誓約加成也吃治療加成 %')}</div>`;
+    box += '</div>';
+  } else if (spec === 'druid_resto') {
+    box = '<div class="dim">愈合分兩列：「不含HoT」與「直接＋完整HoT」（21 秒全程跑完、沒被覆蓋或溢補）。兩列是同一次施法的兩種算法。</div>';
+  }
+  $('specBox').innerHTML = box;
+  $('mode').innerHTML = seg('mode', [['single', '單補'], ['group', '群補']]);
+  $('rate').innerHTML = seg('rateMode', [['cast', '施法占用'], ['effect', '效果期間'], ['cooldown', '冷卻上限']]);
+  $('sort').innerHTML = seg('sortKey', [['hps', 'HPS'], ['hpm', 'HPM'], ['heal', '有效量']]);
+  $('groupRow').innerHTML = view.mode === 'group'
+    ? numField('v', 'targets', '有效目標數（1～5，治療鏈最多 3）', 'min="1" max="5"') + `<div class="segs"><div class="lab">群補數值<div class="seg">${seg('groupMetric', [['per', '每人／首跳'], ['total', '總量']])}</div></div></div>` : '';
+  $('specHint').textContent = SPEC_OPTIONS.find(s => s.value === spec).hint;
+  $('advNums').innerHTML = numField('p', 'manaReduce', '法力降低 %', 'min="0" max="50"') + numField('p', 'castReduce', '施法縮短（秒）', 'min="0" step="0.1"')
+    + (spec === 'druid_resto' ? numField('p', 'rgHotCoeff', '愈合 HoT 係數（待核）', 'min="0" max="2" step="0.01"') : '');
+  $('advToggles').innerHTML = toggle('v', 'applyDownrank', '降級衰減（學會後超過 17 級，每級 −5%；社群 Beta 觀察）')
+    + toggle('v', 'onlyAvail', '只顯示目前等級學得到的技能') + toggle('v', 'includeTalent', '含天賦技能')
+    + toggle('v', 'includeHot', '含 HoT／引導') + (isPriest ? toggle('v', 'includeAbsorb', '含吸收（真言術：盾）') : '')
+    + toggle('v', 'includeCd', '含冷卻技能（神聖震擊一律列出；群補或「冷卻上限」會自動打開）')
+    + (spec === 'paladin_holy' ? toggle('p', 'vigilShock', '聖光守望：法力加上一發神聖震擊，時間多 1.5 秒') : '');
+}
+
+function renderTable() {
+  const { list, level } = compute();
+  const g = view.mode === 'group';
+  const cols = [['技能'], ['學習', 'num'], ['類型', 'hide-m'], ['基礎', 'num hide-m'], ['有效量', 'num', 'heal'], ['法力', 'num'], ['CD', 'num hide-m'], ['秒', 'num'], ['HPS', 'num', 'hps'], ['HPM', 'num', 'hpm'], ['可靠', 'hide-m']];
+  $('thead').innerHTML = cols.map(([l, c = '', k]) => `<th class="${c}${k ? ' sort' : ''}${k === view.sortKey ? ' on' : ''}"${k ? ` data-sortk="${k}" title="依${l}排序"` : ''}>${l}${k === view.sortKey ? ' ▾' : ''}</th>`).join('');
+  const bestHps = list.reduce((b, r) => !b || r.hps > b.hps ? r : b, null);
+  const bestHpm = list.reduce((b, r) => !b || r.hpm > b.hpm ? r : b, null);
+  $('tbody').innerHTML = list.length ? list.map(r => {
+    const kind = r.id === 'rgh' ? '直接＋HoT 21秒' : r.kind === 'hot' ? `HoT ${r.duration ? r.duration + '秒' : ''}` : r.kind === 'absorb' ? '吸收' : r.kind === 'channel' ? '引導' : '直接';
+    let amt;
+    if (g) amt = view.groupMetric === 'total' ? `${fmtInt(r.totalHeal)}<small class="dim">（${r.targetsUsed}人）</small>` : r.groupModel === 'chain50' ? `首跳 ${fmtInt(r.perHeal)}` : `${fmtInt(r.perHeal)}/人`;
+    else amt = r.id === 'bh' ? `${fmtInt(r.perHeal)}×2` : fmtInt(r.perHeal);
+    const downTxt = r.down < 0.9995 ? `<small title="係數乘上 ${fmt(r.down * 100, 0)}%">降級 ${fmt(r.down * 100, 0)}%</small>` : '';
+    return `<tr class="${r === bestHps ? 'best' : ''}">
+      <td><span class="nm">${esc(r.name)} <small>${r.rank} 階</small>${r.talent ? '<small>天賦</small>' : ''}${downTxt}</span>${r.note ? `<span class="note">${esc(r.note)}</span>` : ''}</td>
+      <td class="num">${r.learnLevel}</td><td class="hide-m">${kind}</td><td class="num hide-m">${r.healMin === r.healMax ? r.healMin : r.healMin + '–' + r.healMax}</td>
+      <td class="num">${amt}</td><td class="num">${fmtInt(r.manaEff)}</td><td class="num hide-m">${r.cd > 0 ? r.cd : '—'}</td>
+      <td class="num">${fmt(r.timeEff, 1)}</td><td class="num"><b>${fmt(r.hps, 1)}</b></td><td class="num">${fmt(r.hpm, 2)}</td>
+      <td class="hide-m"><span class="tag ${REL_CLASS[r.reliability] || ''}">${esc(r.reliability)}</span></td></tr>`;
+  }).join('') : '<tr><td colspan="11" class="empty">這個篩選條件下沒有技能。可以在進階選項打開「含冷卻技能」，或切換單補／群補。</td></tr>';
+
+  const lead = `${g ? `群補 · ${view.groupMetric === 'total' ? '總量' : '每人／首跳'}` : '單補'} · ${RATE_LABEL[view.rateMode]} · ${level} 級${view.includeCd ? '' : ' · 已排除冷卻技能'}`;
+  $('summary').innerHTML = `<div><div class="k">最高 HPS</div><div class="v">${bestHps ? `${esc(bestHps.name)} ${bestHps.rank} 階 · ${fmt(bestHps.hps, 1)}` : '—'}</div></div>
+    <div><div class="k">最高 HPM</div><div class="v">${bestHpm ? `${esc(bestHpm.name)} ${bestHpm.rank} 階 · ${fmt(bestHpm.hpm, 2)}` : '—'}</div></div>
+    <div class="meta">${lead} · 共 ${list.length} 筆${!g && view.rateMode === 'cast' && bestHps && bestHps.cd > 0 ? ' · 最高 HPS 是冷卻技能，不能連續施放' : ''}</div>`;
+  $('caption').textContent = g ? '每人量 × 目標數；治療鏈為 1＋0.5＋0.25' : '束縛治療顯示單側 ×2，HPS／HPM 用兩人總量；盾的 CD 是同目標虛弱靈魂 15 秒';
+}
+function renderAll() { renderControls(); renderTable(); }
+
+document.addEventListener('click', e => {
+  const sp = e.target.closest('[data-spec]');
+  if (sp) { view.spec = sp.dataset.spec; save(); renderAll(); return; }
+  const sg = e.target.closest('[data-seg]');
+  if (sg) {
+    const k = sg.dataset.seg, v = sg.dataset.v; view[k] = v;
+    if (k === 'mode') view.includeCd = v === 'group';
+    if (k === 'rateMode' && v === 'cooldown') view.includeCd = true;
+    save(); renderAll(); return;
+  }
+  const th = e.target.closest('[data-sortk]');
+  if (th) { view.sortKey = th.dataset.sortk; save(); renderAll(); }
+});
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.k) return;
+  const obj = el.dataset.src === 'p' ? P() : view;
+  obj[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value;
+  save();
+  if (el.type === 'checkbox') renderAll(); else renderTable();
+});
+$('resetSpec').addEventListener('click', () => { profiles[view.spec] = Object.assign({}, SPEC_DEF); save(); renderAll(); });
+$('resetView').addEventListener('click', () => { view = Object.assign({}, VIEW_DEF, { spec: view.spec }); save(); renderAll(); });
+renderAll();
+</script>
+</body>
+</html>
