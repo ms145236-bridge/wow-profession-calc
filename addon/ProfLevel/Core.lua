@@ -246,7 +246,7 @@ local function pickRoute(prof, S, T)
 end
 
 -- ── 視窗 ───────────────────────────────────────────────────────────────────
-local W, ROW_H, MAXLINES, TOP, GAP = 460, 20, 18, 108, 10
+local W, ROW_H, MAXLINES, TOP, GAP = 460, 20, 18, 144, 10
 local frame, offset = nil, 0
 local TABS = {
   steps = { { "等級", 50, "RIGHT" }, { "製作", 150, "LEFT", true }, { "次數", 40, "RIGHT" }, { "來源", 70, "LEFT" } },
@@ -468,9 +468,9 @@ local function buildFrame()
   frame.nowBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第二、三列：價格來源、總花費
   frame.status = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  frame.status:SetPoint("TOPLEFT", 14, -56); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
+  frame.status:SetPoint("TOPLEFT", 14, -58); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
   frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  frame.total:SetPoint("TOPLEFT", 14, -72); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
+  frame.total:SetPoint("TOPLEFT", 14, -76); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
   -- 分頁與購物清單按鈕
   frame.stepsBtn = button(frame, 60, "步驟", function() db.tab = "steps"; offset = 0; ProfLevel_Refresh() end)
   frame.shopBtn = button(frame, 76, "購物清單", function() db.tab = "shop"; offset = 0; ProfLevel_Refresh() end)
@@ -491,10 +491,10 @@ local function buildFrame()
     local fs = head:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); fs:SetWordWrap(false); fs:SetTextColor(.6, .57, .5)
     frame.headFs[c] = fs
   end
-  -- 分頁按鈕放在表頭上方右側
-  frame.stepsBtn:SetPoint("BOTTOMLEFT", head, "TOPLEFT", -2, 6)
+  -- 分頁按鈕自成一列（在花費那行下面、表頭上面），不會壓到文字
+  frame.stepsBtn:SetPoint("TOPLEFT", 12, -98)
   frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
-  frame.atrBtn:SetPoint("BOTTOMRIGHT", head, "TOPRIGHT", 2, 6)
+  frame.atrBtn:SetPoint("TOPRIGHT", -12, -98)
   frame.lines = {}
   for i = 1, MAXLINES do
     local l = CreateFrame("Frame", nil, frame)
@@ -603,7 +603,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.1.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.1.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
