@@ -26,7 +26,7 @@ local MINING = { key = "mining", name = "採礦", line = 186 }
 PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業助手|r " .. s) end
@@ -45,6 +45,7 @@ local function ensureDB()
   for k, v in pairs(DEFAULTS) do if ProfLevelCharDB[k] == nil then ProfLevelCharDB[k] = type(v) == "table" and {} or v end end
   db = ProfLevelCharDB
   if db.dockV ~= 1 then db.dock = false; db.dockV = 1 end -- 自動開改成預設關閉（用得到再打開）
+  if db.tabV ~= 1 then db.tab = "profit"; db.tabV = 1 end -- 主體改成利潤與佇列，衝級變成其中一個分頁
   return db
 end
 
@@ -730,8 +731,12 @@ local function refreshImpl()
       r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
   end
   frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關"); fitButton(frame.decBtn, 120)
-  for _, t in ipairs({ { frame.stepsBtn, "steps" }, { frame.shopBtn, "shop" }, { frame.profitBtn, "profit" }, { frame.queueBtn, "queue" } }) do
-    local on = db.tab == t[2]
+  local isLv = db.tab == "steps" or db.tab == "shop"
+  for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
+  frame.decBtn:ClearAllPoints()
+  frame.decBtn:SetPoint("LEFT", isLv and frame.shopBtn or frame.levelBtn, "RIGHT", isLv and 10 or 16, 0)
+  for _, t in ipairs({ { frame.stepsBtn, "steps" }, { frame.shopBtn, "shop" }, { frame.profitBtn, "profit" }, { frame.queueBtn, "queue" }, { frame.levelBtn, "level" } }) do
+    local on = db.tab == t[2] or (t[2] == "level" and isLv)
     t[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
   frame.atrBtn:SetShown(api ~= nil and api.CreateShoppingList ~= nil)
@@ -939,11 +944,11 @@ local function buildFrame()
   frame.prevBtn:SetScript("OnClick", function() cycle(-1) end)
   frame.nextBtn:SetScript("OnClick", function() cycle(1) end)
   frame.profBtn:SetScript("OnClick", function() cycle(1) end)
-  local fromLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fromLbl:SetText("從")
+  local fromLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fromLbl:SetText("從"); frame.fromLbl = fromLbl
   fromLbl:SetPoint("LEFT", frame.nextBtn, "RIGHT", 12, 0)
   frame.fromBox = numBox(frame, function(v) db.from[db.prof] = v end)
   frame.fromBox:SetPoint("LEFT", fromLbl, "RIGHT", 8, 0)
-  local toLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); toLbl:SetText("到")
+  local toLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); toLbl:SetText("到"); frame.toLbl = toLbl
   toLbl:SetPoint("LEFT", frame.fromBox, "RIGHT", 8, 0)
   frame.toBox = numBox(frame, function(v) db.to[db.prof] = v end)
   frame.toBox:SetPoint("LEFT", toLbl, "RIGHT", 8, 0)
@@ -959,8 +964,9 @@ local function buildFrame()
   frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   frame.total:SetPoint("TOPLEFT", 14, -88); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
   -- 分頁與購物清單按鈕
-  frame.stepsBtn = button(frame, 60, "步驟", function() db.tab = "steps"; offset = 0; ProfLevel_Refresh() end)
-  frame.shopBtn = button(frame, 76, "購物清單", function() db.tab = "shop"; offset = 0; ProfLevel_Refresh() end)
+  frame.stepsBtn = button(frame, 50, "步驟", function() db.tab = "steps"; db.lvTab = "steps"; offset = 0; ProfLevel_Refresh() end)
+  frame.shopBtn = button(frame, 50, "材料", function() db.tab = "shop"; db.lvTab = "shop"; offset = 0; ProfLevel_Refresh() end)
+  frame.levelBtn = button(frame, 50, "衝級", function() db.tab = db.lvTab or "steps"; offset = 0; ProfLevel_Refresh() end)
   frame.profitBtn = button(frame, 50, "利潤", function() db.tab = "profit"; offset = 0; ProfLevel_Refresh() end)
   frame.queueBtn = button(frame, 50, "佇列", function() db.tab = "queue"; offset = 0; ProfLevel_Refresh() end)
   frame.act1 = button(frame, 120, "", function(self) if self.fn then safe("動作", self.fn) end; ProfLevel_Refresh() end)
@@ -993,12 +999,13 @@ local function buildFrame()
     frame.headBtns[c] = hb
   end
   -- 分頁按鈕自成一列（在花費那行下面、表頭上面），不會壓到文字
-  frame.stepsBtn:SetPoint("TOPLEFT", 12, -116)
-  frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
+  frame.profitBtn:SetPoint("TOPLEFT", 12, -116)
   frame.decBtn = button(frame, 120, "", function() db.decompose = not db.decompose; ProfLevel_Refresh() end)
-  frame.profitBtn:SetPoint("LEFT", frame.shopBtn, "RIGHT", 2, 0)
   frame.queueBtn:SetPoint("LEFT", frame.profitBtn, "RIGHT", 2, 0)
-  frame.decBtn:SetPoint("LEFT", frame.queueBtn, "RIGHT", 10, 0)
+  frame.levelBtn:SetPoint("LEFT", frame.queueBtn, "RIGHT", 2, 0)
+  -- 衝級的子分頁：步驟／材料
+  frame.stepsBtn:SetPoint("LEFT", frame.levelBtn, "RIGHT", 16, 0)
+  frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
   frame.decBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine("拆中間材料")
@@ -1245,7 +1252,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.4.2　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.5.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
