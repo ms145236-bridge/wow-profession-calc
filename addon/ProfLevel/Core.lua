@@ -44,7 +44,7 @@ local function ensureDB()
   ProfLevelCharDB = ProfLevelCharDB or {}
   for k, v in pairs(DEFAULTS) do if ProfLevelCharDB[k] == nil then ProfLevelCharDB[k] = type(v) == "table" and {} or v end end
   db = ProfLevelCharDB
-  if db.dockV ~= 1 then db.dock = false; db.dockV = 1 end -- 自動開改成預設關閉（用得到再打開）
+  if (db.dockV or 0) < 2 then db.dock = false; db.dockV = 2 end -- 自動開改成預設關閉（點了才打開）
   if db.tabV ~= 1 then db.tab = "profit"; db.tabV = 1 end -- 主體改成利潤與佇列，衝級變成其中一個分頁
   return db
 end
@@ -1176,6 +1176,10 @@ local function selectedRecipe()
 end
 local function updateProfUI()
   if not profUI or not profUI:IsVisible() then return end
+  local open = frame and frame:IsShown() and true or false
+  profUI.text:SetShown(open); profUI.addBtn:SetShown(open)
+  profUI.openBtn:SetText(open and "關閉助手" or "專業助手"); fitButton(profUI.openBtn, 110)
+  if not open then return end
   local p, id = openProf(), selectedRecipe()
   profUI.id, profUI.prof, profUI.rec = id, p and p.key, nil
   if not p or not id then profUI.text:SetText(""); return end
@@ -1194,13 +1198,18 @@ local function updateProfUI()
   end
   profUI.text:SetText(txt .. (qn > 0 and string.format("　|cffffd100佇列 ×%d|r", qn) or ""))
 end
-local function dockOpen()
-  if not db.dock or not ProfessionsFrame then return end
+local function dockOpen(force)
+  if (not force and not db.dock) or not ProfessionsFrame then return end
   local p = openProf()
   if p then db.prof = p.key end
   if not frame then buildFrame() end
   frame:ClearAllPoints(); frame:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", 6, 0)
   docked = true
+  if not frame.profHooked then -- 助手開關時，專業視窗裡的面板跟著顯示或收起
+    frame.profHooked = true
+    frame:HookScript("OnShow", function() safe("專業視窗", updateProfUI) end)
+    frame:HookScript("OnHide", function() safe("專業視窗", updateProfUI) end)
+  end
   frame:Show(); ProfLevel_Refresh()
 end
 local function dockClose()
@@ -1217,7 +1226,7 @@ local function setupProfUI()
   profUI.text = profUI:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   profUI.text:SetPoint("TOPLEFT", 2, 0); profUI.text:SetJustifyH("LEFT")
   local b = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  b:SetSize(110, 24); b:SetText("加入佇列"); b:SetPoint("TOPLEFT", 0, -22)
+  b:SetSize(110, 24); b:SetText("加入佇列"); profUI.addBtn = b
   b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b:SetScript("OnClick", function(_, btn)
     if not profUI.id then return end
@@ -1235,8 +1244,10 @@ local function setupProfUI()
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   fitButton(b, 110)
   local o = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  o:SetSize(110, 24); o:SetText("專業助手"); o:SetPoint("LEFT", b, "RIGHT", 6, 0)
-  o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else db.dock = true; dockOpen() end end)
+  o:SetSize(110, 24); o:SetText("專業助手"); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
+  b:SetPoint("LEFT", o, "RIGHT", 6, 0)
+  -- 點了才打開（不會改「自動開啟」的設定）
+  o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else dockOpen(true) end end)
   fitButton(o, 110)
   if sf.Init then hooksecurefunc(sf, "Init", function() C_Timer.After(0, function() safe("專業視窗", updateProfUI) end) end) end
   profUI:SetScript("OnShow", function() safe("專業視窗", updateProfUI) end)
@@ -1310,7 +1321,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.6.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.6.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
