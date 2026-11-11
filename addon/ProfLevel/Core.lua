@@ -26,7 +26,7 @@ local MINING = { key = "mining", name = "採礦", line = 186 }
 PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {} }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業衝級|r " .. s) end
@@ -380,15 +380,230 @@ local function decompose(r, learned)
     crafts = crafts, saved = saved, totalBefore = r.total }
 end
 
+local current -- 最近一次計算的結果
+-- ── 已學配方（打開專業視窗時記下）、利潤、製作佇列 ───────────────────────
+local function openProf()
+  local T = C_TradeSkillUI
+  if T and T.GetBaseProfessionInfo then
+    local ok, b = pcall(T.GetBaseProfessionInfo)
+    if ok and type(b) == "table" and b.professionID then
+      return PROF_BY_LINE[b.professionID] or PROF_BY_NAME[b.professionName or ""]
+    end
+  end
+  if GetTradeSkillLine then
+    local name = GetTradeSkillLine()
+    if name and name ~= "UNKNOWN" then return PROF_BY_NAME[name] end
+  end
+end
+
+-- 讀專業視窗裡學會的配方，記在 db.recipes[專業]（關掉視窗後利潤表照樣能用）
+local function scanRecipes()
+  local p = openProf()
+  if not p then return end
+  local out, n = {}, 0
+  local T = C_TradeSkillUI
+  if T and T.GetAllRecipeIDs and T.GetRecipeInfo then
+    local ok, ids = pcall(T.GetAllRecipeIDs)
+    if not ok or type(ids) ~= "table" then return end
+    for _, id in ipairs(ids) do
+      local okI, ri = pcall(T.GetRecipeInfo, id)
+      if okI and type(ri) == "table" and ri.learned ~= false and not ri.isDummyRecipe and not ri.isRecraft then
+        local rec = { name = ri.name, mats = {}, qmin = 1, qmax = 1 }
+        local okS, sc = false, nil
+        if T.GetRecipeSchematic then okS, sc = pcall(T.GetRecipeSchematic, id, false) end
+        if okS and type(sc) == "table" then
+          rec.out = sc.outputItemID
+          rec.qmin = sc.quantityMin or 1
+          rec.qmax = sc.quantityMax or rec.qmin
+          for _, slot in ipairs(sc.reagentSlotSchematics or {}) do
+            local r1 = type(slot.reagents) == "table" and slot.reagents[1]
+            if r1 and r1.itemID and slot.required ~= false then table.insert(rec.mats, { r1.itemID, slot.quantityRequired or 1 }) end
+          end
+        end
+        if rec.out == 0 then rec.out = nil end
+        out[id] = rec; n = n + 1
+      end
+    end
+  elseif GetNumTradeSkills and GetTradeSkillInfo then -- 經典版的讀法
+    for i = 1, GetNumTradeSkills() do
+      local name, kind = GetTradeSkillInfo(i)
+      if name and kind ~= "header" and kind ~= "subheader" then
+        local link = GetTradeSkillRecipeLink and GetTradeSkillRecipeLink(i)
+        local id = link and tonumber(link:match("enchant:(%d+)") or link:match("spell:(%d+)"))
+        if id then
+          local rec = { name = name, mats = {}, qmin = 1, qmax = 1, index = i }
+          local il = GetTradeSkillItemLink and GetTradeSkillItemLink(i)
+          rec.out = il and tonumber(il:match("item:(%d+)"))
+          if GetTradeSkillNumMade then local lo, hi = GetTradeSkillNumMade(i); rec.qmin, rec.qmax = lo or 1, hi or lo or 1 end
+          for j = 1, (GetTradeSkillNumReagents and GetTradeSkillNumReagents(i) or 0) do
+            local rl = GetTradeSkillReagentItemLink and GetTradeSkillReagentItemLink(i, j)
+            local rid = rl and tonumber(rl:match("item:(%d+)"))
+            local _, _, q = GetTradeSkillReagentInfo(i, j)
+            if rid then table.insert(rec.mats, { rid, q or 1 }) end
+          end
+          out[id] = rec; n = n + 1
+        end
+      end
+    end
+  end
+  if n > 0 then db.recipes[p.key] = out end
+end
+
+local function bagCount(id) -- 製作只能用背包裡的
+  local f = (C_Item and C_Item.GetItemCount) or GetItemCount
+  if not f then return 0 end
+  local ok, n = pcall(f, id, false)
+  return ok and n or 0
+end
+local function canMakeNow(rec)
+  if not rec or #rec.mats == 0 then return 0 end
+  local n = math.huge
+  for _, m in ipairs(rec.mats) do n = math.min(n, math.floor(bagCount(m[1]) / m[2])) end
+  return n
+end
+
+-- 成本（材料取「買」和「自己做」較便宜的）、售價（Auctionator 價格扣 5% 手續費）、利潤
+local function profitOf(rec, learned)
+  local memo, cost = {}, 0
+  for _, m in ipairs(rec.mats) do
+    local c = bestCost(m[1], learned, 1, memo)
+    if not c then cost = nil; break end
+    cost = cost + c * m[2]
+  end
+  if #rec.mats == 0 then cost = nil end
+  local sell
+  if rec.out and not D.vendor[rec.out] then
+    local p = price(rec.out)
+    if p then sell = p * (rec.qmin + rec.qmax) / 2 * 0.95 end
+  end
+  return cost, sell, (cost and sell) and (sell - cost) or nil
+end
+
+local function recipeName(q, rec)
+  if rec and rec.out then return (info("i", rec.out)) end
+  if q and q.out then return (info("i", q.out)) end
+  return (rec and rec.name) or (q and q.name) or "?"
+end
+
+-- 佇列：db.queue = { { prof, id（配方，可能還不知道）, out（產物）, name, count } }
+local function queueAdd(prof, id, out, name, count)
+  for i, q in ipairs(db.queue) do
+    if q.prof == prof and ((id and q.id == id) or (out and q.out == out)) then
+      q.count = q.count + count
+      q.id = q.id or id
+      if q.count <= 0 then table.remove(db.queue, i) end
+      return
+    end
+  end
+  if count > 0 then table.insert(db.queue, { prof = prof, id = id, out = out, name = name, count = count }) end
+end
+
+local function findRecipe(prof, out)
+  local book = db.recipes[prof]
+  if not book or not out then return nil end
+  for id, rec in pairs(book) do if rec.out == out then return id end end
+end
+
+-- 把衝級路線（含「準備」）依序加入佇列
+local function queueRoute()
+  if not current then return end
+  local r, route, added = current.r, current.route, 0
+  local cs = r.crafts or {}
+  for i = #cs, 1, -1 do
+    local c = cs[i]
+    if c.n > 0 then
+      queueAdd(c.rec.prof, findRecipe(c.rec.prof, c.id), c.id, (info("i", c.id)), c.n); added = added + 1
+    end
+  end
+  for i, s in ipairs(route.steps) do
+    local n = r.stepCrafts[i] + r.extraCrafts[i]
+    if n > 0 then
+      local out = s.k == "i" and s.id or nil
+      local id = (s.k == "s" and s.id) or findRecipe(current.prof.key, out)
+      queueAdd(current.prof.key, id, out, (info(s.k, s.id)), n); added = added + 1
+    end
+  end
+  msg(string.format("已把 %d 個步驟加入製作佇列", added))
+end
+
+-- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
+local function queueNeeds(learned)
+  local need, made, order, unknown = {}, {}, {}, 0
+  for _, q in ipairs(db.queue) do
+    local rec = q.id and db.recipes[q.prof] and db.recipes[q.prof][q.id]
+    if rec then
+      for _, m in ipairs(rec.mats) do
+        if not need[m[1]] then need[m[1]] = 0; table.insert(order, m[1]) end
+        need[m[1]] = need[m[1]] + m[2] * q.count
+      end
+      if rec.out then made[rec.out] = (made[rec.out] or 0) + q.count * (rec.qmin + rec.qmax) / 2 end
+    else
+      unknown = unknown + 1
+    end
+  end
+  local list, total, missing = {}, 0, 0
+  for _, id in ipairs(order) do
+    local qty = math.ceil(need[id] - (made[id] or 0) - 1e-9)
+    if qty > 0 then
+      local it = { id = id, qty = qty, kind = "mat", unit = price(id), have = have(id) }
+      it.buy = math.max(0, it.qty - it.have)
+      if it.unit then total = total + it.unit * it.buy elseif it.buy > 0 then missing = missing + 1 end
+      table.insert(list, it)
+    end
+  end
+  local r = { list = list, total = total, missing = missing, stepCrafts = {}, extraCrafts = {} }
+  if db.decompose then r = decompose(r, learned) end
+  r.unknown = unknown
+  return r
+end
+
+-- 製作下一個：佇列裡第一個「目前開著的專業」的項目，一次做完（材料夠多少做多少）
+local function craftNext()
+  local p = openProf()
+  if not p then msg("請先打開專業視窗（例如鍛造），再按「製作下一個」"); return end
+  local T = C_TradeSkillUI
+  for _, q in ipairs(db.queue) do
+    if q.count > 0 and q.prof == p.key then
+      q.id = q.id or findRecipe(p.key, q.out)
+      if not q.id then msg((q.name or "?") .. "：專業視窗裡找不到這個配方（還沒學？）"); return end
+      local rec = db.recipes[p.key] and db.recipes[p.key][q.id]
+      local n = math.min(q.count, rec and canMakeNow(rec) or q.count)
+      if T and T.GetRecipeInfo then
+        local ok, ri = pcall(T.GetRecipeInfo, q.id)
+        if ok and type(ri) == "table" and type(ri.numAvailable) == "number" then n = math.min(q.count, ri.numAvailable) end
+      end
+      if n <= 0 then msg((q.name or "?") .. "：材料不夠（只算背包裡的），先把材料準備好"); return end
+      if T and T.CraftRecipe then T.CraftRecipe(q.id, n)
+      elseif DoTradeSkill and rec and rec.index then DoTradeSkill(rec.index, n)
+      else msg("這個遊戲版本不支援從插件製作"); return end
+      msg(string.format("開始製作 %s ×%d", q.name or "?", n))
+      return
+    end
+  end
+  msg("佇列裡沒有" .. p.name .. "要做的東西")
+end
+
+-- 做完一次就從佇列扣掉
+local function onCrafted(spellID)
+  for i, q in ipairs(db.queue) do
+    if q.id == spellID then
+      q.count = q.count - 1
+      if q.count <= 0 then table.remove(db.queue, i) end
+      return true
+    end
+  end
+end
+
 -- ── 視窗 ───────────────────────────────────────────────────────────────────
 local W, ROW_H, MAXLINES, TOP, GAP = 600, 24, 20, 170, 16
 local frame, offset = nil, 0
 local TABS = {
   steps = { { "等級", 80, "RIGHT" }, { "製作", 220, "LEFT", true }, { "次數", 56, "RIGHT" }, { "來源", 140, "LEFT" } },
+  profit = { { "配方", 220, "LEFT", true }, { "成本", 80, "RIGHT" }, { "售價", 80, "RIGHT" }, { "利潤", 90, "RIGHT" }, { "可做", 44, "RIGHT" }, { "佇列", 44, "RIGHT" } },
+  queue = { { "製作", 220, "LEFT", true }, { "次數", 50, "RIGHT" }, { "專業", 60, "LEFT" }, { "材料", 110, "LEFT" }, { "可做", 50, "RIGHT" } },
   shop = { { "物品", 220, "LEFT", true }, { "需要", 52, "RIGHT" }, { "已有", 52, "RIGHT" }, { "要買", 52, "RIGHT" }, { "單價", 90, "RIGHT" }, { "小計", 100, "RIGHT" } },
 }
 local NCOL = 6
-local current -- 最近一次計算的結果
 
 local function measure(fs)
   if fs.GetUnboundedStringWidth then
@@ -489,14 +704,29 @@ local function refreshImpl()
   local route, r, nVar = pickRoute(p.key, S, T)
   if db.decompose then r = decompose(r, learned) end
   current = { prof = p, S = S, T = T, route = route, r = r }
+  local qr
+  if db.tab == "queue" then qr = queueNeeds(learned); current.r = qr; current.queue = true end
   local api = auctionator()
   frame.status:SetText(api and string.format("價格：Auctionator　從 %d 條路線選出最省的", nVar)
     or "|cffff9d5c沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）|r")
-  frame.total:SetText(string.format("%s %d–%d　預計花費 %s%s%s", p.name, S, T, money(r.total),
-    (r.saved and r.saved > 0.5) and ("　|cff9fd18b自己做中間材料省 " .. money(r.saved) .. "|r") or "",
-    r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
+  if db.tab == "queue" then
+    local nq = 0
+    for _, q in ipairs(db.queue) do nq = nq + q.count end
+    frame.total:SetText(string.format("製作佇列 %d 項（共 %d 次）　材料花費 %s%s%s", #db.queue, nq, money(qr.total),
+      qr.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", qr.missing) or "",
+      qr.unknown > 0 and string.format("　|cffff9d5c%d 項還不知道材料（打開那個專業視窗一次）|r", qr.unknown) or ""))
+  elseif db.tab == "profit" then
+    local book, nr = db.recipes[p.key], 0
+    if book then for _ in pairs(book) do nr = nr + 1 end end
+    frame.total:SetText(nr > 0 and string.format("%s 已記下 %d 個配方　點一下加入佇列（Shift 加 5、右鍵減 1）", p.name, nr)
+      or string.format("|cffff9d5c打開%s的專業視窗一次，插件就會記下你學會的配方|r", p.name))
+  else
+    frame.total:SetText(string.format("%s %d–%d　預計花費 %s%s%s", p.name, S, T, money(r.total),
+      (r.saved and r.saved > 0.5) and ("　|cff9fd18b自己做中間材料省 " .. money(r.saved) .. "|r") or "",
+      r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
+  end
   frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關"); fitButton(frame.decBtn, 120)
-  for _, t in ipairs({ { frame.stepsBtn, "steps" }, { frame.shopBtn, "shop" } }) do
+  for _, t in ipairs({ { frame.stepsBtn, "steps" }, { frame.shopBtn, "shop" }, { frame.profitBtn, "profit" }, { frame.queueBtn, "queue" } }) do
     local on = db.tab == t[2]
     t[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
@@ -514,8 +744,22 @@ local function refreshImpl()
       local n = r.stepCrafts[i] + r.extraCrafts[i]
       if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i] }) end
     end
+  elseif db.tab == "profit" then
+    local qc = {}
+    for _, q in ipairs(db.queue) do if q.id then qc[q.id] = (qc[q.id] or 0) + q.count end end
+    for id, rec in pairs(db.recipes[p.key] or {}) do
+      local cost, sell, profit = profitOf(rec, learned)
+      table.insert(rows, { recipe = rec, id = id, prof = p.key, cost = cost, sell = sell, profit = profit, can = canMakeNow(rec), queued = qc[id] or 0 })
+    end
+    table.sort(rows, function(a, b)
+      if (a.profit ~= nil) ~= (b.profit ~= nil) then return a.profit ~= nil end
+      if a.profit and b.profit and a.profit ~= b.profit then return a.profit > b.profit end
+      return recipeName(nil, a.recipe) < recipeName(nil, b.recipe)
+    end)
+  elseif db.tab == "queue" then
+    for _, q in ipairs(db.queue) do table.insert(rows, { queue = q }) end
   else
-    for _, it in ipairs(r.list) do table.insert(rows, { item = it }) end
+    for _, it in ipairs(current.r.list) do table.insert(rows, { item = it }) end
   end
   local maxOff = math.max(0, #rows - MAXLINES)
   if offset > maxOff then offset = maxOff end
@@ -527,7 +771,30 @@ local function refreshImpl()
     if e then
       shown = i
       local vals
-      if e.prep then
+      if e.recipe then
+        local rec = e.recipe
+        local name, icon, col
+        if rec.out then name, icon, col = info("i", rec.out) else name, icon, col = info("s", e.id); name = rec.name or name end
+        l.icon:SetTexture(icon); l.icon:Show()
+        local pf = e.profit and ((e.profit >= 0 and "|cff9fd18b" or "|cffff7b7b") .. (e.profit >= 0 and "" or "-") .. money(math.abs(e.profit)) .. "|r") or "—"
+        vals = { name, e.cost and money(e.cost) or "|cffff9d5c沒價格|r", e.sell and money(e.sell) or "—", pf,
+          e.can > 0 and e.can or "0", e.queued > 0 and ("|cffffd100" .. e.queued .. "|r") or "" }
+        l.c[1]:SetTextColor(col[1], col[2], col[3])
+      elseif e.queue then
+        local q = e.queue
+        local rec = q.id and db.recipes[q.prof] and db.recipes[q.prof][q.id]
+        local name, icon, col
+        if q.out then name, icon, col = info("i", q.out) else name, icon, col = info("s", q.id or 0); name = q.name or name end
+        l.icon:SetTexture(icon); l.icon:Show()
+        local pn = q.prof == "mining" and "採礦" or (PROF_BY_KEY[q.prof] and PROF_BY_KEY[q.prof].name or q.prof)
+        local miss, matTxt = 0, "|cffff9d5c不知道材料|r"
+        if rec then
+          for _, m in ipairs(rec.mats) do if bagCount(m[1]) < m[2] * q.count then miss = miss + 1 end end
+          matTxt = miss == 0 and "|cff9fd18b齊了|r" or string.format("|cffff9d5c缺 %d 種|r", miss)
+        end
+        vals = { name, "×" .. q.count, pn, matTxt, rec and canMakeNow(rec) or "—" }
+        l.c[1]:SetTextColor(col[1], col[2], col[3])
+      elseif e.prep then
         local c = e.prep
         local name, icon, col = info("i", c.id)
         l.icon:SetTexture(icon); l.icon:Show()
@@ -562,10 +829,23 @@ local function refreshImpl()
       l:Hide()
     end
   end
-  frame.foot:SetText(#rows == 0 and "這個範圍不需要製作任何東西"
-    or (#rows > MAXLINES and string.format("共 %d 列，用滾輪捲動", #rows) or ""))
-  frame.foot:ClearAllPoints(); frame.foot:SetPoint("TOPLEFT", 14, -(TOP + shown * ROW_H + 6))
-  frame:SetHeight(TOP + shown * ROW_H + (frame.foot:GetText() ~= "" and 36 or 18))
+  local emptyTxt = db.tab == "queue" and "佇列是空的：在「利潤」點產品加入，或在「步驟」按「全部加入佇列」"
+    or (db.tab == "profit" and "還沒有記下配方" or "這個範圍不需要製作任何東西")
+  frame.foot:SetText(#rows == 0 and emptyTxt or (#rows > MAXLINES and string.format("共 %d 列，用滾輪捲動", #rows) or ""))
+  -- 底部動作按鈕（依分頁）
+  local y = -(TOP + shown * ROW_H + 8)
+  frame.foot:ClearAllPoints(); frame.foot:SetPoint("TOPLEFT", 14, y - 5)
+  frame.act1:Hide(); frame.act2:Hide()
+  if db.tab == "steps" then
+    frame.act1:SetText("全部加入製作佇列"); fitButton(frame.act1, 140); frame.act1.fn = queueRoute; frame.act1:Show()
+  elseif db.tab == "queue" then
+    frame.act1:SetText("製作下一個"); fitButton(frame.act1, 120); frame.act1.fn = craftNext; frame.act1:Show()
+    frame.act2:SetText("清空佇列"); fitButton(frame.act2, 90); frame.act2.fn = function() wipe(db.queue) end; frame.act2:Show()
+  end
+  frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
+  frame.act2:ClearAllPoints(); frame.act2:SetPoint("RIGHT", frame.act1, "LEFT", -6, 0)
+  local hasAct = frame.act1:IsShown()
+  frame:SetHeight(TOP + shown * ROW_H + ((hasAct or frame.foot:GetText() ~= "") and 44 or 18))
   autoFit(cols)
 end
 
@@ -588,7 +868,7 @@ local function createShoppingList()
     end
   end
   if #terms == 0 then msg("沒有要在拍賣行買的東西"); return end
-  local listName = string.format("專業衝級 %s %d-%d", current.prof.name, current.S, current.T)
+  local listName = current.queue and "專業衝級 製作佇列" or string.format("專業衝級 %s %d-%d", current.prof.name, current.S, current.T)
   if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then
     msg(string.format("已建立 Auctionator 購物清單「%s」，共 %d 項（已扣掉背包和銀行裡的數量，商人物品不列入）", listName, #terms))
   end
@@ -665,6 +945,11 @@ local function buildFrame()
   -- 分頁與購物清單按鈕
   frame.stepsBtn = button(frame, 60, "步驟", function() db.tab = "steps"; offset = 0; ProfLevel_Refresh() end)
   frame.shopBtn = button(frame, 76, "購物清單", function() db.tab = "shop"; offset = 0; ProfLevel_Refresh() end)
+  frame.profitBtn = button(frame, 50, "利潤", function() db.tab = "profit"; offset = 0; ProfLevel_Refresh() end)
+  frame.queueBtn = button(frame, 50, "佇列", function() db.tab = "queue"; offset = 0; ProfLevel_Refresh() end)
+  frame.act1 = button(frame, 120, "", function(self) if self.fn then safe("動作", self.fn) end; ProfLevel_Refresh() end)
+  frame.act2 = button(frame, 90, "", function(self) if self.fn then safe("動作", self.fn) end; ProfLevel_Refresh() end)
+  frame.act1:Hide(); frame.act2:Hide()
   frame.atrBtn = button(frame, 160, "建立 Auctionator 購物清單", function() safe("建立購物清單", createShoppingList) end)
   frame.atrBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -686,7 +971,9 @@ local function buildFrame()
   frame.stepsBtn:SetPoint("TOPLEFT", 12, -116)
   frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
   frame.decBtn = button(frame, 120, "", function() db.decompose = not db.decompose; ProfLevel_Refresh() end)
-  frame.decBtn:SetPoint("LEFT", frame.shopBtn, "RIGHT", 10, 0)
+  frame.profitBtn:SetPoint("LEFT", frame.shopBtn, "RIGHT", 2, 0)
+  frame.queueBtn:SetPoint("LEFT", frame.profitBtn, "RIGHT", 2, 0)
+  frame.decBtn:SetPoint("LEFT", frame.queueBtn, "RIGHT", 10, 0)
   frame.decBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine("拆中間材料")
@@ -707,10 +994,38 @@ local function buildFrame()
       l.c[c] = fs
     end
     l:EnableMouse(true)
+    l:SetScript("OnMouseUp", function(self, btn)
+      local e = self.e; if not e then return end
+      local d = (btn == "RightButton") and -1 or 1
+      if IsShiftKeyDown and IsShiftKeyDown() then d = d * 5 end
+      if e.recipe then queueAdd(e.prof, e.id, e.recipe.out, recipeName(nil, e.recipe), d); ProfLevel_Refresh()
+      elseif e.queue then queueAdd(e.queue.prof, e.queue.id, e.queue.out, e.queue.name, d); ProfLevel_Refresh() end
+    end)
     l:SetScript("OnEnter", function(self)
       local e = self.e; if not e then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      if e.prep then
+      if e.recipe or e.queue then
+        local rec = e.recipe or (e.queue.id and db.recipes[e.queue.prof] and db.recipes[e.queue.prof][e.queue.id])
+        local out = (e.recipe and e.recipe.out) or (e.queue and e.queue.out)
+        if out then pcall(GameTooltip.SetItemByID, GameTooltip, out) elseif e.id or (e.queue and e.queue.id) then pcall(GameTooltip.SetSpellByID, GameTooltip, e.id or e.queue.id) end
+        GameTooltip:AddLine(" ")
+        if rec then
+          local times = e.queue and e.queue.count or 1
+          for _, m in ipairs(rec.mats) do
+            local nm = info("i", m[1])
+            local need, got = m[2] * times, bagCount(m[1])
+            local pr = price(m[1])
+            GameTooltip:AddDoubleLine(string.format("%s ×%d", nm, need), string.format("%s背包 %d", pr and (money(pr * m[2]) .. "　") or "", got),
+              1, 1, 1, got >= need and .6 or 1, got >= need and 1 or .6, .6)
+          end
+        end
+        if e.recipe then
+          if e.sell then GameTooltip:AddLine(string.format("售價 %s（已扣拍賣行 5%% 手續費）", money(e.sell)), .8, .8, .8) end
+          GameTooltip:AddLine("左鍵加入佇列、Shift+左鍵加 5、右鍵減 1", .6, .6, .6)
+        else
+          GameTooltip:AddLine("左鍵 +1、右鍵 −1（Shift 一次 5）", .6, .6, .6)
+        end
+      elseif e.prep then
         local c = e.prep
         pcall(GameTooltip.SetItemByID, GameTooltip, c.id)
         GameTooltip:AddLine(" ")
@@ -821,7 +1136,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.2.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.3.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
@@ -854,18 +1169,32 @@ end
 
 -- ── 事件 ───────────────────────────────────────────────────────────────────
 local ev = CreateFrame("Frame")
-local REFRESH_EVENTS = { SKILL_LINES_CHANGED = true, TRADE_SKILL_LIST_UPDATE = true, BAG_UPDATE_DELAYED = true,
+local SCAN_EVENTS = { TRADE_SKILL_SHOW = true, TRADE_SKILL_LIST_UPDATE = true, TRADE_SKILL_DATA_SOURCE_CHANGED = true }
+local scanPending = false
+local function queueScan()
+  if scanPending then return end
+  scanPending = true
+  C_Timer.After(0.5, function() scanPending = false; ensureDB(); safe("讀取配方", scanRecipes); if frame and frame:IsShown() then ProfLevel_Refresh() end end)
+end
+local REFRESH_EVENTS = { SKILL_LINES_CHANGED = true, BAG_UPDATE_DELAYED = true,
   GET_ITEM_INFO_RECEIVED = true, AUCTION_HOUSE_CLOSED = true, CHAT_MSG_SKILL = true }
-ev:SetScript("OnEvent", function(_, e, a1)
+ev:SetScript("OnEvent", function(_, e, a1, ...)
   if e == "ADDON_LOADED" and a1 == ADDON then
     ensureDB()
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
     if db.scale == 1 then db.scale = 1.25 end -- 舊預設值改成新的預設大小
     safe("小地圖按鈕", buildMinimapButton)
+  elseif SCAN_EVENTS[e] then
+    queueScan()
+  elseif e == "UNIT_SPELLCAST_SUCCEEDED" then
+    local spellID = select(2, ...) -- 參數：unit（a1）, castGUID, spellID
+    if a1 == "player" and spellID and onCrafted(spellID) and frame and frame:IsShown() then ProfLevel_Refresh() end
   elseif REFRESH_EVENTS[e] then
     if frame and frame:IsShown() then ProfLevel_Refresh() end
   end
 end)
 for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN" }) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(REFRESH_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
+for e in pairs(SCAN_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
+pcall(ev.RegisterEvent, ev, "UNIT_SPELLCAST_SUCCEEDED")
