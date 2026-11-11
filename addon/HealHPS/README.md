@@ -1,6 +1,6 @@
-# Codex · 治療 HPS 計算器（魔獸世界：永恆插件）
+# 治療 HPS 計算器（魔獸世界：永恆插件）
 
-![Codex](Media/Logo256.png)
+![LOGO](Media/Logo256.png)
 
 比較治療職各技能、各階級的 HPS（每秒治療）與 HPM（每點法力治療）。網頁版：https://ms145236-bridge.github.io/wow-profession-calc/healer.html
 

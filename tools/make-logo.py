@@ -1,4 +1,4 @@
-# 產生插件 LOGO「Codex」：打開的古書＋上方的治療聖光十字，金色圓環外框
+# 產生插件 LOGO：打開的古書＋上方的治療聖光十字，金色圓環外框
 # 用法（在 repo 根目錄）：python tools/make-logo.py
 # 輸出：addon/HealHPS/Media/Logo.tga（64×64，遊戲用）、Logo256.png（預覽用）
 import math
