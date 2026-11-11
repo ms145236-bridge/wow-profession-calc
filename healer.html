@@ -231,7 +231,7 @@ function compute() {
   if (!view.includeTalent) list = list.filter(r => !r.talent);
   if (!view.includeHot) list = list.filter(r => r.kind !== 'hot' && r.kind !== 'channel');
   if (!view.includeAbsorb) list = list.filter(r => r.kind !== 'absorb');
-  if (!view.includeCd) list = list.filter(r => r.cd <= 0 || r.id === 'hs');
+  if (!view.includeCd) list = list.filter(r => r.cd <= 0 || r.kind === 'absorb');
   const key = { hps: 'hps', hpm: 'hpm', heal: 'displayHeal' }[view.sortKey];
   list.sort((a, b) => b[key] - a[key]);
   return { list, level, targetsWanted };
@@ -275,7 +275,7 @@ function renderControls() {
   $('advToggles').innerHTML = toggle('v', 'applyDownrank', '降級衰減（學會後超過 17 級，每級 −5%；社群 Beta 觀察）')
     + toggle('v', 'onlyAvail', '只顯示目前等級學得到的技能') + toggle('v', 'includeTalent', '含天賦技能')
     + toggle('v', 'includeHot', '含 HoT／引導') + (isPriest ? toggle('v', 'includeAbsorb', '含吸收（真言術：盾）') : '')
-    + toggle('v', 'includeCd', '含冷卻技能（神聖震擊一律列出；群補或「冷卻上限」會自動打開）')
+    + toggle('v', 'includeCd', '含冷卻技能（群補或「冷卻上限」會自動打開）')
     + (spec === 'paladin_holy' ? toggle('p', 'vigilShock', '聖光守望：法力加上一發神聖震擊，時間多 1.5 秒') : '');
 }
 

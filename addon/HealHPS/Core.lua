@@ -438,7 +438,7 @@ local function filterRows(rows, mode)
   for _, r in ipairs(rows) do
     local f = r.f
     local okMode = (mode == "group") == (f.group and true or false)
-    local okCd = db.includeCd or mode == "group" or db.rate == "cooldown" or r.cd <= 0 or f.key == "hs" or f.kind == "absorb"
+    local okCd = db.includeCd or mode == "group" or db.rate == "cooldown" or r.cd <= 0 or f.kind == "absorb"
     if okMode and okCd then table.insert(list, r) end
   end
   local k = db.sort == "heal" and "shown" or db.sort
@@ -639,7 +639,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.2.3　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.2.4　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
