@@ -9,6 +9,83 @@ local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, do
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f治療HPS|r " .. s) end
+
+-- ── 遊戲 API 相容層：永恆用新版引擎（C_Spell／C_SpellBook），經典版用舊的全域函式 ─────
+local API = {}
+function API.SpellInfo(x) -- 回傳 名稱, 施法毫秒, 法術ID
+  if x == nil then return nil end
+  if C_Spell and C_Spell.GetSpellInfo then
+    local i = C_Spell.GetSpellInfo(x)
+    if i then return i.name, i.castTime, i.spellID end
+    return nil
+  end
+  if GetSpellInfo then local n, _, _, ct, _, _, id = GetSpellInfo(x); return n, ct, id end
+end
+function API.Desc(id)
+  local f = (C_Spell and C_Spell.GetSpellDescription) or GetSpellDescription
+  return f and id and f(id)
+end
+function API.PowerCost(id)
+  local f = (C_Spell and C_Spell.GetSpellPowerCost) or GetSpellPowerCost
+  return f and id and f(id)
+end
+function API.Subtext(id)
+  local f = (C_Spell and C_Spell.GetSpellSubtext) or GetSpellSubtext
+  return f and id and f(id)
+end
+function API.LevelLearned(id)
+  local f = (C_Spell and C_Spell.GetSpellLevelLearned) or GetSpellLevelLearned
+  if not f or not id then return nil end
+  local ok, v = pcall(f, id)
+  return ok and v or nil
+end
+function API.BaseCooldown(id)
+  local f = GetSpellBaseCooldown or (C_Spell and C_Spell.GetSpellBaseCooldown)
+  if not f or not id then return nil end
+  local ok, v = pcall(f, id)
+  return ok and v or nil
+end
+function API.Spellbook() -- 回傳 { {name, sub, id}, ... }，永恆的法術書會列出所有階級
+  local out = {}
+  if C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines then
+    local bank = Enum.SpellBookSpellBank.Player
+    local spellType = Enum.SpellBookItemType and Enum.SpellBookItemType.Spell
+    for line = 1, (C_SpellBook.GetNumSpellBookSkillLines() or 0) do
+      local li = C_SpellBook.GetSpellBookSkillLineInfo(line)
+      if li then
+        local off = li.itemIndexOffset or 0
+        for slot = off + 1, off + (li.numSpellBookItems or 0) do
+          local info = C_SpellBook.GetSpellBookItemInfo(slot, bank)
+          if info and info.spellID and info.name and (not spellType or info.itemType == spellType) and not info.isPassive then
+            table.insert(out, { name = info.name, sub = info.subName, id = info.spellID })
+          end
+        end
+      end
+    end
+    return out
+  end
+  local BOOK = BOOKTYPE_SPELL or "spell"
+  for tab = 1, GetNumSpellTabs() do
+    local _, _, offset, num = GetSpellTabInfo(tab)
+    for slot = offset + 1, offset + num do
+      local name, sub = GetSpellBookItemName(slot, BOOK)
+      local typ, id = GetSpellBookItemInfo(slot, BOOK)
+      if name and typ == "SPELL" and id then table.insert(out, { name = name, sub = sub, id = id }) end
+    end
+  end
+  return out
+end
+
+-- 出錯時印在聊天視窗（同一個錯誤只印一次），不要默默失敗
+local reported = {}
+local function safe(where, fn, ...)
+  local ok, err = pcall(fn, ...)
+  if not ok then
+    err = tostring(err)
+    if not reported[err] then reported[err] = true; msg("|cffff7b7b" .. where .. "出錯：|r" .. err .. "　請把這行回報給開發者") end
+  end
+  return ok
+end
 local function fmt1(n) return n and string.format("%.1f", n) or "—" end
 local function fmt2(n) return n and string.format("%.2f", n) or "—" end
 local function fint(n) n = math.floor((n or 0) + 0.5); return BreakUpLargeNumbers and BreakUpLargeNumbers(n) or tostring(n) end
@@ -24,7 +101,7 @@ local TALENTS = {
 
 local function nameSet(ids, names)
   local set = {}
-  for _, id in ipairs(ids) do local n = GetSpellInfo(id); if n then set[n] = true end end
+  for _, id in ipairs(ids) do local n = API.SpellInfo(id); if n then set[n] = true end end
   for _, n in ipairs(names) do set[n] = true end
   return set
 end
@@ -32,10 +109,12 @@ end
 local function scanTalents(class)
   local res = { heal = 0, absorb = 0, found = {} }
   local defs = TALENTS[class]
-  if not defs or not GetNumTalentTabs then return res end
+  if not defs or not GetTalentInfo or not GetNumTalents then return res end
   for _, def in ipairs(defs) do def.set = def.set or nameSet(def.ids, def.names) end
-  for t = 1, GetNumTalentTabs() do
-    for i = 1, GetNumTalents(t) do
+  local tabs = GetNumTalentTabs and GetNumTalentTabs() or 3
+  for t = 1, tabs do
+    local okN, nTal = pcall(GetNumTalents, t)
+    for i = 1, (okN and nTal or 0) do
       local name, _, _, _, rank, maxRank = GetTalentInfo(t, i)
       for _, def in ipairs(defs) do
         if name and def.set[name] and rank then
@@ -50,8 +129,8 @@ end
 
 -- ── 讀技能說明 ───────────────────────────────────────────────────────────────
 local function getDesc(id)
-  if not id or not GetSpellDescription then return nil end
-  local d = GetSpellDescription(id)
+  if not id then return nil end
+  local d = API.Desc(id)
   if not d or d == "" then return nil end
   return (d:gsub("(%d),(%d)", "%1%2"))
 end
@@ -90,22 +169,9 @@ end
 -- ── 掃描法術書 ───────────────────────────────────────────────────────────────
 local scan = { dirty = true, rows = {}, byId = {}, families = {}, unmatchedRetry = 0 }
 
-local function spellbook()
-  local out, BOOK = {}, BOOKTYPE_SPELL or "spell"
-  for tab = 1, GetNumSpellTabs() do
-    local _, _, offset, num = GetSpellTabInfo(tab)
-    for slot = offset + 1, offset + num do
-      local name, sub = GetSpellBookItemName(slot, BOOK)
-      local typ, id = GetSpellBookItemInfo(slot, BOOK)
-      if name and typ == "SPELL" and id then table.insert(out, { name = name, sub = sub, id = id }) end
-    end
-  end
-  return out
-end
-
 local function rankOf(sub, id)
   local r = tonumber((sub or ""):match("(%d+)"))
-  if not r and GetSpellSubtext and id then r = tonumber((GetSpellSubtext(id) or ""):match("(%d+)")) end
+  if not r and id then r = tonumber((API.Subtext(id) or ""):match("(%d+)")) end
   return r or 1
 end
 
@@ -122,7 +188,7 @@ local function rescan()
   end
   -- 1) 法術書裡看得到的
   local subTemplate
-  for _, e in ipairs(spellbook()) do
+  for _, e in ipairs(API.Spellbook()) do
     local list = byName[e.name]
     if list then
       local r = rankOf(e.sub, e.id)
@@ -140,7 +206,7 @@ local function rescan()
         for r = 1, st.maxRank - 1 do
           if not st.known[r] then
             local query = st.gameName .. "(" .. subTemplate:gsub("%d+", tostring(r)) .. ")"
-            local id = select(7, GetSpellInfo(query))
+            local id = select(3, API.SpellInfo(query))
             if id then st.known[r] = id end
           end
         end
@@ -170,22 +236,22 @@ local function readRank(st, r, id, ctx)
   local src = { }
   local row = { key = f.key, label = f.label, rank = r, id = id or nil, f = f, src = src }
   -- 學習等級
-  local learn = id and GetSpellLevelLearned and GetSpellLevelLearned(id)
+  local learn = API.LevelLearned(id)
   if learn and learn > 0 then row.learn = learn; src.learn = "遊戲" elseif d then row.learn = d.learn; src.learn = "資料" else return nil end
   -- 法力
   local mana
-  if id and GetSpellPowerCost then
-    local costs = GetSpellPowerCost(id)
+  if id then
+    local costs = API.PowerCost(id)
     if costs then for _, c in ipairs(costs) do if c.cost and c.cost > 0 then mana = c.cost; break end end end
   end
   if mana then row.mana = mana; src.mana = "遊戲" elseif d then row.mana = d.mana; src.mana = "資料" else return nil end
   -- 施法時間（遊戲值已含天賦與急速；引導技能遊戲回傳 0，用資料）
-  local castMs = id and select(4, GetSpellInfo(id))
+  local castMs = id and select(2, API.SpellInfo(id))
   if f.kind ~= "channel" and castMs then row.cast = castMs / 1000; src.cast = "遊戲" else row.cast = d and d.cast or 0; src.cast = "資料" end
   row.dur = d and d.dur
   if f.kind == "channel" then row.dur = row.dur or row.cast end
   -- 冷卻（真言術：盾的冷卻欄代表同目標虛弱靈魂，用資料）
-  local cdMs = id and GetSpellBaseCooldown and GetSpellBaseCooldown(id)
+  local cdMs = API.BaseCooldown(id)
   if f.kind ~= "absorb" and cdMs and (cdMs > 0 or not d) then row.cd = cdMs / 1000; src.cd = "遊戲" else row.cd = d and d.cd or 0; src.cd = "資料" end
   -- 係數（只能用資料；沒有這階的資料就用同技能最高階的係數）
   if d then row.coeff = d.coeff; row.rel = d.rel
@@ -237,7 +303,7 @@ local function compute()
     local st = scan.families.hs
     if st and st.maxRank > 0 then
       local id = st.known[st.maxRank]
-      local costs = id and GetSpellPowerCost and GetSpellPowerCost(id)
+      local costs = API.PowerCost(id)
       hsMana = costs and costs[1] and costs[1].cost or (st.f.ranks[st.maxRank] and st.f.ranks[st.maxRank].mana)
     end
   end
@@ -328,12 +394,12 @@ end
 local function hookTooltips()
   if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Spell then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Spell, function(tt, data)
-      if tt == GameTooltip and data then addTooltip(tt, data.id) end
+      if tt == GameTooltip and data then safe("滑鼠提示", addTooltip, tt, data.id) end
     end)
   else
     GameTooltip:HookScript("OnTooltipSetSpell", function(tt)
       local _, id = tt:GetSpell()
-      addTooltip(tt, id)
+      safe("滑鼠提示", addTooltip, tt, id)
     end)
   end
 end
@@ -356,7 +422,7 @@ local function button(parent, w, onClick)
   return b
 end
 
-function HealHPS_Refresh()
+local function refreshImpl()
   if not frame or not frame:IsShown() then return end
   local list, ctx = filtered()
   local tal = ctx.talents
@@ -387,6 +453,8 @@ function HealHPS_Refresh()
   frame.foot:SetText(#list == 0 and "這個條件下沒有技能。可以切換單補／群補，或按「含冷卻技能」。"
     or string.format("共 %d 筆　滾輪捲動　數值會隨裝備與增益即時更新", #list))
 end
+
+function HealHPS_Refresh() safe("比較表", refreshImpl) end
 
 local function buildFrame()
   frame = CreateFrame("Frame", "HealHPSFrame", UIParent, "BasicFrameTemplateWithInset")
@@ -450,13 +518,20 @@ end
 -- ── 指令 ───────────────────────────────────────────────────────────────────
 local function debugDump()
   local _, class = UnitClass("player")
+  local book = API.Spellbook()
+  msg(string.format("版本 0.1.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　天賦：%s", class, ctx.level, ctx.bonus,
     #ctx.talents.found > 0 and table.concat(ctx.talents.found, "、") or "沒找到"))
-  local keys = {}
-  for k in pairs(scan.families) do table.insert(keys, k) end
+  local keys, anyFound = {}, false
+  for k, st in pairs(scan.families) do table.insert(keys, k); if st.maxRank > 0 then anyFound = true end end
   table.sort(keys)
+  if not anyFound then
+    local names = {}
+    for i = 1, math.min(15, #book) do names[i] = book[i].name .. (book[i].sub and book[i].sub ~= "" and ("(" .. book[i].sub .. ")") or "") end
+    msg("一個治療技能都沒對上。法術書前幾個技能：" .. table.concat(names, "、"))
+  end
   for _, k in ipairs(keys) do
     local st = scan.families[k]
     if st.maxRank == 0 then msg(string.format("%s：法術書沒找到", st.f.label))
@@ -491,7 +566,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "downrank" then
     db.downrank = not db.downrank; msg("降級衰減：" .. (db.downrank and "開" or "關"))
   elseif cmd == "debug" then
-    debugDump()
+    safe("除錯指令", debugDump)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
   else
