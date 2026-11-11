@@ -576,7 +576,8 @@ local function addTooltip(tt, id)
     local tag = r.f.kind == "absorb" and "（吸收）" or ((r.f.group or r.f.key == "bh") and string.format("（%d人）", r.targets) or "")
     local sit = SIT[select(2, UnitClass("player"))]
     if r.withOath and sit then tag = "（" .. sit.tip .. "）" end
-    tt:AddLine(string.format("|cffd9b25fHPS|r %s　|cffd9b25fHPM|r %s%s", fmt1(r.hpsT), fmt2(r.hpmT), tag), 1, 1, 1)
+    -- 左欄標籤、右欄數字，兩排數字靠右對齊
+    tt:AddDoubleLine("|cffd9b25fHPS ／ HPM|r" .. tag, fmt1(r.hpsT) .. " ／ " .. fmt2(r.hpmT), 1, 1, 1, 1, 1, 1)
     if r.hotPart then
       tt:AddLine(string.format("直接 %s（HPS %s）＋ HoT %s（每秒 %s）", fint(r.directPart), fmt1(r.time > 0 and r.directPart / r.time or 0),
         fint(r.hotPart), fmt1((r.dur or 0) > 0 and r.hotPart / r.dur or 0)), .8, .8, .8)
@@ -588,7 +589,7 @@ local function addTooltip(tt, id)
     end
     if r.oathAdd > 0 and not r.withOath and sit then
       local h = r.totalHeal + r.oathAdd
-      tt:AddLine(string.format("%s |cffd9b25fHPS|r %s　|cffd9b25fHPM|r %s", sit.tip, fmt1(r.time > 0 and h / r.time or 0), fmt2(r.manaEff > 0 and h / r.manaEff or 0)), .8, .8, .8)
+      tt:AddDoubleLine(sit.tip, fmt1(r.time > 0 and h / r.time or 0) .. " ／ " .. fmt2(r.manaEff > 0 and h / r.manaEff or 0), .8, .8, .8, .8, .8, .8)
     end
     if sameRow(r, bh) then tt:AddLine("★ " .. catName .. " HPS最高", 1, .82, 0) end
     if sameRow(r, bm) then tt:AddLine("★ " .. catName .. " HPM最高", .4, 1, .4) end
@@ -968,7 +969,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.3　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.8.4　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
