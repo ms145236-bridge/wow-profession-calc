@@ -196,7 +196,7 @@ HealHPS_Data = { families = {
       [8] = { learn = 54, mana = 445, cast = 2, cd = 0, min = 771, max = 863, coeff = 0.783, dur = nil, hotBase = nil, rel = "單一來源待核" },
       [9] = { learn = 60, mana = 525, cast = 2, cd = 0, min = 965, max = 1077, coeff = 0.783, dur = nil, hotBase = nil, rel = "單一來源待核" },
     } },
-  { key = "rgh", label = "癒合（含完整HoT）", class = "DRUID", kind = "hot", group = false, groupModel = "none", maxTargets = 1,
+  { key = "rgh", label = "癒合", class = "DRUID", kind = "hot", group = false, groupModel = "none", maxTargets = 1,
     talent = false, healPct = true, absorbPct = false, gcd = 1.5, parse = "regrowth", fallback = "rg", note = "HoT 91/21s（客戶端）；HoT係數待核",
     ids = { 8936 }, names = { "癒合", "愈合" },
     ranks = {

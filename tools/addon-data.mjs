@@ -40,7 +40,7 @@ const GAME = {
   ript:  { ids: [61295], names: ['激流'],                 parse: null },
 };
 const CLASS = { paladin_holy: 'PALADIN', priest_holy: 'PRIEST', priest_disc: 'PRIEST', druid_resto: 'DRUID', shaman_resto: 'SHAMAN' };
-const LABEL = { rg: '癒合（不含HoT）', rgh: '癒合（含完整HoT）', vigil: '聖光守望→震擊', hn: '神聖新星（治療）', pen: '懺悟', pom: '癒合禱言', wg: '野性痊癒', ch: '治療鍊' };
+const LABEL = { rg: '癒合（不含HoT）', rgh: '癒合', vigil: '聖光守望→震擊', hn: '神聖新星（治療）', pen: '懺悟', pom: '癒合禱言', wg: '野性痊癒', ch: '治療鍊' };
 
 const fam = new Map();
 for (const s of SPELLS) {

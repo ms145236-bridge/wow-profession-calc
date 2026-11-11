@@ -390,6 +390,7 @@ local function readRank(st, r, id, ctx)
   local desc = getDesc(id)
   if id and not desc then scan.missingDesc = true end
   local gmin, gmax, ghot = parseDesc(f.parse, desc)
+  local gdur = desc and tonumber(desc:match("(%d+)%s*秒內"))
   if gmin and gmax then
     -- 若說明已經把治療效果加進去，扣回來
     if d and ctx.bonus > 0 and not ctx.descIncl then
@@ -405,7 +406,9 @@ local function readRank(st, r, id, ctx)
   else return nil end
   if f.parse == "regrowth" then
     if ghot then row.hotBase = ghot; src.hot = "遊戲" elseif d and d.hotBase then row.hotBase = d.hotBase; src.hot = "資料" else return nil end
+    row.dur = gdur or row.dur or 21
   end
+  if f.parse == "hot" and gdur then row.dur = gdur end -- 回春術、恢復的持續時間也從說明讀（天賦會改）
   local nGame = 0
   for _, k in ipairs({ "mana", "cast", "base" }) do if src[k] == "遊戲" then nGame = nGame + 1 end end
   row.srcText = nGame == 3 and "遊戲" or nGame == 0 and "資料" or "部分"
@@ -451,11 +454,11 @@ local function compute()
         if ctx.descIncl and row.src.base == "遊戲" then
           -- 說明的數字已含治療效果與加成：直接當有效量，不再重複加
           per = avg
-          if f.parse == "regrowth" then per = per + row.hotBase end
+          if f.parse == "regrowth" then row.directPart, row.hotPart = avg, row.hotBase; per = per + row.hotBase end
           row.inclDesc = true
         else
           per = (avg + ctx.bonus * row.coeff * row.down) * mult
-          if f.parse == "regrowth" then per = per + row.hotBase * mult end -- HoT 係數未公開，不加治療效果
+          if f.parse == "regrowth" then row.directPart, row.hotPart = per, row.hotBase * mult; per = per + row.hotBase * mult end -- HoT 係數未公開，不加治療效果
         end
         -- 情境加成（不在技能說明裡）
         local sitAdd = 0
@@ -501,6 +504,15 @@ local function compute()
       end
     end
   end
+  local hasRgh = {}
+  for _, r in ipairs(rows) do if r.key == "rgh" then hasRgh[r.rank] = true end end
+  if next(hasRgh) then
+    local kept = {}
+    for _, r in ipairs(rows) do if not (r.key == "rg" and hasRgh[r.rank]) then table.insert(kept, r) end end
+    rows = kept
+    byId = {}
+    for _, r in ipairs(rows) do if r.id then byId[r.id] = byId[r.id] or {}; table.insert(byId[r.id], r) end end
+  end
   scan.rows, scan.byId, scan.ctx = rows, byId, ctx
   if scan.missingDesc and scan.unmatchedRetry < 3 then
     -- 技能說明還沒載入：稍後再讀一次
@@ -529,8 +541,10 @@ end
 local function bests(list)
   local h, m
   for _, r in ipairs(list) do
-    if not h or r.hps > h.hps then h = r end
-    if not m or r.hpm > m.hpm then m = r end
+    if r.f.kind == "absorb" then -- 吸收量不等於治療量，不參加 HPS／HPM 最高的比較
+    elseif not h or r.hps > h.hps then h = r end
+    if r.f.kind == "absorb" then
+    elseif not m or r.hpm > m.hpm then m = r end
   end
   return h, m
 end
@@ -552,15 +566,26 @@ local function addTooltip(tt, id)
   local cat = rows[1].f.group and "group" or "single"
   local bh, bm
   for _, r in ipairs(filterRows(scan.rows, cat)) do
-    if not bh or r.hpsT > bh.hpsT then bh = r end
-    if not bm or r.hpmT > bm.hpmT then bm = r end
+    if r.f.kind ~= "absorb" then
+      if not bh or r.hpsT > bh.hpsT then bh = r end
+      if not bm or r.hpmT > bm.hpmT then bm = r end
+    end
   end
   local catName = cat == "group" and "群補" or "單補"
   for _, r in ipairs(rows) do
-    local tag = r.f.parse == "regrowth" and "（含HoT）" or ((r.f.group or r.f.key == "bh") and string.format("（%d人）", r.targets) or "")
+    local tag = r.f.kind == "absorb" and "（吸收）" or ((r.f.group or r.f.key == "bh") and string.format("（%d人）", r.targets) or "")
     local sit = SIT[select(2, UnitClass("player"))]
     if r.withOath and sit then tag = "（" .. sit.tip .. "）" end
     tt:AddLine(string.format("|cffd9b25fHPS|r %s　|cffd9b25fHPM|r %s%s", fmt1(r.hpsT), fmt2(r.hpmT), tag), 1, 1, 1)
+    if r.hotPart then
+      tt:AddLine(string.format("直接 %s（HPS %s）＋ HoT %s（每秒 %s）", fint(r.directPart), fmt1(r.time > 0 and r.directPart / r.time or 0),
+        fint(r.hotPart), fmt1((r.dur or 0) > 0 and r.hotPart / r.dur or 0)), .8, .8, .8)
+    elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
+      tt:AddLine(string.format("單一目標每秒 %s（%d 秒內補完）", fmt1(r.perHeal / r.dur), r.dur), .8, .8, .8)
+    elseif r.f.kind == "absorb" then
+      local gap = (r.cd and r.cd > 0) and r.cd or 15
+      tt:AddLine(string.format("同一目標每 %d 秒一次：每秒 %s", gap, fmt1(r.perHeal / gap)), .55, .75, 1)
+    end
     if r.oathAdd > 0 and not r.withOath and sit then
       local h = r.totalHeal + r.oathAdd
       tt:AddLine(string.format("%s |cffd9b25fHPS|r %s　|cffd9b25fHPM|r %s", sit.tip, fmt1(r.time > 0 and h / r.time or 0), fmt2(r.manaEff > 0 and h / r.manaEff or 0)), .8, .8, .8)
@@ -663,9 +688,11 @@ local function refreshImpl()
       local amt
       if db.mode == "group" then amt = fint(r.totalHeal)
       elseif r.f.key == "bh" then amt = fint(r.perHeal) .. "×2"
+      elseif r.hotPart then amt = fint(r.directPart) .. "+" .. fint(r.hotPart)
       else amt = fint(r.perHeal) end
       local star = (isH and "|cffffd100★|r" or "") .. (isM and "|cff66ff66★|r" or "")
-      local name = r.label .. (r.down < 0.9995 and string.format(" |cffff9d5c%d%%|r", math.floor(r.down * 100 + .5)) or "")
+      local name = (r.f.kind == "absorb" and ("|cff8cc4ff" .. r.label .. "（吸收）|r") or r.label)
+        .. (r.down < 0.9995 and string.format(" |cffff9d5c%d%%|r", math.floor(r.down * 100 + .5)) or "")
       local vals = { star, name, r.rank, amt, fint(r.manaEff), fmt1(r.time), fmt1(r.hps), fmt2(r.hpm) }
       for c = 1, #COLS do l.c[c]:SetText(vals[c]) end
       l.c[7]:SetTextColor(unpack(isH and GOLD or { 1, 1, 1 }))
@@ -818,6 +845,14 @@ local function buildFrame()
       local r = self.row; if not r then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:AddLine(r.label .. " 等級" .. r.rank)
+      if r.hotPart then
+        GameTooltip:AddDoubleLine("直接", fint(r.directPart) .. "（HPS " .. fmt1(r.time > 0 and r.directPart / r.time or 0) .. "）", .8, .8, .8, 1, 1, 1)
+        GameTooltip:AddDoubleLine("HoT", fint(r.hotPart) .. "（" .. (r.dur or 0) .. " 秒，每秒 " .. fmt1((r.dur or 0) > 0 and r.hotPart / r.dur or 0) .. "）", .8, .8, .8, 1, 1, 1)
+      elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
+        GameTooltip:AddDoubleLine("單一目標每秒", fmt1(r.perHeal / r.dur) .. "（" .. r.dur .. " 秒）", .8, .8, .8, 1, 1, 1)
+      elseif r.f.kind == "absorb" then
+        GameTooltip:AddLine("吸收量不是治療量，不參加 HPS／HPM 最高的比較", .55, .75, 1, true)
+      end
       GameTooltip:AddDoubleLine("學習等級", tostring(r.learn), .8, .8, .8, 1, 1, 1)
       if r.down < 0.9995 then GameTooltip:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
       if r.cd > 0 then GameTooltip:AddDoubleLine("冷卻", fmt1(r.cd) .. " 秒", .8, .8, .8, 1, 1, 1) end
@@ -897,7 +932,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.8.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
