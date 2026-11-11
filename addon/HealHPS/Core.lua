@@ -576,7 +576,7 @@ local function buildFrame()
   end
   frame.TitleText:SetText("治療 HPS 計算器")
   frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  frame.info:SetPoint("TOPLEFT", 14, -32); frame.info:SetWidth(552); frame.info:SetJustifyH("LEFT")
+  frame.info:SetPoint("TOPLEFT", 14, -32); frame.info:SetWidth(552); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false) -- 只留一行，太長截斷，不壓到按鈕
   frame.modeBtn = button(frame, 70, function() db.mode = db.mode == "group" and "single" or "group"; offset = 0; HealHPS_Refresh() end)
   frame.modeBtn:SetPoint("TOPLEFT", 12, -52)
   local rates = { cast = "effect", effect = "cooldown", cooldown = "cast" }
@@ -588,7 +588,7 @@ local function buildFrame()
   frame.cdBtn = button(frame, 110, function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
   frame.cdBtn:SetPoint("LEFT", frame.sortBtn, "RIGHT", 6, 0)
   frame.best = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  frame.best:SetPoint("TOPLEFT", 14, -82); frame.best:SetWidth(552); frame.best:SetJustifyH("LEFT")
+  frame.best:SetPoint("TOPLEFT", 14, -82); frame.best:SetWidth(552); frame.best:SetJustifyH("LEFT"); frame.best:SetWordWrap(false)
   local head = CreateFrame("Frame", nil, frame); head:SetSize(552, 18); head:SetPoint("TOPLEFT", 14, -102)
   frame.heads = {}
   for _, c in ipairs(COLS) do
@@ -639,7 +639,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.2.4　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.2.5　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
