@@ -408,8 +408,7 @@ local function compute()
         local manaEff = row.mana
         if f.key == "vigil" and hsMana then manaEff = manaEff + hsMana; occupy = occupy + 1.5 end
         local t = occupy
-        if db.rate == "effect" and (f.kind == "hot" or f.kind == "channel") then t = math.max(row.dur or occupy, occupy)
-        elseif db.rate == "cooldown" then t = math.max(row.cd > 0 and row.cd or occupy, occupy) end
+        if f.kind ~= "absorb" and row.cd > 0 then t = math.max(row.cd, occupy) end
         row.manaEff, row.time = manaEff, t
         local shown = (f.key == "bh" or (db.mode == "group" and f.group)) and total or per
         row.shown = shown
@@ -439,7 +438,7 @@ local function filterRows(rows, mode)
   for _, r in ipairs(rows) do
     local f = r.f
     local okMode = (mode == "group") == (f.group and true or false)
-    local okCd = db.includeCd or mode == "group" or db.rate == "cooldown" or r.cd <= 0 or f.kind == "absorb"
+    local okCd = db.includeCd or mode == "group" or r.cd <= 0 or f.kind == "absorb"
     if okMode and okCd then table.insert(list, r) end
   end
   local k = db.sort == "heal" and "shown" or db.sort
@@ -541,7 +540,7 @@ local function buildDisplay(rows)
     table.sort(F.rows, function(a, b) return a.rank > b.rank end)
     local top = F.rows[1]
     F.cd = top.cd
-    F.excluded = not (db.includeCd or cat == "group" or db.rate == "cooldown" or top.cd <= 0 or top.f.kind == "absorb")
+    F.excluded = not (db.includeCd or cat == "group" or top.cd <= 0 or top.f.kind == "absorb")
     for _, r in ipairs(F.rows) do
       if not F.bh or r.hps > F.bh.hps then F.bh = r end
       if not F.bm or r.hpm > F.bm.hpm then F.bm = r end
@@ -618,7 +617,6 @@ local function refreshImpl()
     local on = db.mode == m[2]
     m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
-  frame.rateBtn:SetText("速率：" .. RATE_LABEL[db.rate])
   frame.cdBtn:SetText(db.includeCd and "冷卻技能：列入" or "冷卻技能：排除")
   frame.tgtBtn:SetText("群補人數：" .. (db.targets or 5))
   local disp, allH, allM, maxH, maxM = buildDisplay(rows)
@@ -676,27 +674,18 @@ local function buildFrame()
   infoHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 設定：平常收起來
   frame.opts = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-  frame.opts:SetSize(150, 80); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
+  frame.opts:SetSize(186, 94); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
   frame.opts:SetFrameLevel(frame:GetFrameLevel() + 20)
   if frame.opts.SetBackdrop then
     frame.opts:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
     frame.opts:SetBackdropColor(.08, .07, .05, .97); frame.opts:SetBackdropBorderColor(.35, .29, .15, 1)
   end
-  local rates = { cast = "effect", effect = "cooldown", cooldown = "cast" }
-  frame.rateBtn = button(frame.opts, 140, "", function() db.rate = rates[db.rate]; HealHPS_Refresh() end)
-  frame.rateBtn:SetPoint("TOP", 0, -5)
-  frame.rateBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("HPS 的分母")
-    GameTooltip:AddLine("施法占用：施法時間（至少一個 GCD），連續施放的治療速度", 1, 1, 1, true)
-    GameTooltip:AddLine("效果期間：HoT 用持續時間", 1, 1, 1, true)
-    GameTooltip:AddLine("冷卻上限：有冷卻的技能用冷卻時間", 1, 1, 1, true)
-    GameTooltip:Show()
-  end)
-  frame.rateBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  frame.cdBtn = button(frame.opts, 140, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
-  frame.cdBtn:SetPoint("TOP", frame.rateBtn, "BOTTOM", 0, -3)
-  frame.tgtBtn = button(frame.opts, 140, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
+  local how = frame.opts:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  how:SetPoint("TOPLEFT", 8, -6); how:SetWidth(170); how:SetJustifyH("LEFT"); how:SetSpacing(2)
+  how:SetText("HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒；有冷卻的技能用冷卻時間算|r")
+  frame.cdBtn = button(frame.opts, 170, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
+  frame.cdBtn:SetPoint("TOP", 0, -44)
+  frame.tgtBtn = button(frame.opts, 170, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
   frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -3)
   frame.opts:Hide()
   -- 內容行
@@ -743,7 +732,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.4.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.4.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
