@@ -555,6 +555,18 @@ local function filtered()
 end
 
 -- ── 滑鼠提示 ───────────────────────────────────────────────────────────────
+-- 把提示框第 from 行之後（我們加的行）統一成同一種字型，避免大小不一
+local function unifyFont(tt, from)
+  local name = tt.GetName and tt:GetName()
+  if not name or not GameTooltipText then return end
+  for i = from, tt:NumLines() do
+    for _, side in ipairs({ "TextLeft", "TextRight" }) do
+      local fs = _G[name .. side .. i]
+      if fs and fs.SetFontObject then fs:SetFontObject(GameTooltipText) end
+    end
+  end
+end
+
 local function addTooltip(tt, id)
   ensureDB()
   if not db.tip or not id then return end
@@ -572,6 +584,7 @@ local function addTooltip(tt, id)
     end
   end
   local catName = cat == "group" and "群補" or "單補"
+  local firstLine = (tt.NumLines and tt:NumLines() or 0) + 1
   for _, r in ipairs(rows) do
     local tag = r.f.kind == "absorb" and "（吸收）" or ((r.f.group or r.f.key == "bh") and string.format("（%d人）", r.targets) or "")
     local sit = SIT[select(2, UnitClass("player"))]
@@ -589,11 +602,12 @@ local function addTooltip(tt, id)
     end
     if r.oathAdd > 0 and not r.withOath and sit then
       local h = r.totalHeal + r.oathAdd
-      tt:AddDoubleLine(sit.tip, fmt1(r.time > 0 and h / r.time or 0) .. " ／ " .. fmt2(r.manaEff > 0 and h / r.manaEff or 0), .8, .8, .8, .8, .8, .8)
+      tt:AddDoubleLine("|cffd9b25f" .. sit.tip .. "|r", fmt1(r.time > 0 and h / r.time or 0) .. " ／ " .. fmt2(r.manaEff > 0 and h / r.manaEff or 0), 1, 1, 1, 1, 1, 1)
     end
     if sameRow(r, bh) then tt:AddLine("★ " .. catName .. " HPS最高", 1, .82, 0) end
     if sameRow(r, bm) then tt:AddLine("★ " .. catName .. " HPM最高", .4, 1, .4) end
   end
+  unifyFont(tt, firstLine)
   tt:Show()
 end
 
@@ -969,7 +983,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.4　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.8.5　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
