@@ -133,7 +133,7 @@ code{background:#0b0a08;border:1px solid var(--line);border-radius:4px;padding:1
   <h2>來源與注意事項</h2>
   <div class="fine">
     <p>數值以 ForeverChanges 1.60.1.70790 為主，核對時間 2026-11-06（台北時間）。不混用經典版與現行版資料。「可靠」欄：<span class="tag ok">已交叉核對</span> <span class="tag mid">單一來源待核</span> <span class="tag bad">係數未確認</span>。</p>
-    <p>聖光誓約（Oath of Light）60 級時最多聖光術 +400、聖光閃現 +115、神聖震擊 +230。60 級以下的數值、是否依技能階級縮減、是否吃治療之光，都是伺服器端腳本，未公開；進階選項裡的兩個開關只是假設。愈合的 HoT 只有 1 階（91）和 9 階（994）有客戶端數值，2～8 階不列；HoT 係數未公開，預設 0。</p>
+    <p><b>聖光誓約</b>（Oath of Light）對誓約目標的固定加成，依遊戲內實測（33 級聖騎，2026-11-11）：加成 ＝ 60 級上限（聖光術 400、聖光閃現 115、神聖震擊 230）× 你的等級 ÷ 60，小數捨去，33 級即 220／63／126，與天賦說明一致；會再乘上治療之光等治療加成 %（不受裝備影響）；20 級前學的技能依「(學會等級 − 1) × 5%」遞減，聖光術 1 階 0%、2 階 25%、3 階 65%、聖光閃現 1 階 95%。比例是否也隨角色等級變化尚待驗證。愈合的 HoT 只有 1 階（91）和 9 階（994）有客戶端數值，2～8 階不列；HoT 係數未公開，預設 0。</p>
     <p>資料改在 <code>healer-data.js</code>，計算邏輯在本頁。
       <a href="https://foreverchanges.pro/zh-cn/downrank-calculator" target="_blank" rel="noopener">ForeverChanges 降級計算器</a> ·
       <a href="https://foreverchanges.pro/class/priest" target="_blank" rel="noopener">ForeverChanges 牧師變更</a></p>
@@ -148,7 +148,12 @@ const store = {
   set(k, v) { try { localStorage.setItem('hc.' + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
 };
 const SPEC_DEF = { level: '60', heal: '300', healPct: '0', absorbPct: '0', manaReduce: '0', castReduce: '0',
-  oath: false, oathHl: '0', oathFol: '0', oathHs: '0', oathDecay: false, oathMult: true, rgHotCoeff: '0', vigilShock: true };
+  oath: false, rgHotCoeff: '0', vigilShock: true };
+// 聖光誓約（遊戲內實測，33 級聖騎）：加成＝60 級上限 × 等級 ÷ 60（小數捨去）；再乘治療加成 %；
+// 20 級前學的技能依 (學會等級−1)×5% 遞減（聖光術 1 階 0%、2 階 25%、3 階 65%、聖光閃現 1 階 95%）
+const OATH_MAX = { hl: 400, fol: 115, hs: 230 };
+const oathAt = (key, level) => Math.floor(OATH_MAX[key] * level / 60);
+const oathRatio = learnLevel => Math.max(0, Math.min(1, (learnLevel - 1) * 0.05));
 const VIEW_DEF = { spec: 'paladin_holy', mode: 'single', groupMetric: 'total', sortKey: 'hps', rateMode: 'cast', targets: '5',
   applyDownrank: true, onlyAvail: true, includeTalent: true, includeHot: true, includeAbsorb: true, includeCd: false };
 const SPEC_IDS = SPEC_OPTIONS.map(s => s.value);
@@ -188,7 +193,6 @@ function compute() {
   const castReduce = Math.max(0, num(p.castReduce, 0));
   const targetsWanted = clamp(Math.floor(num(view.targets, 5)), 1, 5);
   const rgHotCoeff = clamp(num(p.rgHotCoeff, 0), 0, 2);
-  const oath = { hl: Math.max(0, num(p.oathHl, 0)), fol: Math.max(0, num(p.oathFol, 0)), hs: Math.max(0, num(p.oathHs, 0)) };
 
   const rows = SPELLS.filter(s => s.specs.includes(spec)).map(s => {
     const down = view.applyDownrank ? foreverDownrank(level, s.learnLevel) : 1;
@@ -196,9 +200,9 @@ function compute() {
     const avg = (s.healMin + s.healMax) / 2;
     const mult = s.kind === 'absorb' ? (s.absorbPctApplies ? 1 + absorbPct : 1) : (s.healPctApplies ? 1 + healPct : 1);
     let oathAdd = 0;
-    if (p.oath && spec === 'paladin_holy' && oath[s.id] != null) oathAdd = oath[s.id];
-    if (p.oathDecay) oathAdd *= down;
-    let perHeal = p.oathMult ? (avg + oathAdd + healing * coeffEff) * mult : (avg + healing * coeffEff) * mult + oathAdd;
+    if (p.oath && spec === 'paladin_holy' && OATH_MAX[s.id] != null) oathAdd = oathAt(s.id, level) * oathRatio(s.learnLevel);
+    // 誓約固定量跟基礎量一起乘治療加成 %，不受降級影響
+    let perHeal = (avg + oathAdd + healing * coeffEff) * mult;
     if (s.id === 'rgh') perHeal += ((s.hotBase || 0) + healing * rgHotCoeff * down) * mult;
 
     const tCap = Math.min(targetsWanted, s.maxTargets);
@@ -256,9 +260,11 @@ function renderControls() {
   let box = '';
   if (spec === 'paladin_holy') {
     box = `<div class="box">${toggle('p', 'oath', '聖光誓約 Oath of Light（對誓約目標）')}`;
-    if (P().oath) box += `<div class="dim">60 級上限：聖光術 400、聖光閃現 115、神聖震擊 230（客戶端）。60 級以下的數值未公開，請自行填寫；下面兩個開關只是假設，結果不是確定值。</div>
-      <div class="row">${numField('p', 'oathHl', '聖光術 ＋固定量')}${numField('p', 'oathFol', '聖光閃現 ＋固定量')}${numField('p', 'oathHs', '神聖震擊 ＋固定量')}</div>
-      <div class="toggles">${toggle('p', 'oathDecay', '假設：誓約加成也照降級衰減')}${toggle('p', 'oathMult', '假設：誓約加成也吃治療加成 %')}</div>`;
+    if (P().oath) {
+      const lv = clamp(Math.floor(num(P().level, 60)), 1, 60);
+      box += `<div class="dim">依你填的等級（${lv} 級）自動計算：聖光術 +${oathAt('hl', lv)}、聖光閃現 +${oathAt('fol', lv)}、神聖震擊 +${oathAt('hs', lv)}。
+        再乘上治療加成 %；20 級前學的技能只拿一部分（學會等級每高 1 級多 5%，例如聖光術 1 階 0%、2 階 25%、3 階 65%）。</div>`;
+    }
     box += '</div>';
   } else if (spec === 'druid_resto') {
     box = '<div class="dim">愈合分兩列：「不含HoT」與「直接＋完整HoT」（21 秒全程跑完、沒被覆蓋或溢補）。兩列是同一次施法的兩種算法。</div>';
