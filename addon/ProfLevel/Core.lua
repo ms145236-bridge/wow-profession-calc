@@ -26,7 +26,7 @@ local MINING = { key = "mining", name = "採礦", line = 186 }
 PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {} }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = true }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業衝級|r " .. s) end
@@ -599,11 +599,12 @@ local W, ROW_H, MAXLINES, TOP, GAP = 600, 24, 20, 170, 16
 local frame, offset = nil, 0
 local TABS = {
   steps = { { "等級", 80, "RIGHT" }, { "製作", 220, "LEFT", true }, { "次數", 56, "RIGHT" }, { "來源", 140, "LEFT" } },
-  profit = { { "配方", 220, "LEFT", true }, { "成本", 80, "RIGHT" }, { "售價", 80, "RIGHT" }, { "利潤", 90, "RIGHT" }, { "可做", 44, "RIGHT" }, { "佇列", 44, "RIGHT" } },
+  profit = { { "配方", 220, "LEFT", true }, { "成本", 80, "RIGHT", nil, "cost" }, { "售價", 80, "RIGHT", nil, "sell" }, { "利潤", 90, "RIGHT", nil, "profit" },
+    { "利潤%", 60, "RIGHT", nil, "pct" }, { "可做", 44, "RIGHT", nil, "can" }, { "佇列", 44, "RIGHT", nil, "queued" } },
   queue = { { "製作", 220, "LEFT", true }, { "次數", 50, "RIGHT" }, { "專業", 60, "LEFT" }, { "材料", 110, "LEFT" }, { "可做", 50, "RIGHT" } },
   shop = { { "物品", 220, "LEFT", true }, { "需要", 52, "RIGHT" }, { "已有", 52, "RIGHT" }, { "要買", 52, "RIGHT" }, { "單價", 90, "RIGHT" }, { "小計", 100, "RIGHT" } },
 }
-local NCOL = 6
+local NCOL = 7
 
 local function measure(fs)
   if fs.GetUnboundedStringWidth then
@@ -635,6 +636,8 @@ local function autoFit(cols)
       end
       w = math.ceil(w)
       hf:ClearAllPoints(); hf:SetPoint("LEFT", frame.head, "LEFT", x, 0); hf:SetWidth(w); hf:SetJustifyH(col[3]); hf:Show()
+      local hb = frame.headBtns[c]
+      hb:ClearAllPoints(); hb:SetPoint("LEFT", frame.head, "LEFT", x, 0); hb:SetSize(w, 22); hb:SetShown(col[5] ~= nil)
       for i = 1, MAXLINES do
         local l = frame.lines[i]
         l.c[c]:ClearAllPoints(); l.c[c]:SetPoint("LEFT", l, "LEFT", x + iconW, 0); l.c[c]:SetWidth(w - iconW); l.c[c]:SetJustifyH(col[3]); l.c[c]:Show()
@@ -642,7 +645,7 @@ local function autoFit(cols)
       end
       x = x + w + GAP
     else
-      hf:Hide()
+      hf:Hide(); frame.headBtns[c]:Hide()
       for i = 1, MAXLINES do frame.lines[i].c[c]:Hide() end
     end
   end
@@ -733,7 +736,13 @@ local function refreshImpl()
   frame.atrBtn:SetShown(api ~= nil and api.CreateShoppingList ~= nil)
   -- 內容
   local cols = TABS[db.tab]
-  for c = 1, NCOL do frame.headFs[c]:SetText(cols[c] and cols[c][1] or "") end
+  for c = 1, NCOL do
+    local col = cols[c]
+    local lbl = col and col[1] or ""
+    if col and col[5] and col[5] == db.psort then lbl = (db.pdesc ~= false and "▼" or "▲") .. lbl end
+    frame.headFs[c]:SetText(lbl)
+    if col and col[5] and col[5] == db.psort then frame.headFs[c]:SetTextColor(1, .82, 0) else frame.headFs[c]:SetTextColor(.6, .57, .5) end
+  end
   local rows = {}
   if db.tab == "steps" then
     local cs = r.crafts or {}
@@ -749,11 +758,14 @@ local function refreshImpl()
     for _, q in ipairs(db.queue) do if q.id then qc[q.id] = (qc[q.id] or 0) + q.count end end
     for id, rec in pairs(db.recipes[p.key] or {}) do
       local cost, sell, profit = profitOf(rec, learned)
-      table.insert(rows, { recipe = rec, id = id, prof = p.key, cost = cost, sell = sell, profit = profit, can = canMakeNow(rec), queued = qc[id] or 0 })
+      local pct = (profit and cost and cost > 0) and (profit / cost * 100) or nil
+      table.insert(rows, { recipe = rec, id = id, prof = p.key, cost = cost, sell = sell, profit = profit, pct = pct, can = canMakeNow(rec), queued = qc[id] or 0 })
     end
+    local k, desc = db.psort or "profit", db.pdesc ~= false
     table.sort(rows, function(a, b)
-      if (a.profit ~= nil) ~= (b.profit ~= nil) then return a.profit ~= nil end
-      if a.profit and b.profit and a.profit ~= b.profit then return a.profit > b.profit end
+      local va, vb = a[k], b[k]
+      if (va ~= nil) ~= (vb ~= nil) then return va ~= nil end -- 沒有數值的排最後
+      if va ~= nil and va ~= vb then if desc then return va > vb else return va < vb end end
       return recipeName(nil, a.recipe) < recipeName(nil, b.recipe)
     end)
   elseif db.tab == "queue" then
@@ -777,7 +789,8 @@ local function refreshImpl()
         if rec.out then name, icon, col = info("i", rec.out) else name, icon, col = info("s", e.id); name = rec.name or name end
         l.icon:SetTexture(icon); l.icon:Show()
         local pf = e.profit and ((e.profit >= 0 and "|cff9fd18b" or "|cffff7b7b") .. (e.profit >= 0 and "" or "-") .. money(math.abs(e.profit)) .. "|r") or "—"
-        vals = { name, e.cost and money(e.cost) or "|cffff9d5c沒價格|r", e.sell and money(e.sell) or "—", pf,
+        local pc = e.pct and string.format("%s%d%%|r", e.pct >= 0 and "|cff9fd18b" or "|cffff7b7b", math.floor(e.pct + 0.5)) or "—"
+        vals = { name, e.cost and money(e.cost) or "|cffff9d5c沒價格|r", e.sell and money(e.sell) or "—", pf, pc,
           e.can > 0 and e.can or "0", e.queued > 0 and ("|cffffd100" .. e.queued .. "|r") or "" }
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.queue then
@@ -834,7 +847,9 @@ local function refreshImpl()
   frame.foot:SetText(#rows == 0 and emptyTxt or (#rows > MAXLINES and string.format("共 %d 列，用滾輪捲動", #rows) or ""))
   -- 底部動作按鈕（依分頁）
   local y = -(TOP + shown * ROW_H + 8)
-  frame.foot:ClearAllPoints(); frame.foot:SetPoint("TOPLEFT", 14, y - 5)
+  frame.atrBtn:ClearAllPoints(); frame.atrBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, y)
+  frame.foot:ClearAllPoints()
+  if frame.atrBtn:IsShown() then frame.foot:SetPoint("LEFT", frame.atrBtn, "RIGHT", 10, 0) else frame.foot:SetPoint("TOPLEFT", 14, y - 5) end
   frame.act1:Hide(); frame.act2:Hide()
   if db.tab == "steps" then
     frame.act1:SetText("全部加入製作佇列"); fitButton(frame.act1, 140); frame.act1.fn = queueRoute; frame.act1:Show()
@@ -844,7 +859,7 @@ local function refreshImpl()
   end
   frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
   frame.act2:ClearAllPoints(); frame.act2:SetPoint("RIGHT", frame.act1, "LEFT", -6, 0)
-  local hasAct = frame.act1:IsShown()
+  local hasAct = frame.act1:IsShown() or frame.atrBtn:IsShown()
   frame:SetHeight(TOP + shown * ROW_H + ((hasAct or frame.foot:GetText() ~= "") and 44 or 18))
   autoFit(cols)
 end
@@ -963,9 +978,18 @@ local function buildFrame()
   local line = head:CreateTexture(nil, "ARTWORK"); line:SetColorTexture(1, 1, 1, .12); line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", 0, -1); line:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, -1)
   frame.head, frame.headFs = head, {}
+  frame.headBtns = {}
   for c = 1, NCOL do
     local fs = head:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fs:SetWordWrap(false); fs:SetTextColor(.6, .57, .5)
     frame.headFs[c] = fs
+    local hb = CreateFrame("Button", nil, head) -- 點欄名排序（利潤分頁）
+    hb:SetScript("OnClick", function()
+      local col = TABS[db.tab][c]
+      if not (col and col[5]) then return end
+      if db.psort == col[5] then db.pdesc = not (db.pdesc ~= false) else db.psort = col[5]; db.pdesc = true end
+      offset = 0; ProfLevel_Refresh()
+    end)
+    frame.headBtns[c] = hb
   end
   -- 分頁按鈕自成一列（在花費那行下面、表頭上面），不會壓到文字
   frame.stepsBtn:SetPoint("TOPLEFT", 12, -116)
@@ -981,7 +1005,6 @@ local function buildFrame()
     GameTooltip:Show()
   end)
   frame.decBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  frame.atrBtn:SetPoint("TOPRIGHT", -12, -116)
   frame.lines = {}
   for i = 1, MAXLINES do
     local l = CreateFrame("Frame", nil, frame)
@@ -1073,6 +1096,88 @@ local function toggleWindow()
   if frame:IsShown() then frame:Hide() else frame:Show() end
 end
 
+-- ── 專業視窗整合：配方細節區顯示利潤與「加入佇列」，插件視窗貼在專業視窗右邊 ──
+local profUI, docked = nil, false
+local function selectedRecipe()
+  local sf = ProfessionsFrame and ProfessionsFrame.CraftingPage and ProfessionsFrame.CraftingPage.SchematicForm
+  local ok, ri = false, nil
+  if sf and sf.GetRecipeInfo then ok, ri = pcall(sf.GetRecipeInfo, sf) end
+  if ok and type(ri) == "table" and ri.recipeID then return ri.recipeID end
+  if C_TradeSkillUI and C_TradeSkillUI.GetSelectedRecipeID then
+    local ok2, id = pcall(C_TradeSkillUI.GetSelectedRecipeID)
+    if ok2 and type(id) == "number" and id > 0 then return id end
+  end
+end
+local function updateProfUI()
+  if not profUI or not profUI:IsVisible() then return end
+  local p, id = openProf(), selectedRecipe()
+  profUI.id, profUI.prof, profUI.rec = id, p and p.key, nil
+  if not p or not id then profUI.text:SetText(""); return end
+  priceCache = {}
+  local rec = db.recipes[p.key] and db.recipes[p.key][id]
+  profUI.rec = rec
+  local qn = 0
+  for _, q in ipairs(db.queue) do if q.id == id then qn = qn + q.count end end
+  local txt = ""
+  if rec then
+    local cost, sell, profit = profitOf(rec, learnedProfs())
+    if profit then
+      txt = string.format("利潤 %s%s|r（%d%%）", profit >= 0 and "|cff9fd18b" or "|cffff7b7b", (profit < 0 and "-" or "") .. money(math.abs(profit)),
+        cost > 0 and math.floor(profit / cost * 100 + 0.5) or 0)
+    elseif cost then txt = "成本 " .. money(cost) .. "（沒有售價）" end
+  end
+  profUI.text:SetText(txt .. (qn > 0 and string.format("　|cffffd100佇列 ×%d|r", qn) or ""))
+end
+local function dockOpen()
+  if not db.dock or not ProfessionsFrame then return end
+  local p = openProf()
+  if p then db.prof = p.key end
+  if not frame then buildFrame() end
+  frame:ClearAllPoints(); frame:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", 6, 0)
+  docked = true
+  frame:Show(); ProfLevel_Refresh()
+end
+local function dockClose()
+  if docked and frame then frame:Hide() end
+  docked = false
+end
+local function setupProfUI()
+  if profUI or not (ProfessionsFrame and ProfessionsFrame.CraftingPage and ProfessionsFrame.CraftingPage.SchematicForm) then return end
+  local sf = ProfessionsFrame.CraftingPage.SchematicForm
+  profUI = CreateFrame("Frame", "ProfLevelProfessionsPanel", sf)
+  profUI:SetSize(360, 56); profUI:SetFrameLevel(sf:GetFrameLevel() + 30)
+  local anchor = _G.AuctionatorCraftingInfoProfessionsFrame
+  if anchor then profUI:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -40) else profUI:SetPoint("BOTTOMLEFT", sf, "BOTTOMLEFT", 24, 70) end
+  profUI.text = profUI:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  profUI.text:SetPoint("TOPLEFT", 2, 0); profUI.text:SetJustifyH("LEFT")
+  local b = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
+  b:SetSize(110, 24); b:SetText("加入佇列"); b:SetPoint("TOPLEFT", 0, -22)
+  b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  b:SetScript("OnClick", function(_, btn)
+    if not profUI.id then return end
+    local d = (btn == "RightButton") and -1 or 1
+    if IsShiftKeyDown and IsShiftKeyDown() then d = d * 5 end
+    local rec = profUI.rec
+    queueAdd(profUI.prof, profUI.id, rec and rec.out, rec and recipeName(nil, rec) or nil, d)
+    updateProfUI()
+    if frame and frame:IsShown() then ProfLevel_Refresh() end
+  end)
+  b:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("加入製作佇列")
+    GameTooltip:AddLine("左鍵 +1、Shift+左鍵 +5、右鍵 −1", 1, 1, 1); GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  fitButton(b, 110)
+  local o = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
+  o:SetSize(110, 24); o:SetText("衝級計算器"); o:SetPoint("LEFT", b, "RIGHT", 6, 0)
+  o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else db.dock = true; dockOpen() end end)
+  fitButton(o, 110)
+  if sf.Init then hooksecurefunc(sf, "Init", function() C_Timer.After(0, function() safe("專業視窗", updateProfUI) end) end) end
+  profUI:SetScript("OnShow", function() safe("專業視窗", updateProfUI) end)
+  ProfessionsFrame:HookScript("OnShow", function() safe("專業視窗", dockOpen) end)
+  ProfessionsFrame:HookScript("OnHide", dockClose)
+end
+
 -- ── 小地圖按鈕 ─────────────────────────────────────────────────────────────
 local mmBtn
 local function placeMinimap()
@@ -1128,6 +1233,9 @@ SlashCmdList.PROFLEVEL = function(input)
     db.minimapHide = not db.minimapHide
     if mmBtn then if db.minimapHide then mmBtn:Hide() else mmBtn:Show() end end
     msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /prof minimap 顯示）" or "顯示"))
+  elseif cmd == "dock" then
+    db.dock = not db.dock
+    msg("打開專業視窗時自動顯示衝級計算器：" .. (db.dock and "開" or "關"))
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
     if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
@@ -1136,7 +1244,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.3.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.4.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
@@ -1163,7 +1271,7 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/prof 開關視窗　/prof scale 1.2 調整視窗大小　/prof minimap 隱藏小地圖按鈕　/prof debug 列出偵測結果")
+    msg("/prof 開關視窗　/prof scale 1.2 調整視窗大小　/prof dock 開關「跟專業視窗一起開」　/prof minimap 隱藏小地圖按鈕　/prof debug 列出偵測結果")
   end
 end
 
@@ -1174,7 +1282,12 @@ local scanPending = false
 local function queueScan()
   if scanPending then return end
   scanPending = true
-  C_Timer.After(0.5, function() scanPending = false; ensureDB(); safe("讀取配方", scanRecipes); if frame and frame:IsShown() then ProfLevel_Refresh() end end)
+  C_Timer.After(0.5, function()
+    scanPending = false; ensureDB(); safe("讀取配方", scanRecipes)
+    if docked then local p = openProf(); if p then db.prof = p.key end end -- 專業視窗切換專業時跟著換
+    safe("專業視窗", updateProfUI)
+    if frame and frame:IsShown() then ProfLevel_Refresh() end
+  end)
 end
 local REFRESH_EVENTS = { SKILL_LINES_CHANGED = true, BAG_UPDATE_DELAYED = true,
   GET_ITEM_INFO_RECEIVED = true, AUCTION_HOUSE_CLOSED = true, CHAT_MSG_SKILL = true }
@@ -1185,7 +1298,14 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     ensureDB()
     if db.scale == 1 then db.scale = 1.25 end -- 舊預設值改成新的預設大小
     safe("小地圖按鈕", buildMinimapButton)
+  elseif e == "ADDON_LOADED" and a1 == "Blizzard_Professions" then
+    safe("專業視窗", setupProfUI)
   elseif SCAN_EVENTS[e] then
+    if e == "TRADE_SKILL_SHOW" then
+      local first = not profUI
+      safe("專業視窗", setupProfUI)
+      if first and ProfessionsFrame and ProfessionsFrame:IsShown() then safe("專業視窗", dockOpen) end
+    end
     queueScan()
   elseif e == "UNIT_SPELLCAST_SUCCEEDED" then
     local spellID = select(2, ...) -- 參數：unit（a1）, castGUID, spellID
