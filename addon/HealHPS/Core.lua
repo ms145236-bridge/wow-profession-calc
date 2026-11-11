@@ -502,19 +502,19 @@ end
 -- ── 比較表視窗 ─────────────────────────────────────────────────────────────
 -- 比較表：一列一個技能等級；★ 與等級各自一欄，數字一律靠右對齊
 local W = 404        -- 內容寬度
-local ROW_H = 18
+local ROW_H = 20
 local MAXLINES = 18  -- 最多顯示幾列（多的用滾輪捲動）
-local TOP = 84       -- 第一列的位置
+local TOP = 98       -- 第一列的位置
 -- { 標題, x, 寬, 對齊, 排序鍵 }
 local COLS = {
-  { "",     0,   14, "CENTER" },
-  { "技能", 16,  132, "LEFT" },
-  { "等級", 150, 30,  "RIGHT" },
-  { "有效量", 184, 52, "RIGHT", "heal" },
-  { "法力", 240, 40,  "RIGHT" },
-  { "秒",   284, 30,  "RIGHT" },
-  { "HPS",  318, 46,  "RIGHT", "hps" },
-  { "HPM",  366, 38,  "RIGHT", "hpm" },
+  { "",     0,   18, "CENTER" },
+  { "技能", 16,  120, "LEFT" },
+  { "等級", 150, 34,  "RIGHT" },
+  { "有效量", 184, 56, "RIGHT", "heal" },
+  { "法力", 240, 44,  "RIGHT" },
+  { "秒",   284, 34,  "RIGHT" },
+  { "HPS",  318, 56,  "RIGHT", "hps" },
+  { "HPM",  366, 46,  "RIGHT", "hpm" },
 }
 local frame, offset = nil, 0
 local GOLD, GREEN, DIM = { 1, .82, 0 }, { .4, 1, .4 }, { .6, .57, .5 }
@@ -531,6 +531,7 @@ local function button(parent, w, label, onClick)
   return b
 end
 
+local autoFit -- 定義在下面
 local function refreshImpl()
   if not frame or not frame:IsShown() then return end
   local list, ctx = filtered()
@@ -583,7 +584,44 @@ local function refreshImpl()
   frame.foot:SetText(foot)
   frame.foot:ClearAllPoints()
   frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 8))
-  frame:SetHeight(TOP + n * ROW_H + 32)
+  frame:SetHeight(TOP + n * ROW_H + 34)
+  autoFit()
+end
+
+local GAP = 10
+local function measure(fsObj)
+  if fsObj.GetUnboundedStringWidth then
+    local w = fsObj:GetUnboundedStringWidth()
+    if type(w) == "number" and w > 0 then return w end
+  end
+  local w = fsObj.GetStringWidth and fsObj:GetStringWidth()
+  return type(w) == "number" and w or 0
+end
+autoFit = function()
+  local x = 0
+  for c, col in ipairs(COLS) do
+    local w = col[3] -- 最小寬度
+    w = math.max(w, measure(frame.headFs[c]) + 4)
+    for i = 1, MAXLINES do
+      local l = frame.lines[i]
+      if l.row then w = math.max(w, measure(l.c[c]) + 4) end
+    end
+    w = math.ceil(w)
+    local function place(obj, parent)
+      obj:ClearAllPoints(); obj:SetPoint("LEFT", parent, "LEFT", x, 0); obj:SetWidth(w)
+    end
+    place(frame.headFs[c], frame.head)
+    if frame.headBtns[c] then place(frame.headBtns[c], frame.head) end
+    for i = 1, MAXLINES do place(frame.lines[i].c[c], frame.lines[i]) end
+    x = x + w + GAP
+  end
+  local total = math.max(x - GAP, 360)
+  frame.head:SetWidth(total)
+  for i = 1, MAXLINES do frame.lines[i]:SetWidth(total) end
+  frame.info:SetWidth(total)
+  local footW = measure(frame.foot)
+  frame.foot:SetWidth(math.max(total, footW + 4))
+  frame:SetWidth(math.max(total, footW + 4) + 28)
 end
 
 function HealHPS_Refresh() safe("比較表", refreshImpl) end
@@ -611,7 +649,7 @@ local function buildFrame()
   frame.gearBtn:SetPoint("TOPRIGHT", -12, -28)
   -- 資訊列：等級與治療效果；天賦加成滑鼠移上去才顯示
   frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  frame.info:SetPoint("TOPLEFT", 14, -54); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
+  frame.info:SetPoint("TOPLEFT", 14, -56); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
   local infoHit = CreateFrame("Frame", nil, frame); infoHit:SetAllPoints(frame.info); infoHit:EnableMouse(true)
   infoHit:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
@@ -637,15 +675,18 @@ local function buildFrame()
   frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -3)
   frame.opts:Hide()
   -- 表頭（點 有效量／HPS／HPM 排序）
-  local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 16); head:SetPoint("TOPLEFT", 14, -(TOP - 18))
+  local head = CreateFrame("Frame", nil, frame); head:SetSize(W, 18); head:SetPoint("TOPLEFT", 14, -(TOP - 22))
+  frame.head, frame.headFs, frame.headBtns = head, {}, {}
   local line = head:CreateTexture(nil, "ARTWORK"); line:SetColorTexture(1, 1, 1, .12); line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", 0, -1); line:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, -1)
   frame.heads = {}
   for _, col in ipairs(COLS) do
     local fs = cell(head, col); fs:SetText(col[1]); fs:SetTextColor(unpack(DIM))
+    frame.headFs[#frame.headFs + 1] = fs
     if col[5] then
       local b = CreateFrame("Button", nil, head)
-      b:SetPoint("LEFT", head, "LEFT", col[2], 0); b:SetSize(col[3], 16)
+      b:SetPoint("LEFT", head, "LEFT", col[2], 0); b:SetSize(col[3], 18)
+      frame.headBtns[#frame.headFs] = b
       b:SetScript("OnClick", function() db.sort = col[5]; offset = 0; HealHPS_Refresh() end)
       table.insert(frame.heads, { fs = fs, key = col[5], label = col[1] })
     end
@@ -739,7 +780,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.6.0　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.6.1　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
