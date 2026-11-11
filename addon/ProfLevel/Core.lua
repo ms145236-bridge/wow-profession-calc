@@ -21,9 +21,12 @@ for i, p in ipairs(PROFS) do p.index = i; PROF_BY_KEY[p.key] = p; PROF_BY_LINE[p
 PROF_BY_NAME["煉金術"] = PROF_BY_KEY.alchemy
 PROF_BY_NAME["工程"] = PROF_BY_KEY.engineering
 PROF_BY_NAME["製皮匠"] = PROF_BY_KEY.leatherworking
+-- 採礦沒有衝級路線，只用來判斷能不能自己冶煉金屬錠
+local MINING = { key = "mining", name = "採礦", line = 186 }
+PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1 }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "steps", minimapAngle = 200, minimapHide = false, scale = 1, decompose = true }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業衝級|r " .. s) end
@@ -245,6 +248,138 @@ local function pickRoute(prof, S, T)
   return best, bestR, #vs
 end
 
+-- ── 中間材料：自己做比較便宜就拆成原料 ───────────────────────────────────
+-- 配方來源：8 個專業衝級路線裡的步驟（永恆實際資料）＋經典版冶煉表（採礦）
+local SMELT = { -- { 產物, 一次做幾個, 最低點數, { 材料, 數量 }... }
+  { 2840, 1, 1,   { 2770, 1 } },             -- 銅錠 ← 銅礦石
+  { 3576, 1, 65,  { 2771, 1 } },             -- 錫錠 ← 錫礦石
+  { 2841, 2, 65,  { 2840, 1 }, { 3576, 1 } }, -- 青銅錠 ×2 ← 銅錠＋錫錠
+  { 2842, 1, 75,  { 2775, 1 } },             -- 銀錠 ← 銀礦石
+  { 3575, 1, 125, { 2772, 1 } },             -- 鐵錠 ← 鐵礦石
+  { 3577, 1, 155, { 2776, 1 } },             -- 金錠 ← 金礦石
+  { 3859, 1, 165, { 3575, 1 }, { 3857, 1 } }, -- 鋼錠 ← 鐵錠＋煤炭
+  { 3860, 1, 175, { 3858, 1 } },             -- 秘銀錠 ← 秘銀礦石
+  { 6037, 1, 230, { 7911, 1 } },             -- 真銀錠 ← 真銀礦石
+  { 11371, 1, 230, { 11370, 8 } },           -- 黑鐵錠 ← 黑鐵礦石 ×8
+  { 12359, 1, 250, { 10620, 1 } },           -- 瑟銀錠 ← 瑟銀礦石
+}
+local RECIPES -- [產物] = { prof, minSkill, yield, mats = { {id, 每次數量} } }
+local function recipes()
+  if RECIPES then return RECIPES end
+  RECIPES = {}
+  for _, r in ipairs(SMELT) do
+    local mats = {}
+    for i = 4, #r do table.insert(mats, { r[i][1], r[i][2] }) end
+    RECIPES[r[1]] = { prof = "mining", minSkill = r[3], yield = r[2], mats = mats }
+  end
+  for prof, vs in pairs(D.variants) do
+    for _, v in ipairs(vs) do
+      for _, st in ipairs(v.steps) do
+        if st.k == "i" and #st.m > 0 then
+          local cur = RECIPES[st.id]
+          if not cur then
+            local mats = {}
+            for _, m in ipairs(st.m) do table.insert(mats, { m[1], m[2] / st.c }) end
+            RECIPES[st.id] = { prof = prof, minSkill = st.f, yield = v.yields[st.id] or 1, mats = mats }
+          elseif cur.prof == prof and st.f < cur.minSkill then
+            cur.minSkill = st.f
+          end
+        end
+      end
+    end
+  end
+  return RECIPES
+end
+
+-- 只拆你做得出來的：要學了那個專業，點數也要夠
+local function canCraft(id, learned)
+  local rec = recipes()[id]
+  if not rec then return nil end
+  local L = learned[rec.prof]
+  if not L or L.cur < rec.minSkill then return nil end
+  return rec
+end
+
+-- 每個的成本：直接買和自己做取便宜的；回傳 成本, 是否自己做
+local function bestCost(id, learned, depth, memo)
+  if memo[id] ~= nil then return memo[id][1], memo[id][2] end
+  local buy = price(id)
+  local craft
+  local rec = depth < 4 and canCraft(id, learned)
+  if rec then
+    local sum = 0
+    for _, m in ipairs(rec.mats) do
+      local c = bestCost(m[1], learned, depth + 1, memo)
+      if not c then sum = nil; break end
+      sum = sum + c * m[2]
+    end
+    if sum then craft = sum / rec.yield end
+  end
+  local useCraft = craft ~= nil and (buy == nil or craft < buy)
+  local v = useCraft and craft or buy
+  memo[id] = { v, useCraft }
+  return v, useCraft
+end
+
+-- 把購物清單裡的中間材料拆開；回傳新的清單、要自己做的中間材料
+local function decompose(r, learned)
+  local memo, final, order, crafts, craftIdx = {}, {}, {}, {}, {}
+  local function addMat(id, q)
+    if not final[id] then final[id] = 0; table.insert(order, id) end
+    final[id] = final[id] + q
+  end
+  local function expand(id, q, depth)
+    local _, useCraft = bestCost(id, learned, depth, memo)
+    if not useCraft then addMat(id, q); return end
+    local rec = canCraft(id, learned)
+    local c = craftIdx[id]
+    if not c then
+      c = { id = id, qty = 0, have = have(id), rec = rec, buyUnit = price(id), unit = bestCost(id, learned, depth, memo) }
+      craftIdx[id] = c; table.insert(crafts, c)
+    end
+    local before = math.max(0, c.qty - c.have)
+    c.qty = c.qty + q
+    local need = math.max(0, c.qty - c.have) - before -- 已有的中間材料先用掉
+    if need <= 0 then return end
+    local nBefore = math.ceil(before / rec.yield - 1e-9)
+    local nAfter = math.ceil((before + need) / rec.yield - 1e-9)
+    local n = nAfter - nBefore
+    if n <= 0 then return end
+    for _, m in ipairs(rec.mats) do expand(m[1], math.ceil(n * m[2] - 1e-9), depth + 1) end
+  end
+  local out = {}
+  for _, it in ipairs(r.list) do
+    if it.kind == "mat" then expand(it.id, it.qty, 0) else table.insert(out, it) end
+  end
+  if #crafts == 0 then return r end
+  for _, c in ipairs(crafts) do
+    c.kind = "craft"
+    c.n = math.ceil(math.max(0, c.qty - c.have) / c.rec.yield - 1e-9)
+    c.buy = 0
+    if c.buyUnit and c.unit then c.saved = (c.buyUnit - c.unit) * math.max(0, c.qty - c.have) end
+    table.insert(out, c)
+  end
+  local total, missing = 0, 0
+  for _, it in ipairs(out) do
+    if it.kind ~= "craft" and it.unit then total = total + it.unit * it.buy elseif it.kind ~= "craft" and it.buy > 0 then missing = missing + 1 end
+  end
+  for _, id in ipairs(order) do
+    local it = { id = id, qty = final[id], kind = "mat", unit = price(id), have = have(id) }
+    it.buy = math.max(0, it.qty - it.have)
+    if it.unit then total = total + it.unit * it.buy elseif it.buy > 0 then missing = missing + 1 end
+    table.insert(out, it)
+  end
+  local rank = { recipe = 1, tool = 2, craft = 3, mat = 4 }
+  table.sort(out, function(a, b)
+    if rank[a.kind] ~= rank[b.kind] then return rank[a.kind] < rank[b.kind] end
+    return (a.unit or 0) * (a.buy or 0) > (b.unit or 0) * (b.buy or 0)
+  end)
+  local saved = 0
+  for _, c in ipairs(crafts) do saved = saved + (c.saved or 0) end
+  return { list = out, total = total, missing = missing, stepCrafts = r.stepCrafts, extraCrafts = r.extraCrafts,
+    crafts = crafts, saved = saved, totalBefore = r.total }
+end
+
 -- ── 視窗 ───────────────────────────────────────────────────────────────────
 local W, ROW_H, MAXLINES, TOP, GAP = 600, 24, 20, 170, 16
 local frame, offset = nil, 0
@@ -318,12 +453,15 @@ local function refreshImpl()
   if not frame.fromBox:HasFocus() then frame.fromBox:SetText(tostring(S)) end
   if not frame.toBox:HasFocus() then frame.toBox:SetText(tostring(T)) end
   local route, r, nVar = pickRoute(p.key, S, T)
+  if db.decompose then r = decompose(r, learned) end
   current = { prof = p, S = S, T = T, route = route, r = r }
   local api = auctionator()
   frame.status:SetText(api and string.format("價格：Auctionator　從 %d 條路線選出最省的", nVar)
     or "|cffff9d5c沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）|r")
-  frame.total:SetText(string.format("%s %d–%d　預計花費 %s%s", p.name, S, T, money(r.total),
+  frame.total:SetText(string.format("%s %d–%d　預計花費 %s%s%s", p.name, S, T, money(r.total),
+    (r.saved and r.saved > 0.5) and ("　|cff9fd18b自己做中間材料省 " .. money(r.saved) .. "|r") or "",
     r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
+  frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關")
   for _, t in ipairs({ { frame.stepsBtn, "steps" }, { frame.shopBtn, "shop" } }) do
     local on = db.tab == t[2]
     t[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
@@ -334,6 +472,10 @@ local function refreshImpl()
   for c = 1, NCOL do frame.headFs[c]:SetText(cols[c] and cols[c][1] or "") end
   local rows = {}
   if db.tab == "steps" then
+    local cs = r.crafts or {}
+    for i = #cs, 1, -1 do -- 先做最底層的（例如先冶煉銅錠、錫錠，再做青銅錠）
+      if cs[i].n > 0 then table.insert(rows, { prep = cs[i] }) end
+    end
     for i, s in ipairs(route.steps) do
       local n = r.stepCrafts[i] + r.extraCrafts[i]
       if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i] }) end
@@ -351,7 +493,14 @@ local function refreshImpl()
     if e then
       shown = i
       local vals
-      if e.step then
+      if e.prep then
+        local c = e.prep
+        local name, icon, col = info("i", c.id)
+        l.icon:SetTexture(icon); l.icon:Show()
+        local pn = c.rec.prof == "mining" and "採礦" or (PROF_BY_KEY[c.rec.prof] and PROF_BY_KEY[c.rec.prof].name or "")
+        vals = { "準備", name, "×" .. c.n, "自己做（" .. pn .. "）" }
+        l.c[2]:SetTextColor(col[1], col[2], col[3])
+      elseif e.step then
         local s = e.step
         local lo, hi = math.max(s.f, S), math.min(s.t, T)
         local name, icon, col = info(s.k, s.id)
@@ -363,8 +512,13 @@ local function refreshImpl()
         local name, icon, col = info("i", it.id)
         l.icon:SetTexture(icon); l.icon:Show()
         local tag = it.kind == "recipe" and "|cfff0cf7f（配方）|r" or (D.vendor[it.id] and "|cff9fd18b（商人）|r" or "")
-        vals = { name .. tag, it.qty, it.have > 0 and ("|cff9fd18b" .. it.have .. "|r") or "0", it.buy,
-          it.unit and money(it.unit) or "|cffff9d5c沒價格|r", it.unit and money(it.unit * it.buy) or "—" }
+        if it.kind == "craft" then
+          vals = { name .. string.format("|cff8cc4ff（自己做 ×%d）|r", it.n), it.qty, it.have > 0 and ("|cff9fd18b" .. it.have .. "|r") or "0", "—",
+            it.unit and ("自製 " .. money(it.unit)) or "—", it.saved and ("|cff9fd18b省 " .. money(it.saved) .. "|r") or "—" }
+        else
+          vals = { name .. tag, it.qty, it.have > 0 and ("|cff9fd18b" .. it.have .. "|r") or "0", it.buy,
+            it.unit and money(it.unit) or "|cffff9d5c沒價格|r", it.unit and money(it.unit * it.buy) or "—" }
+        end
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       end
       for c = 1, NCOL do l.c[c]:SetText(vals[c] or "") end
@@ -494,6 +648,15 @@ local function buildFrame()
   -- 分頁按鈕自成一列（在花費那行下面、表頭上面），不會壓到文字
   frame.stepsBtn:SetPoint("TOPLEFT", 12, -116)
   frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
+  frame.decBtn = button(frame, 120, "", function() db.decompose = not db.decompose; ProfLevel_Refresh() end)
+  frame.decBtn:SetPoint("LEFT", frame.shopBtn, "RIGHT", 10, 0)
+  frame.decBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine("拆中間材料")
+    GameTooltip:AddLine("開：每個中間材料都比較「直接買」和「買原料自己做」，便宜的那個才列進清單。只拆你學過、點數也夠的配方（冶煉要有採礦）。", 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  frame.decBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.atrBtn:SetPoint("TOPRIGHT", -12, -116)
   frame.lines = {}
   for i = 1, MAXLINES do
@@ -510,7 +673,16 @@ local function buildFrame()
     l:SetScript("OnEnter", function(self)
       local e = self.e; if not e then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      if e.step then
+      if e.prep then
+        local c = e.prep
+        pcall(GameTooltip.SetItemByID, GameTooltip, c.id)
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(string.format("自己做 %d 次（共 %d 個，已有 %d）", c.n, c.qty, c.have), 1, .82, 0, true)
+        local mats = {}
+        for _, m in ipairs(c.rec.mats) do table.insert(mats, string.format("%s ×%d", (info("i", m[1])), math.ceil(c.n * m[2] - 1e-9))) end
+        GameTooltip:AddLine("材料：" .. table.concat(mats, "、"), 1, 1, 1, true)
+        if c.buyUnit and c.unit then GameTooltip:AddLine(string.format("直接買每個 %s，自己做每個 %s", money(c.buyUnit), money(c.unit)), .8, .8, .8, true) end
+      elseif e.step then
         local s = e.step
         if s.k == "s" then pcall(GameTooltip.SetSpellByID, GameTooltip, s.id) else pcall(GameTooltip.SetItemByID, GameTooltip, s.id) end
         GameTooltip:AddLine(" ")
@@ -526,6 +698,11 @@ local function buildFrame()
         end
       else
         pcall(GameTooltip.SetItemByID, GameTooltip, e.item.id)
+        local c = e.item
+        if c.kind == "craft" then
+          GameTooltip:AddLine(" ")
+          GameTooltip:AddLine(string.format("比價：直接買每個 %s，自己做每個 %s → 自己做", c.buyUnit and money(c.buyUnit) or "沒價格", money(c.unit or 0)), .55, .75, 1, true)
+        end
       end
       GameTooltip:Show()
     end)
@@ -607,7 +784,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.1.2　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.2.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
