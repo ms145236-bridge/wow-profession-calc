@@ -1317,11 +1317,13 @@ SlashCmdList.PROFLEVEL = function(input)
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
     if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
     else msg("用法：/prof scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
+  elseif cmd == "track" then
+    if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
   elseif cmd == "debug" then
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.6.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.7.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
@@ -1348,7 +1350,7 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/prof 開關視窗　/prof scale 1.2 調整視窗大小　/prof dock 開關「跟專業視窗一起開」　/prof minimap 隱藏小地圖按鈕　/prof debug 列出偵測結果")
+    msg("/prof 開關視窗　/prof scale 1.2 調整視窗大小　/prof dock 開關「跟專業視窗一起開」　/prof minimap 隱藏小地圖按鈕　/prof track 採集追蹤提醒　/prof debug 列出偵測結果")
   end
 end
 
