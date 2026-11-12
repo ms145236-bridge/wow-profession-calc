@@ -3,6 +3,7 @@ import fs from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { calcRoute } = require('./calc.js');
+import { applyHotfix } from './hotfix.mjs';
 const raw = JSON.parse(fs.readFileSync('raw.json', 'utf8'));
 const tw = JSON.parse(fs.readFileSync('tw.json', 'utf8'));
 const npc = fs.existsSync('npc.json') ? JSON.parse(fs.readFileSync('npc.json', 'utf8')) : {};
@@ -28,6 +29,7 @@ for (const [pool, profs] of Object.entries(raw.pools)) {
     d.steps.forEach(s => { reg(s.k, s.id, s.cn, s.q, s.ic); s.m.forEach(([rid, n]) => reg('i', rid, n, null, null)); });
     const mats = {}; d.mats.forEach(m => mats[m.id] = { p: m.p, v: m.v, qty: m.qty });
     const steps = d.steps.map(s => ({ f: s.f, t: s.t, k: s.k, id: s.id, src: s.src, c: s.c, extra: s.extra, m: s.m.map(([rid, , q]) => [rid, q]), d: s.d }));
+    const hotfixed = applyHotfix(prof, steps); // 原站還沒更新的熱修正（驗證會跟原站不同，略過）
     // 配方 → 對應步驟
     const recipes = {}, tools = [];
     const consumed = new Set(); steps.forEach(s => s.m.forEach(([r]) => consumed.add(r)));
@@ -66,7 +68,7 @@ for (const [pool, profs] of Object.entries(raw.pools)) {
     const got = Object.fromEntries(r.list.map(x => [x.id, x.qty]));
     const diffs = d.mats.filter(m => got[m.id] !== m.qty).map(m => `${m.cn} 原站${m.qty} 算${got[m.id]}`);
     const extra = r.list.filter(x => !mats[x.id]).map(x => `${x.id}多出${x.qty}`);
-    if (diffs.length || extra.length) { bad++; if (pool === 'cn.pvp.horde' || bad < 6) console.error('✗', pool, prof, diffs.join('；'), extra.join(' ')); }
+    if (!hotfixed && (diffs.length || extra.length)) { bad++; if (pool === 'cn.pvp.horde' || bad < 6) console.error('✗', pool, prof, diffs.join('；'), extra.join(' ')); }
     // 去重：同一套步驟只留一份（不保留原站的拍賣行價格）
     const key = JSON.stringify(steps.map(s => [s.f, s.t, s.id, s.c, s.extra, s.m]));
     seen[prof] = seen[prof] || {}; votes[prof] = votes[prof] || {};
