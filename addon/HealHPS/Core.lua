@@ -482,15 +482,18 @@ local function compute()
         row.withOath = db.oath and sitAdd > 0 or nil
         row.perHeal = per
         local occupy = f.kind == "channel" and math.max(row.cast, row.dur or 0, f.gcd) or math.max(row.cast, f.gcd)
-        -- 單體純 HoT 在群補模式：持續時間內能輪流鋪給幾個人（每次占用施法時間／公共冷卻，有冷卻就受冷卻限制），最多到群補人數
-        row.spread = f.kind == "hot" and not f.group and not row.hotPart and (row.dur or 0) > 0 or nil
+        -- 單體純 HoT 在群補模式：持續時間內能輪流鋪給幾個人（每次占用施法時間／公共冷卻，有冷卻就受冷卻限制），最多到群補人數；
+        -- 鋪不到 2 人的（例如激流：冷卻 12 秒、持續 15 秒）不算群補
+        local reach = f.kind == "hot" and not f.group and not row.hotPart and (row.dur or 0) > 0
+          and math.floor(row.dur / math.max(occupy, row.cd)) or 0
+        row.spread = reach >= 2 or nil
         local total, used = per, 1
         if f.key == "bh" then total, used = per * 2, 2
         elseif f.group then
           used = math.min(targets, f.maxTargets)
           total = f.groupModel == "chain50" and per * chainFactor(used) or per * used
         elseif row.spread and db.mode == "group" then
-          used = math.max(1, math.min(targets, math.floor(row.dur / math.max(occupy, row.cd))))
+          used = math.min(targets, reach)
           total = per * used
         end
         row.totalHeal, row.targets = total, used
