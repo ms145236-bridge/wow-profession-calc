@@ -1308,7 +1308,7 @@ local function buildMinimapButton()
   local bg = b:CreateTexture(nil, "BACKGROUND"); bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
   bg:SetSize(20, 20); bg:SetPoint("TOPLEFT", 7, -5)
   local icon = b:CreateTexture(nil, "ARTWORK"); icon:SetTexture(ICON); icon:SetTexCoord(0.1, 0.9, 0.1, 0.9); icon:SetSize(20, 20); icon:SetPoint("TOPLEFT", 6, -5)
-  if icon.SetMask then pcall(icon.SetMask, icon, "Interface\\CharacterFrame\\TempPortraitAlphaMask") end
+  b.icon, b.Icon = icon, icon -- 小地圖按鈕收納插件會找這個欄位當圖示
   local border = b:CreateTexture(nil, "OVERLAY"); border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
   border:SetSize(53, 53); border:SetPoint("TOPLEFT")
   b:SetScript("OnClick", toggleWindow)
