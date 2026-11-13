@@ -10,8 +10,8 @@ local D = HealHPS_Data
 -- 解析技能說明一律照客戶端語言；介面文字可用 /shps lang 另外指定（/reload 後生效）
 local LOCALES = HealHPS_Locales or {}
 local GAME_LOCALE = GetLocale and GetLocale() or "enUS"
--- 有該語言的檔就用；中文客戶端沒有專屬檔時用繁中；其他沒有檔的語言用英文
-local function localeOf(code) return LOCALES[code] or (code:find("^zh") and LOCALES.zhTW) or LOCALES.enUS end
+-- 有該語言的檔就用；墨西哥西文沒有檔時用西班牙西文；中文客戶端沒有專屬檔時用繁中；其他沒有檔的語言用英文
+local function localeOf(code) return LOCALES[code] or (code == "esMX" and LOCALES.esES) or (code:find("^zh") and LOCALES.zhTW) or LOCALES.enUS end
 local GAME = localeOf(GAME_LOCALE).game
 -- 介面文字：查不到就回傳原文（中文）
 local L = setmetatable({}, { __index = function(_, k) return k end })
@@ -20,9 +20,13 @@ local function stretch(s)
   local n = #(s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("[\128-\191]", ""))
   return n < 4 and s or ("[" .. s .. string.rep("~", math.max(0, math.ceil(n * 0.35) - 2)) .. "]")
 end
+-- lang：auto 跟客戶端；en、zh、stress 測試用；其他是語言代碼（例如 deDE）。非中文介面缺的字先用英文補
 local function applyLang(lang)
-  local ui = localeOf((lang == "en" or lang == "stress") and "enUS" or lang == "zh" and "zhTW" or GAME_LOCALE).ui
-  for k, v in pairs(ui or {}) do L[k] = lang == "stress" and stretch(v) or v end
+  local code = (lang == "en" or lang == "stress") and "enUS" or lang == "zh" and "zhTW" or LOCALES[lang] and lang or GAME_LOCALE
+  local t = localeOf(code)
+  for _, ui in ipairs({ (not code:find("^zh") and t ~= LOCALES.enUS) and LOCALES.enUS.ui or {}, t.ui or {} }) do
+    for k, v in pairs(ui) do L[k] = lang == "stress" and stretch(v) or v end
+  end
 end
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
@@ -304,7 +308,10 @@ local function getDesc(id)
   if not id then return nil end
   local d = API.Desc(id)
   if not d or d == "" then return nil end
-  return (d:gsub("(%d),(%d)", "%1%2"))
+  -- 不換行空白（法文數字後面）當一般空白；拿掉千分位（逗號以外的寫法在語言檔的 game.thousands）
+  d = d:gsub("\194\160", " "):gsub("\226\128\175", " "):gsub("(%d),(%d)", "%1%2")
+  for _, sep in ipairs(GAME.thousands or {}) do d = d:gsub("(%d)" .. sep .. "(%d%d%d)", "%1%2") end
+  return d
 end
 
 -- 解析樣式在語言檔的 game 欄（rangeSeps、damageBefore／damageAfter、hot、absorb、single、tick、tickDur、extra、dur）
@@ -2365,7 +2372,12 @@ SlashCmdList.HEALHPS = function(input)
       .. L["　目前："] .. (descIncludesBonus() and L["直接採用說明數字"] or L["基礎＋治療效果×係數"]))
   elseif cmd == "lang" then
     -- 介面語言（測試用）：只換介面文字，解析技能說明仍照客戶端語言；stress＝英文加長約 35%，加新語言前檢查版面
-    db.lang = (arg == "en" or arg == "zh" or arg == "stress") and arg or "auto"
+    -- 也可以指定有語言檔的代碼（例如 /shps lang dede）；客戶端字型沒有該語言的文字（中、韓、俄文）就不給切
+    local SCRIPT, code = { zhTW = "zh", zhCN = "zh", koKR = "ko", ruRU = "ru" }, nil
+    for c in pairs(LOCALES) do
+      if c:lower() == arg and (c == "enUS" or (SCRIPT[c] or "latin") == (SCRIPT[GAME_LOCALE] or "latin")) then code = c end
+    end
+    db.lang = (arg == "en" or arg == "zh" or arg == "stress") and arg or code or "auto"
     msg(string.format(L["介面語言：%s（/reload 後生效）"], db.lang))
   elseif cmd == "debug" then
     safe("除錯指令", debugDump)
