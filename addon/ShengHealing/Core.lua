@@ -1036,7 +1036,7 @@ local function refreshImpl()
     if inCombat then frame.anaKey = nil -- 脫戰後再開會重算
     else
       -- 輸入改了才重算；拖滑桿時等 0.2 秒沒再動才算
-      local key = table.concat({ db.anaHp, db.anaHit, db.anaGap, db.fight }, ",")
+      local key = table.concat({ db.anaHp, db.anaHit, db.anaGap, db.fight, tostring(db.oath) }, ",")
       if frame.anaKey ~= key then
         frame.anaKey = key
         local token = {}
@@ -1050,6 +1050,7 @@ local function refreshImpl()
       end
     end
     frame.anaDetailBtn:GetFontString():SetTextColor(db.anaDetail and 1 or .55, db.anaDetail and .82 or .52, db.anaDetail and 0 or .45)
+    frame.anaOathBtn:GetFontString():SetTextColor(db.oath and 1 or .55, db.oath and .82 or .52, db.oath and 0 or .45)
     local res = frame.anaRes
     local list = res and res.list or {}
     -- 結論：活下來的分「最省藍」「最穩定」各前 2 名（都倒下就列「撐最久」前 2 名）；詳細：全部照排名，滾輪捲動
@@ -1376,6 +1377,11 @@ local function buildFrame()
   frame.anaDetailBtn = button(frame.ana, 40, "詳細", function() db.anaDetail = not db.anaDetail; frame.anaOff = 0; HealHPS_Refresh() end)
   frame.anaDetailBtn:SetPoint("LEFT", prev, "RIGHT", 12, 0)
   frame.anaPresetW = frame.anaPresetW + frame.anaDetailBtn:GetWidth() + 12
+  -- 聖騎：坦克就是誓約目標時，分析要不要算聖光誓約的加成（和設定裡的同一個開關）
+  frame.anaOathBtn = button(frame.ana, 70, "聖光誓約", function() db.oath = not db.oath; HealHPS_Refresh() end)
+  frame.anaOathBtn:SetPoint("LEFT", frame.anaDetailBtn, "RIGHT", 2, 0)
+  frame.anaOathBtn:SetShown(select(2, UnitClass("player")) == "PALADIN")
+  if frame.anaOathBtn:IsShown() then frame.anaPresetW = frame.anaPresetW + frame.anaOathBtn:GetWidth() + 2 end
   -- { 設定鍵, 文字, 最小, 最大, 間隔, 最長的值（量寬度用） }
   local INPUTS = { { "anaHp", "坦克生命 %d", 500, 20000, 100, 20000 }, { "anaHit", "每次傷害 %d", 50, 5000, 10, 5000 },
     { "anaGap", "受傷間隔 %.1f 秒", 0.5, 5, 0.5, 5 }, { "fight", "戰鬥長度 %d 秒", 30, 600, 10, 600 } }
