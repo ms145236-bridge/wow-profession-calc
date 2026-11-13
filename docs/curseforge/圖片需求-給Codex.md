@@ -1,6 +1,6 @@
 # 圖片需求：專業助手 ProfLevel 的 LOGO
 
-給 Codex 的需求，做好後把原圖放到 `addon/ProfLevel/Media/LogoSource.png`，再請 Claude 轉成遊戲用的格式。
+給 Codex 的需求，做好後把原圖放到 `addon/BridgeProfession/Media/LogoSource.png`，再請 Claude 轉成遊戲用的格式。
 
 ## 用途
 
@@ -12,7 +12,7 @@
 - 插件名稱：**專業助手**（魔獸世界：永恆的專業輔助插件）
 - 功能：利潤計算、製作佇列、衝級路線、拍賣場購物清單、採集提醒
 - 主體建議：一個**工具（鐵鎚或針線）＋金幣**的組合，代表「做專業」＋「賺錢」。
-- 風格：跟另一個插件「治療 HPS 計算器」的 LOGO（`addon/HealHPS/Media/Logo256.png`）擺在一起要像同一系列：同樣的外框、配色質感、光影方式。
+- 風格：跟另一個插件「布里居治療幫手」的 LOGO（`addon/BridgeHealing/Media/Logo256.png`）擺在一起要像同一系列：同樣的外框、配色質感、光影方式。
 - 不要放文字（縮小後看不清楚）。
 - 背景：不透明的深色背景（CurseForge 頭像不支援透明會變黑底，乾脆直接做深色）。
 - 不要使用暴雪的官方圖示、LOGO 或遊戲截圖素材，要是原創圖。
