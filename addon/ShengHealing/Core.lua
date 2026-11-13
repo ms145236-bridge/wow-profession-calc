@@ -652,10 +652,12 @@ local function analyze()
   end
 
   -- main：平常用；emerg：救命用；keep：要一直掛著的 HoT（過期才補，激流照冷卻）
-  local function run(main, emerg, keep)
+  -- pause：刻意停手，坦克掉到這個比例以下才開始補，補到再補會溢補就停（停超過 5 秒就吃到完整回藍）
+  local function run(main, emerg, keep, pause)
     keep = keep or {}
     local isKeep, applied = {}, {}
     for _, k in ipairs(keep) do isKeep[k] = true end
+    local resting = pause ~= nil
     local hp, mana, last = hp0, maxMana, -1e9
     local minHp, healed, over, casts, eCasts, hCasts = hp0, 0, 0, 0, 0, 0
     local oom, dead, casting, castEnd, busyUntil = nil, nil, nil, 0, 0
@@ -696,10 +698,14 @@ local function analyze()
             end
           end
           -- 平常／預先放：缺的血－補到前會跳的 HoT＋施法期間會挨的打 ≥ 門檻
-          if not pick and not (main.pureHot and hots[main.key])
-            and missing - pendingBy(s + main.win) + hitsBy(s, s + main.win) * hit >= main.need then
-            want = true
-            if mana >= main.mana then pick = main end
+          if not pick and not (main.pureHot and hots[main.key]) then
+            if resting and hp <= hp0 * pause then resting = false end
+            if missing - pendingBy(s + main.win) + hitsBy(s, s + main.win) * hit >= main.need then
+              if not resting then
+                want = true
+                if mana >= main.mana then pick = main end
+              end
+            elseif pause then resting = true end
           end
         end
         if pick then
@@ -736,19 +742,34 @@ local function analyze()
       name = "保持" .. table.concat(a, "、") .. "＋" .. nm(main, " ")
       long = "保持" .. table.concat(b, "、") .. "＋" .. nm(main, " 等級") .. (emerg ~= main and ("，救命 " .. nm(emerg, " 等級")) or "")
     else
-      name = nm(main, " ") .. (emerg ~= main and ("＋" .. nm(emerg, " ")) or "")
-      long = nm(main, " 等級") .. (emerg ~= main and ("＋" .. nm(emerg, " 等級")) or "")
+      local tag = pause and string.format("（停到 %d%%）", math.floor(pause * 100 + 0.5)) or ""
+      name = nm(main, " ") .. (emerg ~= main and ("＋" .. nm(emerg, " ")) or "") .. tag
+      long = nm(main, " 等級") .. (emerg ~= main and ("＋" .. nm(emerg, " 等級")) or "") .. tag
     end
     local allApplied = true
     for _, k in ipairs(keep) do if not applied[k.key] then allApplied = false end end
-    return { name = name, long = long,
+    -- 剩藍＝戰後用主力把坦克補滿之後還剩的藍（停手會把坦克留在低血量，要算進去；可以是負的），排名和顯示都用這個
+    local topped = dead and mana or mana - (hp0 - hp) * main.mana / main.full
+    -- 同樣的戰鬥能連打幾波不用喝水：淨用藍不到 1 點就算不用喝水
+    local net = maxMana - topped
+    return { name = name, long = long, pulls = not dead and (net < 1 and math.huge or math.floor(maxMana / net)) or nil,
       dead = dead and dead * DT, minPct = math.max(0, minHp) / hp0 * 100, healed = healed, over = over,
-      mana = mana, oom = oom and oom * DT, casts = casts, eCasts = eCasts, hCasts = hCasts, allApplied = allApplied,
+      mana = topped, rawMana = mana, endPct = math.max(0, hp) / hp0 * 100, oom = oom and oom * DT, casts = casts, eCasts = eCasts, hCasts = hCasts, allApplied = allApplied,
       every = casts > 0 and lasted / casts or nil, combo = emerg ~= main }
   end
 
   local list = {}
-  for _, sp in ipairs(spells) do table.insert(list, run(sp, sp)) end
+  -- 每個等級單用，再加「停到 60%」「停到 40%」兩種刻意停手；結果跟前一種一樣的不列
+  for _, sp in ipairs(spells) do
+    local prev = run(sp, sp)
+    table.insert(list, prev)
+    for _, p in ipairs({ 0.6, 0.4 }) do
+      local res = run(sp, sp, nil, p)
+      if res.casts ~= prev.casts or res.mana ~= prev.mana or res.minPct ~= prev.minPct or res.dead ~= prev.dead then
+        table.insert(list, res); prev = res
+      end
+    end
+  end
   -- 組合：主力＝HPM 前 4 名，救命＝HPS 前 4 名裡比主力 HPS 高的
   local byHpm, byHps = {}, {}
   for i, sp in ipairs(spells) do byHpm[i], byHps[i] = sp, sp end
@@ -1069,7 +1090,8 @@ local function refreshImpl()
         local vals = { e.no .. ".", r.name, r.dead and string.format("倒下 %d 秒", math.floor(r.dead + 0.5)) or "活",
           r.oom and string.format("沒藍 %d 秒", math.floor(r.oom + 0.5)) or ("剩藍 " .. fint(r.mana)),
           string.format("最低 %d%%", math.floor(r.minPct + 0.5)),
-          r.every and ("每 " .. fmt1(r.every) .. " 秒一發") or "沒出手" }
+          r.every and ("每 " .. fmt1(r.every) .. " 秒一發") or "沒出手",
+          r.pulls and (r.pulls == math.huge and "不用喝水" or r.pulls < 1 and "打完要喝水" or string.format("可連打 %d 波", r.pulls)) or "" }
         for c = 1, cols do l.c[c]:SetText(vals[c]); l.c[c]:SetTextColor(1, 1, 1) end
         l.c[3]:SetTextColor(unpack(r.dead and { 1, .42, .42 } or GREEN))
         if r.dead then l.hl:SetColorTexture(1, .2, .2, .12); l.hl:Show()
@@ -1333,7 +1355,7 @@ local function buildFrame()
   -- 分析頁：預設組合、四條滑桿、結論、排名（只在「分析」顯示）
   frame.ana = CreateFrame("Frame", nil, frame)
   frame.ana:SetPoint("TOPLEFT", 14, -ANA_TOP); frame.ana:SetSize(W, 200)
-  local PRESETS = { { "小怪", 3000, 250, 1.5, 45 }, { "王戰", 5000, 450, 2, 180 }, { "單練", nil, 120, 2, 60 } }
+  local PRESETS = { { "小怪", 3000, 250, 1.5, 45 }, { "王戰", 5000, 450, 2, 180 }, { "單練", nil, 120, 2, 60 }, { "省水", 3000, 120, 2, 60 } }
   local prev
   frame.anaPresetW = 0
   for _, p in ipairs(PRESETS) do
@@ -1382,9 +1404,9 @@ local function buildFrame()
     l.hl = l:CreateTexture(nil, "BORDER"); l.hl:SetAllPoints(); l.hl:Hide()
     if i % 2 == 0 then local bg = l:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetColorTexture(1, 1, 1, .035) end
     l.c = {}
-    for c = 1, 6 do
+    for c = 1, 7 do
       local fs = l:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-      fs:SetJustifyH((c == 2 or c == 3) and "LEFT" or "RIGHT"); fs:SetWordWrap(false)
+      fs:SetJustifyH((c == 2 or c == 3 or c == 7) and "LEFT" or "RIGHT"); fs:SetWordWrap(false)
       l.c[c] = fs
     end
     l:EnableMouse(true)
@@ -1396,6 +1418,12 @@ local function buildFrame()
       GameTooltip:AddDoubleLine("補到", fint(r.healed), .8, .8, .8, 1, 1, 1)
       GameTooltip:AddDoubleLine("溢補", string.format("%d%%", total > 0 and math.floor(r.over / total * 100 + 0.5) or 0), .8, .8, .8, 1, 1, 1)
       GameTooltip:AddDoubleLine("施法", r.casts .. " 次" .. ((r.hCasts > 0 or r.combo) and ("（" .. (r.hCasts > 0 and ("HoT " .. r.hCasts) or "") .. (r.hCasts > 0 and r.combo and "、" or "") .. (r.combo and ("救命 " .. r.eCasts) or "") .. "）") or ""), .8, .8, .8, 1, 1, 1)
+      if not r.dead then
+        GameTooltip:AddDoubleLine("戰鬥結束", string.format("坦克 %d%%、剩藍 %s", math.floor(r.endPct + 0.5), fint(r.rawMana)), .8, .8, .8, 1, 1, 1)
+      end
+      if r.pulls then
+        GameTooltip:AddDoubleLine("不喝水連打", r.pulls == math.huge and "不用喝水" or r.pulls < 1 and "打完要喝水" or (r.pulls .. " 波"), .8, .8, .8, 1, 1, 1)
+      end
       GameTooltip:Show()
     end)
     l:SetScript("OnLeave", function() GameTooltip:Hide() end)
