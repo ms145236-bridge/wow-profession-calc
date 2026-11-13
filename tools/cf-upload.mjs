@@ -29,7 +29,8 @@ if (cmd === 'versions') {
   const [zip, verIds, type = 'release', changelogFile] = rest;
   if (!zip || !verIds) { console.error('用法：node tools/cf-upload.mjs <專案ID> <zip> <遊戲版本ID,可多個用逗號> [release|beta|alpha] [更新說明.md]'); process.exit(1); }
   const metadata = {
-    changelog: changelogFile ? fs.readFileSync(changelogFile, 'utf8') : path.basename(zip, '.zip'),
+    // 每一行變成一個項目（CurseForge 的 markdown 會把單一換行併成同一段）
+    changelog: changelogFile ? fs.readFileSync(changelogFile, 'utf8').replace(/\r/g, '').split('\n').map((l) => (l.trim() === '' || /^(#|- |\* )/.test(l) ? l : '- ' + l)).join('\n') : path.basename(zip, '.zip'),
     changelogType: 'markdown',
     displayName: path.basename(zip, '.zip'),
     gameVersions: verIds.split(',').map(Number),
