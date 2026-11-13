@@ -26,7 +26,7 @@ local MINING = { key = "mining", name = "採礦", line = 186 }
 PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, useBag = true, useBank = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r " .. s) end
@@ -139,11 +139,20 @@ local function ahStats(id)
   return { last = last, avg = days > 0 and sum / days or 0, days = days }
 end
 
+-- 已有的數量：可設定要不要扣掉背包、銀行裡的
 local function have(id)
   local f = (C_Item and C_Item.GetItemCount) or GetItemCount
-  if not f then return 0 end
-  local ok, n = pcall(f, id, true) -- true：含銀行
-  return ok and n or 0
+  if not f or not (db.useBag or db.useBank) then return 0 end
+  local okA, all = pcall(f, id, true) -- 背包＋銀行
+  local okB, bag = pcall(f, id, false) -- 只有背包
+  all, bag = okA and all or 0, okB and bag or 0
+  return (db.useBag and bag or 0) + (db.useBank and math.max(0, all - bag) or 0)
+end
+local function haveText() -- 「已扣掉背包和銀行」這類說明
+  if db.useBag and db.useBank then return "已扣掉背包和銀行裡的數量" end
+  if db.useBag then return "已扣掉背包裡的數量（不扣銀行）" end
+  if db.useBank then return "已扣掉銀行裡的數量（不扣背包）" end
+  return "沒有扣掉背包和銀行裡的數量"
 end
 
 -- 名稱、圖示、品質：遊戲讀得到就用遊戲的，讀不到用資料表
@@ -789,6 +798,9 @@ local function refreshImpl()
       .. (r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
   end
   frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關"); fitButton(frame.decBtn, 120)
+  frame.bagBtn:SetText(db.useBag and "扣背包：開" or "扣背包：關"); fitButton(frame.bagBtn, 90)
+  frame.bankBtn:SetText(db.useBank and "扣銀行：開" or "扣銀行：關"); fitButton(frame.bankBtn, 90)
+  frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
   local isLv = db.tab == "steps" or db.tab == "shop"
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
   frame.decBtn:ClearAllPoints()
@@ -951,7 +963,7 @@ local function createShoppingList()
   if #terms == 0 then msg("沒有要在拍賣行買的東西"); return end
   local listName = current.queue and "阿聖專業幫手 製作佇列" or string.format("阿聖專業幫手 %s %d-%d", current.prof.name, current.S, current.T)
   if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then
-    msg(string.format("已建立 Auctionator 購物清單「%s」，共 %d 項（已扣掉背包和銀行裡的數量，商人物品不列入）", listName, #terms))
+    msg(string.format("已建立 Auctionator 購物清單「%s」，共 %d 項（%s，商人物品不列入）", listName, #terms, haveText()))
   end
 end
 
@@ -1036,7 +1048,7 @@ local function buildFrame()
   frame.atrBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine("建立 Auctionator 購物清單")
-    GameTooltip:AddLine("數量已扣掉背包和銀行裡的；商人販售的物品不列入。在拍賣行打開 Auctionator 的購物分頁就能用。", 1, 1, 1, true)
+    GameTooltip:AddLine("數量" .. haveText() .. "；商人販售的物品不列入。在拍賣行打開 Auctionator 的購物分頁就能用。", 1, 1, 1, true)
     GameTooltip:Show()
   end)
   frame.atrBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1061,6 +1073,11 @@ local function buildFrame()
   -- 分頁按鈕自成一列（在花費那行下面、表頭上面），不會壓到文字
   frame.profitBtn:SetPoint("TOPLEFT", 12, -116)
   frame.decBtn = button(frame, 120, "", function() db.decompose = not db.decompose; ProfLevel_Refresh() end)
+  -- 佇列：材料要不要扣掉背包、銀行已有的（衝級路線也照這個設定）
+  frame.bagBtn = button(frame, 90, "", function() db.useBag = not db.useBag; ProfLevel_Refresh() end)
+  frame.bagBtn:SetPoint("LEFT", frame.decBtn, "RIGHT", 6, 0)
+  frame.bankBtn = button(frame, 90, "", function() db.useBank = not db.useBank; ProfLevel_Refresh() end)
+  frame.bankBtn:SetPoint("LEFT", frame.bagBtn, "RIGHT", 2, 0)
   frame.queueBtn:SetPoint("LEFT", frame.profitBtn, "RIGHT", 2, 0)
   frame.levelBtn:SetPoint("LEFT", frame.queueBtn, "RIGHT", 2, 0)
   -- 衝級的子分頁：步驟／材料
