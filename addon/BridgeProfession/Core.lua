@@ -5,7 +5,7 @@
 local ADDON = ...
 local D = ProfLevel_Data
 local CALLER = "ProfLevel" -- 呼叫 Auctionator API 用的名稱
-local ICON = "Interface\\Icons\\Trade_BlackSmithing"
+local ICON = "Interface\\AddOns\\BridgeProfession\\Media\\Logo"
 local PROFS = {
   { key = "alchemy",        name = "鍊金術", line = 171 },
   { key = "blacksmithing",  name = "鍛造",   line = 164 },
@@ -1285,7 +1285,7 @@ local function buildMinimapButton()
   b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
   local bg = b:CreateTexture(nil, "BACKGROUND"); bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
   bg:SetSize(20, 20); bg:SetPoint("TOPLEFT", 7, -5)
-  local icon = b:CreateTexture(nil, "ARTWORK"); icon:SetTexture(ICON); icon:SetSize(20, 20); icon:SetPoint("TOPLEFT", 6, -5)
+  local icon = b:CreateTexture(nil, "ARTWORK"); icon:SetTexture(ICON); icon:SetTexCoord(0.1, 0.9, 0.1, 0.9); icon:SetSize(20, 20); icon:SetPoint("TOPLEFT", 6, -5)
   if icon.SetMask then pcall(icon.SetMask, icon, "Interface\\CharacterFrame\\TempPortraitAlphaMask") end
   local border = b:CreateTexture(nil, "OVERLAY"); border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
   border:SetSize(53, 53); border:SetPoint("TOPLEFT")
