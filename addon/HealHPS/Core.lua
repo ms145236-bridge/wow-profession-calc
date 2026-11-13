@@ -25,6 +25,7 @@ local function ensureDB()
   HealHPSCharDB = HealHPSCharDB or {}
   for k, v in pairs(DEFAULTS) do if HealHPSCharDB[k] == nil then HealHPSCharDB[k] = v end end
   db = HealHPSCharDB
+  if type(db.targets) ~= "number" or db.targets < 2 then db.targets = 2 elseif db.targets > 10 then db.targets = 10 end -- 群補至少 2 人
   if type(db.expanded) ~= "table" then db.expanded = {} end -- 展開了哪些技能
   return db
 end
@@ -428,7 +429,7 @@ local function compute()
   ctx.healPct = (db.pct or tal.heal) / 100
   ctx.absorbPct = (db.absorb or tal.absorb) / 100
   ctx.talents = tal
-  local targets = math.max(1, math.min(10, db.targets or 5))
+  local targets = math.max(2, math.min(10, db.targets or 5))
   local rows, byId = {}, {}
   local hsMana
   do -- 聖光守望要接一發最高階神聖震擊
@@ -863,7 +864,7 @@ local function buildFrame()
   frame.how = how
   frame.cdBtn = button(frame.opts, 250, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
   frame.cdBtn:SetHeight(26)
-  -- 群補人數：滑桿 1–10（群補技能還受技能本身的人數上限；持續治療受持續時間與公共冷卻限制）
+  -- 群補人數：滑桿 2–10（群補技能還受技能本身的人數上限；持續治療受持續時間與公共冷卻限制）
   frame.tgtBtn = CreateFrame("Frame", nil, frame.opts)
   frame.tgtBtn:SetSize(250, 26); frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -4)
   frame.tgtLabel = frame.tgtBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -879,7 +880,7 @@ local function buildFrame()
     sl:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
   end
   sl:SetPoint("LEFT", frame.tgtLabel, "RIGHT", 12, 0); sl:SetPoint("RIGHT", frame.tgtBtn, "RIGHT", -6, 0); sl:SetHeight(16)
-  sl:SetMinMaxValues(1, 10); sl:SetValueStep(1)
+  sl:SetMinMaxValues(2, 10); sl:SetValueStep(1)
   if sl.SetObeyStepsOnDrag then sl:SetObeyStepsOnDrag(true) end
   sl:SetValue(db.targets or 5)
   sl:SetScript("OnValueChanged", function(_, v)
@@ -1076,7 +1077,7 @@ SlashCmdList.HEALHPS = function(input)
     db.absorb = arg ~= "auto" and tonumber(arg) or nil
     msg("吸收加成 %：" .. (db.absorb and db.absorb .. "（手動）" or "依天賦自動"))
   elseif cmd == "targets" then
-    db.targets = math.max(1, math.min(10, tonumber(arg) or 5)); msg("群補目標數：" .. db.targets)
+    db.targets = math.max(2, math.min(10, tonumber(arg) or 5)); msg("群補目標數：" .. db.targets)
   elseif cmd == "tip" then
     db.tip = not db.tip; msg("滑鼠提示：" .. (db.tip and "開" or "關"))
   elseif cmd == "downrank" then
@@ -1094,7 +1095,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
   else
-    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-10　/hps tip　/hps scale 1.2　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
+    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 2-10　/hps tip　/hps scale 1.2　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
   end
   if frame then HealHPS_Refresh() end
 end
