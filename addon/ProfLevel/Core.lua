@@ -1135,7 +1135,8 @@ local function buildFrame()
         local st = s.k == "i" and ahStats(s.id)
         if st then GameTooltip:AddLine(string.format("拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到", st.last, st.days), .55, .75, 1, true) end
         if s.d and #s.d == 4 then
-          GameTooltip:AddLine(string.format("難度：|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", s.d[1], s.d[2], s.d[3], s.d[4]), .8, .8, .8)
+          local function dv(x) return (x == nil or x == "" or x == "–") and "—" or x end
+          GameTooltip:AddLine(string.format("難度：|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", dv(s.d[1]), dv(s.d[2]), dv(s.d[3]), dv(s.d[4])), .8, .8, .8)
         end
       else
         pcall(GameTooltip.SetItemByID, GameTooltip, e.item.id)
@@ -1323,7 +1324,7 @@ SlashCmdList.PROFLEVEL = function(input)
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.7.0　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
+    msg("版本 0.7.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
     msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
@@ -1375,7 +1376,7 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     ensureDB()
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
-    if db.scale == 1 then db.scale = 1.25 end -- 舊預設值改成新的預設大小
+    if not db.scaleV then if db.scale == 1 then db.scale = 1.25 end; db.scaleV = 1 end -- 舊預設值改成新的預設大小（只遷移一次，之後尊重玩家設定）
     safe("小地圖按鈕", buildMinimapButton)
   elseif e == "ADDON_LOADED" and a1 == "Blizzard_Professions" then
     safe("專業視窗", setupProfUI)

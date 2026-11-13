@@ -523,7 +523,6 @@ local function compute()
   return rows, ctx
 end
 
-local RATE_LABEL = { cast = "施法占用", effect = "效果期間", cooldown = "冷卻上限" }
 local SORT_LABEL = { hps = "HPS", hpm = "HPM", heal = "有效量" }
 
 local function filterRows(rows, mode)
@@ -619,7 +618,8 @@ local function hookTooltips()
     end)
   else
     GameTooltip:HookScript("OnTooltipSetSpell", function(tt)
-      local _, id = tt:GetSpell()
+      local _, b, c = tt:GetSpell()
+      local id = (type(c) == "number" and c) or (type(b) == "number" and b) or nil -- 舊版第二個回傳值可能是等級文字
       safe("滑鼠提示", addTooltip, tt, id)
     end)
   end
@@ -758,7 +758,8 @@ local function refreshImpl()
   local foot
   if #list == 0 then foot = "沒有符合的技能，可以切換單補／群補，或在設定裡列入冷卻技能。"
   else
-    foot = string.format("|cffffd100★ HPS最高|r %s 等級%d　　|cff66ff66★ HPM最高|r %s 等級%d", bh.label, bh.rank, bm.label, bm.rank)
+    foot = (bh and bm) and string.format("|cffffd100★ HPS最高|r %s 等級%d　　|cff66ff66★ HPM最高|r %s 等級%d", bh.label, bh.rank, bm.label, bm.rank)
+      or "目前沒有可比較的治療技能（吸收盾不參加比較）"
     if #list > MAXLINES then foot = foot .. "　|cff9a9282（滾輪看更多）|r" end
   end
   frame.foot:SetText(foot)
@@ -984,7 +985,7 @@ end
 local function debugDump()
   local _, class = UnitClass("player")
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.6　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  msg(string.format("版本 0.8.7　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
   msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
@@ -1076,7 +1077,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
     ensureDB()
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
-    if db.scale == 1 then db.scale = 1.25 end -- 舊預設值改成新的預設大小
+    if not db.scaleV then if db.scale == 1 then db.scale = 1.25 end; db.scaleV = 1 end -- 舊預設值改成新的預設大小（只遷移一次，之後尊重玩家設定）
     if isHealerClass() then
       safe("掛上滑鼠提示", hookTooltips)
       safe("小地圖按鈕", buildMinimapButton)
