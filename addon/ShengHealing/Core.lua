@@ -5,7 +5,7 @@
 local ADDON = ...
 local D = HealHPS_Data
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
-  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25 }
+  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25, anaDetail = false }
 local LOGO = "Interface\\AddOns\\ShengHealing\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
@@ -608,7 +608,7 @@ end
 
 -- ── 分析：模擬一場戰鬥，看哪種補法讓坦克活著又最省藍 ─────────────────────
 -- 每 0.1 秒一步（全部用整數步數算，避免小數誤差）。回藍照五秒規則：最後一次花藍滿 5 秒後用 i、否則用 a，連續回復。
--- 補量用期望值（爆擊 150%）；HoT 不會爆擊，只有直接治療的部分算爆擊。
+-- 補量用期望值（爆擊 150%）；永恆的 HoT 也會爆擊，每跳都乘爆擊期望值。HoT 每 3 秒跳一次（掛上後 3 秒第一跳）。
 local function analyze()
   if InCombatLockdown and InCombatLockdown() then return { err = "戰鬥中不分析" } end
   local rows = compute()
@@ -621,38 +621,56 @@ local function analyze()
   end
   local okC, crit = pcall(GetSpellCritChance, 2) -- 2＝神聖系；回傳百分比
   crit = (okC and not secret(crit) and type(crit) == "number") and crit / 100 or 0
+  local critMul = 1 + crit * 0.5
   local DT = 0.1
+  local TICK = math.floor(3 / DT + 0.5)
   local steps = math.floor(db.fight / DT + 0.5)
   local gap = math.max(1, math.floor(db.anaGap / DT + 0.5))
   local hp0, hit = db.anaHp, db.anaHit
   -- 某段時間內（現在之後到 s 步為止）會挨幾下：第 k 下落在 k×gap 步
   local function hitsBy(now, s) return math.floor(s / gap) - math.floor(now / gap) end
 
+  local function mk(r)
+    local pureHot = r.f.kind == "hot" and not r.hotPart and (r.dur or 0) > 0
+    local cast = math.floor(math.max(r.f.kind == "channel" and math.max(r.cast, r.dur or 0) or r.cast, 0) / DT + 0.5)
+    local direct = pureHot and 0 or (r.hotPart and r.directPart or r.perHeal)
+    local hot = pureHot and r.perHeal or (r.hotPart or 0)
+    local dur = math.max(1, math.floor((r.dur or 0) / DT + 0.5))
+    local n = hot > 0 and math.max(1, math.floor(dur / TICK)) or 0
+    return { r = r, key = r.f.key, mana = r.mana, cast = cast, busy = math.max(cast, math.floor(r.f.gcd / DT + 0.5)),
+      cd = math.floor((r.cd or 0) / DT + 0.5), direct = direct, hot = hot, n = n, every = math.min(TICK, dur), pureHot = pureHot,
+      -- 平常／預先放：直接治療看施法期間，爆擊也不溢補；純 HoT 看整段持續時間的期望總量
+      need = pureHot and hot * critMul or direct * 1.5, win = pureHot and cast + dur or cast,
+      -- 保持 HoT：缺的血＋持續時間內會挨的打 ≥ 這發的期望總量才補上
+      full = (direct + hot) * critMul, fullWin = cast + dur }
+  end
+
   -- 能拿來單補坦克的技能：每個學會的等級都算（降級在這裡很重要），群補、冷卻、吸收盾不算
   local spells = {}
   for _, r in ipairs(rows) do
-    if not r.f.group and not r.isCd and r.f.kind ~= "absorb" and r.perHeal > 0 then
-      local pureHot = r.f.kind == "hot" and not r.hotPart and (r.dur or 0) > 0
-      local cast = math.floor(math.max(r.f.kind == "channel" and math.max(r.cast, r.dur or 0) or r.cast, 0) / DT + 0.5)
-      local direct = pureHot and 0 or (r.hotPart and r.directPart or r.perHeal)
-      local hot = pureHot and r.perHeal or (r.hotPart or 0)
-      local dur = math.max(1, math.floor((r.dur or 0) / DT + 0.5))
-      table.insert(spells, { r = r, mana = r.mana, cast = cast, busy = math.max(cast, math.floor(r.f.gcd / DT + 0.5)),
-        direct = direct, hot = hot, dur = dur, pureHot = pureHot,
-        need = direct * 1.5 + hot, -- 爆擊也不溢補才放
-        win = cast + (hot > 0 and dur or 0) }) -- 這段時間內補量會落地
-    end
+    if not r.f.group and not r.isCd and r.f.kind ~= "absorb" and r.perHeal > 0 then table.insert(spells, mk(r)) end
   end
 
-  -- main：平常（規則 1、2）用；emerg：救命（規則 3）用
-  local function run(main, emerg)
+  -- main：平常用；emerg：救命用；keep：要一直掛著的 HoT（過期才補，激流照冷卻）
+  local function run(main, emerg, keep)
+    keep = keep or {}
+    local isKeep, applied = {}, {}
+    for _, k in ipairs(keep) do isKeep[k] = true end
     local hp, mana, last = hp0, maxMana, -1e9
-    local minHp, healed, over, casts, eCasts = hp0, 0, 0, 0, 0
+    local minHp, healed, over, casts, eCasts, hCasts = hp0, 0, 0, 0, 0, 0
     local oom, dead, casting, castEnd, busyUntil = nil, nil, nil, 0, 0
-    local hots = {}
+    local hots, ready = {}, {} -- 同一技能（不分等級）只會有一個 HoT，重放會蓋掉
     local function heal(amount)
       local eff = math.min(amount, hp0 - hp)
       hp, healed, over = hp + eff, healed + eff, over + amount - eff
+    end
+    -- 已經掛著的 HoT 在 e 步（含）以前還會跳的量
+    local function pendingBy(e)
+      local sum = 0
+      for _, h in pairs(hots) do
+        if e >= h.next then sum = sum + h.per * math.min(h.left, math.floor((e - h.next) / h.every) + 1) end
+      end
+      return sum
     end
     for s = 1, steps do
       if s % gap == 0 then
@@ -662,39 +680,71 @@ local function analyze()
       end
       mana = math.min(maxMana, mana + (s - last >= 5 / DT and regenI or regenA) * DT)
       if not casting and s >= busyUntil then
-        -- 已經掛著的 HoT 還沒跳完的量，算成會補到的
-        local pending = 0
-        for _, h in pairs(hots) do pending = pending + h.per * h.n end
-        -- 3) 救命：施法期間挨完打後，再一下就倒 → 立刻放，溢補也放
-        local wantE = not (emerg.pureHot and hots[emerg]) and hp - hitsBy(s, s + emerg.cast) * hit <= hit
-        -- 1、2) 平常／預先放：缺的血＋施法期間會挨的打 ≥ 爆擊量（補到時剛好不溢補）
-        local wantM = not (main.pureHot and hots[main]) and hp0 - hp - pending + hitsBy(s, s + main.win) * hit >= main.need
-        -- 救命技能藍不夠時，主力夠就先放主力
-        local pick = (wantE and mana >= emerg.mana and emerg) or ((wantE or wantM) and mana >= main.mana and main) or nil
+        local missing = hp0 - hp
+        -- 救命：施法期間挨完打後，再一下就倒 → 立刻放，溢補也放（救命技能藍不夠時，主力夠就先放主力）
+        local wantE = not (emerg.pureHot and hots[emerg.key]) and hp - hitsBy(s, s + emerg.cast) * hit <= hit
+        local pick, want = nil, wantE
+        if wantE then pick = (mana >= emerg.mana and emerg) or (mana >= main.mana and main) or nil
+        else
+          -- 保持 HoT：過期、冷卻好了、補得到不溢補，而且放完再接救命也來得及
+          for _, k in ipairs(keep) do
+            if not pick and not hots[k.key] and s >= (ready[k.key] or 0)
+              and missing - pendingBy(s + k.fullWin) + hitsBy(s, s + k.fullWin) * hit >= k.full
+              and hp - hitsBy(s, s + k.busy + emerg.cast) * hit > hit then
+              want = true
+              if mana >= k.mana then pick = k end
+            end
+          end
+          -- 平常／預先放：缺的血－補到前會跳的 HoT＋施法期間會挨的打 ≥ 門檻
+          if not pick and not (main.pureHot and hots[main.key])
+            and missing - pendingBy(s + main.win) + hitsBy(s, s + main.win) * hit >= main.need then
+            want = true
+            if mana >= main.mana then pick = main end
+          end
+        end
         if pick then
           casting, castEnd, busyUntil, casts = pick, s + pick.cast, s + pick.busy, casts + 1
-          if pick ~= main then eCasts = eCasts + 1 end
-        elseif (wantE or wantM) and not oom then oom = s end
+          if pick.cd > 0 then ready[pick.key] = s + pick.cd end
+          if isKeep[pick] then hCasts = hCasts + 1; applied[pick.key] = true
+          elseif pick ~= main then eCasts = eCasts + 1 end
+        elseif want and not oom then oom = s end
       end
       -- 施法完成才扣藍（瞬發同一步就完成）
       if casting and s >= castEnd then
         mana, last = mana - casting.mana, s
-        heal(casting.direct * (1 + crit * 0.5))
-        if casting.hot > 0 then hots[casting] = { n = casting.dur, per = casting.hot / casting.dur } end -- 重放會蓋掉舊的
+        heal(casting.direct * critMul)
+        if casting.n > 0 then
+          hots[casting.key] = { sp = casting, per = casting.hot / casting.n * critMul, left = casting.n, every = casting.every, next = s + casting.every }
+        end
         casting = nil
       end
-      for sp, h in pairs(hots) do
-        heal(h.per); h.n = h.n - 1
-        if h.n <= 0 then hots[sp] = nil end
+      for key, h in pairs(hots) do
+        if s >= h.next then
+          heal(h.per); h.left, h.next = h.left - 1, h.next + h.every
+          if h.left <= 0 then hots[key] = nil end
+        end
       end
     end
+    -- 戰鬥結束時還沒跳的 HoT 按比例退藍，免得最後才掛上的 HoT 吃虧
+    if not dead then for _, h in pairs(hots) do mana = mana + h.sp.mana * h.left / h.sp.n end; mana = math.min(mana, maxMana) end
     local function nm(sp, sep) return sp.r.label .. sep .. sp.r.rank end
     local lasted = (dead or steps) * DT
-    return { name = nm(main, " ") .. (emerg ~= main and ("＋" .. nm(emerg, " ")) or ""),
-      long = nm(main, " 等級") .. (emerg ~= main and ("＋" .. nm(emerg, " 等級")) or ""),
+    local name, long
+    if #keep > 0 then
+      local a, b = {}, {}
+      for i, k in ipairs(keep) do a[i], b[i] = nm(k, " "), nm(k, " 等級") end
+      name = "保持" .. table.concat(a, "、") .. "＋" .. nm(main, " ")
+      long = "保持" .. table.concat(b, "、") .. "＋" .. nm(main, " 等級") .. (emerg ~= main and ("，救命 " .. nm(emerg, " 等級")) or "")
+    else
+      name = nm(main, " ") .. (emerg ~= main and ("＋" .. nm(emerg, " ")) or "")
+      long = nm(main, " 等級") .. (emerg ~= main and ("＋" .. nm(emerg, " 等級")) or "")
+    end
+    local allApplied = true
+    for _, k in ipairs(keep) do if not applied[k.key] then allApplied = false end end
+    return { name = name, long = long,
       dead = dead and dead * DT, minPct = math.max(0, minHp) / hp0 * 100, healed = healed, over = over,
-      mana = mana, oom = oom and oom * DT, casts = casts, eCasts = eCasts, every = casts > 0 and lasted / casts or nil,
-      combo = emerg ~= main }
+      mana = mana, oom = oom and oom * DT, casts = casts, eCasts = eCasts, hCasts = hCasts, allApplied = allApplied,
+      every = casts > 0 and lasted / casts or nil, combo = emerg ~= main }
   end
 
   local list = {}
@@ -710,6 +760,38 @@ local function analyze()
       if m ~= e and e.r.hps > m.r.hps then
         local res = run(m, e)
         if res.eCasts > 0 then table.insert(list, res) end -- 救命技能沒用到就跟單用主力一樣，不重複列
+      end
+    end
+  end
+  -- 保持 HoT＋主力：第一個 HoT 和主力各試最高階、最省藍（HPM 最高）兩階，第二個 HoT（癒合）只用最高階；救命＝HPS 最高的單補
+  local fam = {}
+  for _, r in ipairs(rows) do
+    if not r.f.group and r.f.kind ~= "absorb" and r.perHeal > 0 then fam[r.key] = fam[r.key] or {}; table.insert(fam[r.key], r) end
+  end
+  local function two(keys)
+    local hi, best
+    for _, k in ipairs(keys) do
+      for _, r in ipairs(fam[k] or {}) do
+        if not hi or r.perHeal > hi.perHeal then hi = r end
+        if not best or r.hpm > best.hpm then best = r end
+      end
+    end
+    return not hi and {} or hi == best and { hi } or { hi, best }
+  end
+  local ROT = { { { "rejuv" }, { "ht" } }, { { "rejuv", "rgh" }, { "ht" } }, { { "renew" }, { "heal", "gh" } },
+    { { "renew" }, { "fh" } }, { { "ript" }, { "hw" } }, { { "ript" }, { "lhw" } } }
+  local top = byHps[1]
+  for _, rot in ipairs(ROT) do
+    local firsts, second = two({ rot[1][1] }), rot[1][2] and two({ rot[1][2] })[1]
+    if not (rot[1][2] and not second) then
+      for _, h in ipairs(firsts) do
+        for _, fr in ipairs(two(rot[2])) do
+          local keep = { mk(h) }
+          if second then keep[2] = mk(second) end
+          local main = mk(fr)
+          local res = run(main, (not top or top.r == fr) and main or top, keep)
+          if res.allApplied then table.insert(list, res) end -- HoT 一次都沒掛上就跟單用主力一樣，不重複列
+        end
       end
     end
   end
@@ -946,26 +1028,52 @@ local function refreshImpl()
         if C_Timer and C_Timer.After then C_Timer.After(0.2, go) else go() end
       end
     end
+    frame.anaDetailBtn:GetFontString():SetTextColor(db.anaDetail and 1 or .55, db.anaDetail and .82 or .52, db.anaDetail and 0 or .45)
     local res = frame.anaRes
     local list = res and res.list or {}
+    -- 結論：活下來的分「最省藍」「最穩定」各前 2 名（都倒下就列「撐最久」前 2 名）；詳細：全部照排名，滾輪捲動
+    local alive = {}
+    for _, r in ipairs(list) do if not r.dead then table.insert(alive, r) end end
+    local byMana, byMin = {}, {}
+    for i, r in ipairs(alive) do byMana[i], byMin[i] = r, r end
+    table.sort(byMana, function(a, b) if a.mana ~= b.mana then return a.mana > b.mana end return a.minPct > b.minPct end)
+    table.sort(byMin, function(a, b) if a.minPct ~= b.minPct then return a.minPct > b.minPct end return a.mana > b.mana end)
+    local entries = {}
+    if db.anaDetail then
+      local off = math.max(0, math.min(frame.anaOff or 0, #list - #frame.anaLines))
+      frame.anaOff = off
+      for i = off + 1, math.min(#list, off + #frame.anaLines) do table.insert(entries, { r = list[i], no = i }) end
+    else
+      local groups = #alive > 0 and { { "最省藍", byMana }, { "最穩定", byMin } } or #list > 0 and { { "撐最久", list } } or {}
+      for _, g in ipairs(groups) do
+        table.insert(entries, { head = g[1] })
+        for i = 1, math.min(2, #g[2]) do table.insert(entries, { r = g[2][i], no = i }) end
+      end
+    end
     local best = list[1]
     local conc = inCombat and "戰鬥中不分析" or (res and res.err) or (res and not best and "沒有可以單補的技能")
-      or (best and not best.dead and string.format("|cffffd100最省藍又穩：|r%s（剩藍 %s）", best.long, fint(best.mana)))
+      or (byMana[1] and string.format("|cffffd100最省藍：|r%s；|cffffd100最穩定：|r%s", byMana[1].name, byMin[1].name))
       or (best and string.format("|cffff6b6b都撐不住：|r最久 %s（撐 %d 秒）", best.long, math.floor(best.dead + 0.5))) or ""
     frame.anaConc:SetText(conc)
     local cols, n = #frame.anaLines[1].c, 0
     for i, l in ipairs(frame.anaLines) do
-      local r = not inCombat and list[i]
-      if r then
+      local e = not inCombat and entries[i]
+      local r = e and e.r
+      if e and e.head then
         n = i
-        local vals = { i .. ".", r.name, r.dead and string.format("倒下 %d 秒", math.floor(r.dead + 0.5)) or "活",
+        for c = 1, cols do l.c[c]:SetText(c == 2 and e.head or "") end
+        l.c[2]:SetTextColor(unpack(GOLD)); l.hl:Hide()
+        l.res = nil; l:Show()
+      elseif r then
+        n = i
+        local vals = { e.no .. ".", r.name, r.dead and string.format("倒下 %d 秒", math.floor(r.dead + 0.5)) or "活",
           r.oom and string.format("沒藍 %d 秒", math.floor(r.oom + 0.5)) or ("剩藍 " .. fint(r.mana)),
           string.format("最低 %d%%", math.floor(r.minPct + 0.5)),
           r.every and ("每 " .. fmt1(r.every) .. " 秒一發") or "沒出手" }
         for c = 1, cols do l.c[c]:SetText(vals[c]); l.c[c]:SetTextColor(1, 1, 1) end
         l.c[3]:SetTextColor(unpack(r.dead and { 1, .42, .42 } or GREEN))
         if r.dead then l.hl:SetColorTexture(1, .2, .2, .12); l.hl:Show()
-        elseif i == 1 then l.hl:SetColorTexture(1, .82, 0, .14); l.hl:Show(); l.c[2]:SetTextColor(unpack(GOLD))
+        elseif e.no == 1 then l.hl:SetColorTexture(1, .82, 0, .14); l.hl:Show(); l.c[2]:SetTextColor(unpack(GOLD))
         else l.hl:Hide() end
         l.res = r; l:Show()
       else l.res = nil; l:Hide() end
@@ -1215,7 +1323,11 @@ local function buildFrame()
     frame.lines[i] = l
   end
   frame:EnableMouseWheel(true)
-  frame:SetScript("OnMouseWheel", function(_, delta) offset = math.max(0, offset - delta * 3); HealHPS_Refresh() end)
+  frame:SetScript("OnMouseWheel", function(_, delta)
+    if db.mode == "analysis" then frame.anaOff = math.max(0, (frame.anaOff or 0) - delta * 3)
+    else offset = math.max(0, offset - delta * 3) end
+    HealHPS_Refresh()
+  end)
   frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   frame.foot:SetWidth(W); frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(false)
   -- 分析頁：預設組合、四條滑桿、結論、排名（只在「分析」顯示）
@@ -1239,6 +1351,9 @@ local function buildFrame()
     frame.anaPresetW = frame.anaPresetW + b:GetWidth() + 2
     prev = b
   end
+  frame.anaDetailBtn = button(frame.ana, 40, "詳細", function() db.anaDetail = not db.anaDetail; frame.anaOff = 0; HealHPS_Refresh() end)
+  frame.anaDetailBtn:SetPoint("LEFT", prev, "RIGHT", 12, 0)
+  frame.anaPresetW = frame.anaPresetW + frame.anaDetailBtn:GetWidth() + 12
   -- { 設定鍵, 文字, 最小, 最大, 間隔, 最長的值（量寬度用） }
   local INPUTS = { { "anaHp", "坦克生命 %d", 500, 20000, 100, 20000 }, { "anaHit", "每次傷害 %d", 50, 5000, 10, 5000 },
     { "anaGap", "受傷間隔 %.1f 秒", 0.5, 5, 0.5, 5 }, { "fight", "戰鬥長度 %d 秒", 30, 600, 10, 600 } }
@@ -1280,7 +1395,7 @@ local function buildFrame()
       local total = r.healed + r.over
       GameTooltip:AddDoubleLine("補到", fint(r.healed), .8, .8, .8, 1, 1, 1)
       GameTooltip:AddDoubleLine("溢補", string.format("%d%%", total > 0 and math.floor(r.over / total * 100 + 0.5) or 0), .8, .8, .8, 1, 1, 1)
-      GameTooltip:AddDoubleLine("施法", r.casts .. " 次" .. (r.combo and string.format("（救命 %d）", r.eCasts) or ""), .8, .8, .8, 1, 1, 1)
+      GameTooltip:AddDoubleLine("施法", r.casts .. " 次" .. ((r.hCasts > 0 or r.combo) and ("（" .. (r.hCasts > 0 and ("HoT " .. r.hCasts) or "") .. (r.hCasts > 0 and r.combo and "、" or "") .. (r.combo and ("救命 " .. r.eCasts) or "") .. "）") or ""), .8, .8, .8, 1, 1, 1)
       GameTooltip:Show()
     end)
     l:SetScript("OnLeave", function() GameTooltip:Hide() end)
