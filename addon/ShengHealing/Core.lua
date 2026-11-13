@@ -433,16 +433,25 @@ end
 
 local function compute()
   ensureDB()
+  -- 戰鬥中治療效果、精神、回藍等是秘密值，拿來比較會報錯（還會讓介面功能被擋）：直接沿用戰鬥前算好的結果
+  if InCombatLockdown and InCombatLockdown() and scan.rows and scan.ctx then return scan.rows, scan.ctx end
   if scan.dirty then rescan() end
+  -- 讀到秘密值（或讀不到）就用上一次的數字
+  local old = scan.ctx or {}
+  local function num(v, prev)
+    if type(v) ~= "number" or (issecretvalue and issecretvalue(v)) then return prev or 0 end
+    return v
+  end
   local _, class = UnitClass("player")
-  local ctx = { level = UnitLevel("player"), bonus = (GetSpellBonusHealing and GetSpellBonusHealing()) or 0 }
+  if type(class) ~= "string" or (issecretvalue and issecretvalue(class)) then class = old.class end
+  local ctx = { level = num(UnitLevel("player"), old.level), bonus = num(GetSpellBonusHealing and GetSpellBonusHealing(), old.bonus) }
   ctx.descIncl = descIncludesBonus()
   ctx.class = class
-  ctx.spirit = (UnitStat and select(2, UnitStat("player", 5))) or 0
+  ctx.spirit = num(UnitStat and select(2, UnitStat("player", 5)), old.spirit)
   -- 每秒回藍：遊戲已把精神、MP5、施法中保留回藍的天賦都算好；idle＝停手滿 5 秒後，active＝施法中（5 秒內）
   local okR, idle, active = pcall(GetManaRegen)
-  ctx.regenIdle, ctx.regenActive = okR and idle or 0, okR and active or 0
-  ctx.maxMana = UnitPowerMax and UnitPowerMax("player", 0) or 0
+  ctx.regenIdle, ctx.regenActive = num(okR and idle, old.regenIdle), num(okR and active, old.regenActive)
+  ctx.maxMana = num(UnitPowerMax and UnitPowerMax("player", 0), old.maxMana)
   ctx.ripKnown = scan.families.ript and scan.families.ript.maxRank > 0 or false
   local tal = scanTalents(class)
   ctx.healPct = (db.pct or tal.heal) / 100
