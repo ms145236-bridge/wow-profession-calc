@@ -1078,10 +1078,13 @@ local function refreshImpl()
   end
   frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
   frame.act2:ClearAllPoints(); frame.act2:SetPoint("RIGHT", frame.act1, "LEFT", -6, 0)
-  -- 底部說明不壓到右邊按鈕：放不下就截斷
+  -- 底部說明不壓到右邊按鈕
   local right = frame.act2:IsShown() and frame.act2 or (frame.act1:IsShown() and frame.act1)
   frame.foot:SetWordWrap(false)
   if right then frame.foot:SetPoint("RIGHT", right, "LEFT", -8, 0) end
+  -- 放不下就整句不顯示（版面排好後才知道會不會被截斷）
+  frame.foot:SetAlpha(0)
+  C_Timer.After(0, function() frame.foot:SetAlpha(frame.foot:IsTruncated() and 0 or 1) end)
   local hasAct = frame.act1:IsShown() or frame.atrBtn:IsShown()
   frame:SetHeight(TOP + shown * ROW_H + ((hasAct or frame.foot:GetText() ~= "") and 44 or 18))
   autoFit(cols)
