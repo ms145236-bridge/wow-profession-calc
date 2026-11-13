@@ -123,7 +123,7 @@ local update
 btn:SetScript("PostClick", function(_, button)
   if button == "RightButton" then
     snoozeUntil = GetTime() + 600
-    msg("採集追蹤提醒：10 分鐘內不再提醒（/prof track off 可以完全關閉）")
+    msg("採集追蹤提醒：10 分鐘內不再提醒（/sprof track off 可以完全關閉）")
     if not InCombatLockdown() then btn:Hide() end
   end
   if C_Timer then C_Timer.After(0.5, function() update() end) end
@@ -150,7 +150,7 @@ local function tryAuto(k, list)
   C_Timer.After(1.5, function()
     local g = status()
     if g then
-      if not autoMsg then msg("已自動開啟" .. KINDS[k].label .. "（/prof track auto 可以關掉自動開啟）"); autoMsg = true end
+      if not autoMsg then msg("已自動開啟" .. KINDS[k].label .. "（/sprof track auto 可以關掉自動開啟）"); autoMsg = true end
     else
       autoFailed = true -- 遊戲不允許插件直接開：之後只用提醒按鈕
       msg("沒辦法自動開啟" .. KINDS[k].label .. "，請點畫面上的提醒按鈕")
@@ -195,7 +195,7 @@ end
 -- 保險：每 10 秒檢查一次（有些客戶端關閉追蹤不會發事件）
 if C_Timer and C_Timer.NewTicker then C_Timer.NewTicker(10, function() if btn:IsShown() or not pending then update() end end) end
 
--- /prof track 子指令
+-- /sprof track 子指令
 function ProfLevel_Track(arg)
   local db = DB()
   arg = (arg or ""):lower()
@@ -209,7 +209,7 @@ function ProfLevel_Track(arg)
     msg(string.format("採集追蹤　提醒：%s　自動開啟：%s%s　優先：%s　目前：%s",
       db.trackRemind and "開" or "關", db.trackAuto and "開" or "關", autoFailed and "（這次登入失敗過）" or "",
       KINDS[db.trackPref or ""] and KINDS[db.trackPref].label or "自動", g and KINDS[g].label or "沒有開"))
-    msg("/prof track on|off 開關提醒　/prof track auto 開關自動開啟　/prof track mine|herb 兩種都學時優先哪個　/prof track reset 重設按鈕位置")
+    msg("/sprof track on|off 開關提醒　/sprof track auto 開關自動開啟　/sprof track mine|herb 兩種都學時優先哪個　/sprof track reset 重設按鈕位置")
   end
   update()
 end

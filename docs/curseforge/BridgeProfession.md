@@ -36,11 +36,11 @@
 
 ### 指令
 
-- `/prof` 開關視窗
-- `/prof track` 採集追蹤提醒設定
-- `/prof scale 1.2` 調整視窗大小（也可以拖右下角）
-- `/prof minimap` 隱藏／顯示小地圖按鈕
-- `/prof debug` 列出偵測結果
+- `/sprof` 開關視窗
+- `/sprof track` 採集追蹤提醒設定
+- `/sprof scale 1.2` 調整視窗大小（也可以拖右下角）
+- `/sprof minimap` 隱藏／顯示小地圖按鈕
+- `/sprof debug` 列出偵測結果
 
 ### 注意
 

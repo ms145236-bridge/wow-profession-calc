@@ -15,7 +15,7 @@
 
 - **讀遊戲裡的真實數字**：技能治療量直接解析法術書的技能說明（已含你的治療效果和天賦），施法時間、法力、冷卻也從遊戲讀，換裝會即時更新。
 - **滑鼠提示**：技能圖示上多一行 HPS／HPM，HPS 最高、HPM 最高的那招會特別標出。
-- **比較表**（`/hps`）：所有技能所有等級一次列出，可依 HPS、HPM 排序；分「單補／群補／冷卻」三頁。
+- **比較表**（`/shps`）：所有技能所有等級一次列出，可依 HPS、HPM 排序；分「單補／群補／冷卻」三頁。
 - **群補**：可用滑桿設定人數（2–10），恢復、回春術等持續治療會算能輪流鋪給幾個人；癒合這類直接＋持續治療也算進群補。
 - **冷卻技能另列一頁**，照施放時的 HPS 比較。
 - **滑鼠提示可調詳細度**：完整／標準／精簡／關。
@@ -26,11 +26,11 @@
 
 ### 指令
 
-- `/hps` 開關比較表
-- `/hps tip` 開關滑鼠提示（詳細度在比較表的「設定」裡調）
-- `/hps targets 2-10` 群補人數
-- `/hps minimap` 隱藏／顯示小地圖按鈕
-- `/hps debug` 列出插件讀到的資料（數值不對時請附上回報）
+- `/shps` 開關比較表
+- `/shps tip` 開關滑鼠提示（詳細度在比較表的「設定」裡調）
+- `/shps targets 2-10` 群補人數
+- `/shps minimap` 隱藏／顯示小地圖按鈕
+- `/shps debug` 列出插件讀到的資料（數值不對時請附上回報）
 
 ### 注意
 
@@ -43,4 +43,4 @@
 
 ---
 
-**English (BridgeHealing):** HPS / HPM comparison for healers in WoW Forever (zhTW client). Reads real numbers from in-game spell tooltips and talents, shows HPS/HPM in tooltips and a sortable comparison table (`/hps`, single-target / group / cooldown tabs, adjustable group size), including downranking penalties and the Oath of Light talent.
+**English (BridgeHealing):** HPS / HPM comparison for healers in WoW Forever (zhTW client). Reads real numbers from in-game spell tooltips and talents, shows HPS/HPM in tooltips and a sortable comparison table (`/shps`, single-target / group / cooldown tabs, adjustable group size), including downranking penalties and the Oath of Light talent.

@@ -9,7 +9,7 @@ local DEFAULTS = { mode = "single", tipLevel = 3, rate = "cast", sort = "hps", t
 local LOGO = "Interface\\AddOns\\BridgeHealing\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
--- 技能說明的數字是否已經含治療效果：永恆（新版引擎）實測會含；經典版不含。/hps desc 可手動指定
+-- 技能說明的數字是否已經含治療效果：永恆（新版引擎）實測會含；經典版不含。/shps desc 可手動指定
 local function descIncludesBonus()
   local m = HealHPSCharDB and HealHPSCharDB.desc or "auto"
   if m == "incl" then return true elseif m == "base" then return false end
@@ -766,7 +766,7 @@ local function refreshImpl()
   frame.talTxt = db.pct and ("治療加成 " .. db.pct .. "%（手動）") or (#tal.found > 0 and table.concat(tal.found, "、") or "")
   local o = tal.oath
   if o then
-    frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. (o.unknown and "聖光誓約：讀不到加成量（請執行 /hps debug 回報）"
+    frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. (o.unknown and "聖光誓約：讀不到加成量（請執行 /shps debug 回報）"
       or string.format("聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d", o.hl, o.fol, o.hs))
   end
   local cls = select(2, UnitClass("player"))
@@ -1115,7 +1115,8 @@ local function debugDump()
   end
 end
 
-SLASH_HEALHPS1 = "/hps"
+SLASH_HEALHPS1 = "/shps"
+SLASH_HEALHPS2 = "/hps" -- 舊指令保留
 SlashCmdList.HEALHPS = function(input)
   ensureDB()
   local cmd, arg = (input or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
@@ -1128,7 +1129,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "minimap" then
     db.minimapHide = not db.minimapHide
     if mmBtn then if db.minimapHide then mmBtn:Hide() else mmBtn:Show() end end
-    msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /hps minimap 顯示）" or "顯示"))
+    msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /shps minimap 顯示）" or "顯示"))
   elseif cmd == "pct" then
     db.pct = arg ~= "auto" and tonumber(arg) or nil
     msg("治療加成 %：" .. (db.pct and db.pct .. "（手動）" or "依天賦自動"))
@@ -1144,7 +1145,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
     if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
-    else msg("用法：/hps scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
+    else msg("用法：/shps scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
   elseif cmd == "desc" then
     db.desc = (arg == "incl" or arg == "base") and arg or "auto"
     msg("技能說明數字：" .. (db.desc == "incl" and "已含治療效果（手動）" or db.desc == "base" and "只有基礎量（手動）" or "自動判斷")
@@ -1154,7 +1155,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
   else
-    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 2-10　/hps tip　/hps scale 1.2　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
+    msg("/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps debug　/shps reset")
   end
   if frame then HealHPS_Refresh() end
 end

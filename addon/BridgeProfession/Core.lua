@@ -1313,8 +1313,9 @@ local function buildMinimapButton()
 end
 
 -- ── 指令 ───────────────────────────────────────────────────────────────────
-SLASH_PROFLEVEL1 = "/prof"
-SLASH_PROFLEVEL2 = "/proflevel"
+SLASH_PROFLEVEL1 = "/sprof"
+SLASH_PROFLEVEL2 = "/prof" -- 舊指令保留
+SLASH_PROFLEVEL3 = "/proflevel"
 SlashCmdList.PROFLEVEL = function(input)
   ensureDB()
   local cmd = (input or ""):lower():match("^%s*(%S*)")
@@ -1322,14 +1323,14 @@ SlashCmdList.PROFLEVEL = function(input)
   elseif cmd == "minimap" then
     db.minimapHide = not db.minimapHide
     if mmBtn then if db.minimapHide then mmBtn:Hide() else mmBtn:Show() end end
-    msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /prof minimap 顯示）" or "顯示"))
+    msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /sprof minimap 顯示）" or "顯示"))
   elseif cmd == "dock" then
     db.dock = not db.dock
     msg("打開專業視窗時自動顯示專業助手：" .. (db.dock and "開" or "關"))
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
     if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
-    else msg("用法：/prof scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
+    else msg("用法：/sprof scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
   elseif cmd == "track" then
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
   elseif cmd == "debug" then
@@ -1363,7 +1364,7 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/prof 開關視窗　/prof scale 1.2 調整視窗大小　/prof dock 開關「跟專業視窗一起開」　/prof minimap 隱藏小地圖按鈕　/prof track 採集追蹤提醒　/prof debug 列出偵測結果")
+    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof debug 列出偵測結果")
   end
 end
 
