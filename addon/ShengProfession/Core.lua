@@ -853,9 +853,8 @@ local function refreshImpl()
   if db.tab == "gather" then
     -- 採集分頁：每個採集／副專業一行（名稱、點數、下一階、去），下面是採集相關設定
     local g, all = frame.gather, learnedProfs(true)
-    g.voiceBtn:SetText(NS.voiceLabel()); fitButton(g.voiceBtn, 60)
     g.trackBtn:SetText(NS.trackLabel()); fitButton(g.trackBtn, 60)
-    local fw = math.max(W + 28, rowEnd(tabs) + 14, rowEnd({ { g.voiceBtn, 12 }, { g.cfgBtn, 6 }, { g.trackBtn, 16 } }) + 14)
+    local fw = math.max(W + 28, rowEnd(tabs) + 14, rowEnd({ { g.trackBtn, 12 } }) + 14)
     frame:SetWidth(fw)
     local shown, nameW = {}, 0
     for _, p in ipairs(GATHER) do
@@ -899,7 +898,7 @@ local function refreshImpl()
     if #shown == 0 then g.empty:ClearAllPoints(); g.empty:SetPoint("TOPLEFT", 14, y - 4); y = y - 26 end
     g.sep:ClearAllPoints(); g.sep:SetPoint("TOPLEFT", 14, y - 6); g.sep:SetWidth(fw - 28)
     y = y - 14
-    g.voiceBtn:ClearAllPoints(); g.voiceBtn:SetPoint("TOPLEFT", 12, y)
+    g.trackBtn:ClearAllPoints(); g.trackBtn:SetPoint("TOPLEFT", 12, y)
     local ry = NS.routeLayout and NS.quiet("採集路線", NS.routeLayout, g, fw, y - 34, all) -- 採集路線（RouteMap.lua）
     frame:SetHeight(ry and (-ry + 14) or (-y + 26 + 16))
     return
@@ -1179,16 +1178,7 @@ local function buildFrame()
   gather.rows = {}
   gather.empty = gather:CreateFontString(nil, "OVERLAY", "GameFontDisable"); gather.empty:SetText("沒有學採集或副專業")
   gather.sep = gather:CreateTexture(nil, "ARTWORK"); gather.sep:SetColorTexture(1, 1, 1, .12); gather.sep:SetHeight(1)
-  gather.voiceBtn = button(gather, 60, "", function(_, btn) if btn == "RightButton" then NS.voiceSlash("config") else NS.voiceToggle() end end)
-  gather.voiceBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  gather.voiceBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("附近的礦和草念出名稱"); GameTooltip:AddLine("右鍵：語音設定", .6, .6, .6); GameTooltip:Show()
-  end)
-  gather.voiceBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  gather.cfgBtn = button(gather, 60, "語音設定", function() NS.voiceSlash("config") end)
-  gather.cfgBtn:SetPoint("LEFT", gather.voiceBtn, "RIGHT", 6, 0)
   gather.trackBtn = button(gather, 60, "", function() NS.trackToggle(); ProfLevel_Refresh() end)
-  gather.trackBtn:SetPoint("LEFT", gather.cfgBtn, "RIGHT", 16, 0)
   gather.trackBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("採集追蹤提醒")
     GameTooltip:AddLine("學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕", 1, 1, 1, true)
@@ -1570,8 +1560,6 @@ SlashCmdList.PROFLEVEL = function(input)
     if n == 0 then msg("沒偵測到專業") end
   elseif cmd == "track" then
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
-  elseif cmd == "voice" then
-    NS.voiceSlash((input or ""):lower():match("voice%s+(%S+)"))
   elseif cmd == "debug" then
     local learned = learnedProfs()
     local t = {}
@@ -1603,7 +1591,7 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof voice 語音提示（config 設定、test 試聽）/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
+    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
   end
 end
 
@@ -1637,6 +1625,13 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     ensureDB()
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
+    -- 語音提示已移除：把它改過的互動鍵設定還原（玩家或別的插件改過的不動），只做一次
+    if type(db.voice) == "table" then
+      for cvar, old in pairs(db.voice.saved or {}) do
+        if tonumber(C_CVar.GetCVar(cvar)) == tonumber((db.voice.applied or {})[cvar]) then C_CVar.SetCVar(cvar, old) end
+      end
+      db.voice = nil
+    end
     if not db.scaleV then if db.scale == 1 then db.scale = 1.25 end; db.scaleV = 1 end -- 舊預設值改成新的預設大小（只遷移一次，之後尊重玩家設定）
     safe("小地圖按鈕", buildMinimapButton)
   elseif e == "ADDON_LOADED" and a1 == "Blizzard_Professions" then
