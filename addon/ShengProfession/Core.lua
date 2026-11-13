@@ -31,6 +31,22 @@ local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle 
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage(L["|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r "] .. s) end
+-- 換版本時清掉舊版本留下的錯誤紀錄（修好的錯誤不用留著）
+do
+  local f = CreateFrame("Frame")
+  f:RegisterEvent("ADDON_LOADED")
+  f:SetScript("OnEvent", function(self, _, name)
+    if name ~= "ShengProfession" then return end
+    self:UnregisterEvent("ADDON_LOADED")
+    local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local ver = meta and meta("ShengProfession", "Version")
+    if type(ProfLevelCharDB) == "table" and ver and type(ProfLevelCharDB.errors) == "table" and ProfLevelCharDB.errors.ver ~= ver then
+      ProfLevelCharDB.errors = { ver = ver }
+    elseif type(ProfLevelCharDB) == "table" and ver and ProfLevelCharDB.errors == nil then
+      ProfLevelCharDB.errors = { ver = ver }
+    end
+  end)
+end
 local reported = {}
 -- 錯誤存進存檔（登出後開發者讀得到），同一種錯誤只記一筆、算次數，最多 50 種
 local function logError(where, err)

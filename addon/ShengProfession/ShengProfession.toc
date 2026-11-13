@@ -5,7 +5,7 @@
 ## Notes-zhTW: 魔獸世界：永恆專業幫手：衝級路線、利潤表、製作佇列。依 Auctionator 價格挑最省的路線，列出製作步驟與購物清單，可一鍵建立 Auctionator 購物清單。/sprof 開啟。
 ## IconTexture: Interface\AddOns\ShengProfession\Media\Logo
 ## Author: ms145236-bridge
-## Version: 1.3.0
+## Version: 1.3.1
 ## OptionalDeps: Auctionator
 ## SavedVariablesPerCharacter: ProfLevelCharDB
 
