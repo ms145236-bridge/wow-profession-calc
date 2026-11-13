@@ -110,7 +110,7 @@ HealHPS_Locales.frFR = {
     ["設定"] = "Paramètres",
     ["技能"] = "Sort", ["等級"] = "Rang", ["有效量"] = "Soins", ["法力"] = "Mana", ["秒"] = "s",
     ["%d 級 · 治療效果 %d"] = "Niveau %d · Bonus aux soins %d", [" · 精神 %d"] = " · Esprit %d",
-    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Régén. du mana : %d hors incant. / %d en incant. (par 5 s)",
+    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Mana/5 s : %d au repos / %d en incant.",
     ["技能提示："] = "Infobulle du sort : ", ["精簡"] = "Court", ["標準"] = "Standard", ["完整"] = "Complet",
     ["群補人數 "] = "Cibles des soins de groupe ",
     ["HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r"] =

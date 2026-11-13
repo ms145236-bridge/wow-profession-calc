@@ -109,8 +109,8 @@ HealHPS_Locales.esMX = {
     ["拖曳調整視窗大小"] = "Arrastra para ajustar el tamaño",
     ["設定"] = "Configuración",
     ["技能"] = "Hechizo", ["等級"] = "Rango", ["有效量"] = "Sanación", ["法力"] = "Maná", ["秒"] = "s",
-    ["%d 級 · 治療效果 %d"] = "Nivel %d · Bonificación de sanación %d", [" · 精神 %d"] = " · Espíritu %d",
-    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Reg. de maná: %d sin lanzar / %d al lanzar (cada 5 s)",
+    ["%d 級 · 治療效果 %d"] = "Nivel %d · Sanación %d", [" · 精神 %d"] = " · Espíritu %d",
+    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Maná/5 s: %d sin lanzar / %d lanzando",
     ["技能提示："] = "Descripción del hechizo: ", ["精簡"] = "Breve", ["標準"] = "Estándar", ["完整"] = "Completo",
     ["群補人數 "] = "Objetivos de grupo ",
     ["HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r"] =
@@ -125,8 +125,8 @@ HealHPS_Locales.esMX = {
     ["部分數值來自資料表（遊戲讀不到）"] = "Algunos valores provienen de la tabla de datos (no legible en el juego)",
     -- analysis tab
     ["單坦"] = "Tanque", ["團刷"] = "Grupo",
-    ["小怪"] = "Enemigos", ["王戰"] = "Jefe", ["單練"] = "En solitario", ["省水"] = "Fácil",
-    ["群怪"] = "Enemigos", ["全團技"] = "Área de banda", ["範圍"] = "Área", ["點名"] = "Dirigido",
+    ["小怪"] = "Enemigos", ["王戰"] = "Jefe", ["單練"] = "Solo", ["省水"] = "Fácil",
+    ["群怪"] = "Enemigos", ["全團技"] = "Banda", ["範圍"] = "Área", ["點名"] = "Dirigido",
     ["詳細"] = "Detalles",
     ["坦克生命 %d"] = "Salud del tanque %d", ["每次傷害 %d"] = "Daño por golpe %d", ["受傷間隔 %.1f 秒"] = "Intervalo de acierto %.1f seg.",
     ["戰鬥長度 %d 秒"] = "Duración de la pelea %d seg", ["人數 %d"] = "Tamaño del grupo %d", ["成員生命 %d"] = "Salud por miembro %d",

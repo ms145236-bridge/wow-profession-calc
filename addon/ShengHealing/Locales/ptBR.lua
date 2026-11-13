@@ -110,7 +110,7 @@ HealHPS_Locales.ptBR = {
     ["設定"] = "Configurações",
     ["技能"] = "Feitiço", ["等級"] = "Grau", ["有效量"] = "Cura", ["法力"] = "Mana", ["秒"] = "s",
     ["%d 級 · 治療效果 %d"] = "Nível %d · Bônus de cura %d", [" · 精神 %d"] = " · Espírito %d",
-    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Regen. de mana: %d fora / %d lançando (por 5 s)",
+    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Mana/5 s: %d parado / %d lançando",
     ["技能提示："] = "Tooltip do feitiço: ", ["精簡"] = "Breve", ["標準"] = "Padrão", ["完整"] = "Completo",
     ["群補人數 "] = "Alvos da cura em grupo ",
     ["HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r"] =
@@ -126,7 +126,7 @@ HealHPS_Locales.ptBR = {
     -- analysis tab
     ["單坦"] = "Tanque", ["團刷"] = "Grupo",
     ["小怪"] = "Inimigos", ["王戰"] = "Chefe", ["單練"] = "Solo", ["省水"] = "Fácil",
-    ["群怪"] = "Inimigos", ["全團技"] = "Área de raide", ["範圍"] = "Área", ["點名"] = "Direcionado",
+    ["群怪"] = "Inimigos", ["全團技"] = "Raide", ["範圍"] = "Área", ["點名"] = "Direcionado",
     ["詳細"] = "Detalhes",
     ["坦克生命 %d"] = "Vida do tanque %d", ["每次傷害 %d"] = "Dano por acerto %d", ["受傷間隔 %.1f 秒"] = "Intervalo de acertos %.1f seg",
     ["戰鬥長度 %d 秒"] = "Comprimento da luta %d seg", ["人數 %d"] = "Tamanho do grupo %d", ["成員生命 %d"] = "Vida por membro %d",

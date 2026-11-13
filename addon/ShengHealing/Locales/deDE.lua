@@ -110,7 +110,7 @@ HealHPS_Locales.deDE = {
     ["設定"] = "Einstellungen",
     ["技能"] = "Zauber", ["等級"] = "Rang", ["有效量"] = "Heilung", ["法力"] = "Mana", ["秒"] = "Sek.",
     ["%d 級 · 治療效果 %d"] = "Stufe %d · Bonusheilung %d", [" · 精神 %d"] = " · Willenskraft %d",
-    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Manareg.: %d außerhalb / %d beim Zaubern (je 5 Sek.)",
+    [" · 回藍 停手 %d／施法 %d（每 5 秒）"] = " · Mana/5 s: %d ruhend / %d zaubernd",
     ["技能提示："] = "Zauber-Tooltip: ", ["精簡"] = "Kurz", ["標準"] = "Standard", ["完整"] = "Ausführlich",
     ["群補人數 "] = "Ziele der Gruppenheilung ",
     ["HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r"] =
@@ -126,7 +126,7 @@ HealHPS_Locales.deDE = {
     -- analysis tab
     ["單坦"] = "Tank", ["團刷"] = "Gruppe",
     ["小怪"] = "Trash", ["王戰"] = "Boss", ["單練"] = "Solo", ["省水"] = "Leicht",
-    ["群怪"] = "Trash", ["全團技"] = "Schlachtzugs-AoE", ["範圍"] = "Flächenschaden", ["點名"] = "Gezielt",
+    ["群怪"] = "Trash", ["全團技"] = "Raid-AoE", ["範圍"] = "AoE", ["點名"] = "Gezielt",
     ["詳細"] = "Details",
     ["坦克生命 %d"] = "Tank-TP %d", ["每次傷害 %d"] = "Schaden pro Treffer %d", ["受傷間隔 %.1f 秒"] = "Trefferintervall %.1f Sek.",
     ["戰鬥長度 %d 秒"] = "Kampflänge %d Sek.", ["人數 %d"] = "Gruppengröße %d", ["成員生命 %d"] = "Gruppenmitglied-TP %d",
