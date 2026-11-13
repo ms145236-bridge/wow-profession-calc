@@ -149,9 +149,8 @@ HealHPS_Locales.frFR = {
     ["不喝水連打"] = "Groupes d’affilée", [" 波"] = "", ["救命 "] = "urgence ",
     ["坦克 %d%%、剩藍 %s"] = "Tank %d%%, mana restant %s",
     -- minimap
-    ["技能提示的 HPS："] = "HPS dans l’infobulle du sort : ",
-    ["左鍵：開關比較表"] = "Clic gauche : afficher/masquer le comparatif",
-    ["右鍵：開關技能提示的 HPS（目前"] = "Clic droit : HPS dans l’infobulle (actuellement ",
+    ["左鍵：開啟／關閉"] = "Clic gauche : ouvrir/fermer",
+    ["右鍵：設定"] = "Clic droit : options",
     ["拖曳：沿著小地圖移動"] = "Glisser : déplacer sur la minicarte",
     -- debug
     ["版本 %s　API：%s　法術書共 %d 個技能"] = "Version %s  API : %s  Grimoire : %d sorts",

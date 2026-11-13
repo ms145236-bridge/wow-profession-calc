@@ -149,9 +149,8 @@ HealHPS_Locales.esES = {
     ["不喝水連打"] = "Grupos seguidos", [" 波"] = "", ["救命 "] = "emergencia ",
     ["坦克 %d%%、剩藍 %s"] = "Tanque %d%%, maná restante %s",
     -- minimap
-    ["技能提示的 HPS："] = "HPS en la descripción del hechizo: ",
-    ["左鍵：開關比較表"] = "Clic izq.: mostrar u ocultar la tabla",
-    ["右鍵：開關技能提示的 HPS（目前"] = "Clic der.: alternar HPS en descripciones (ahora ",
+    ["左鍵：開啟／關閉"] = "Clic izq.: abrir/cerrar",
+    ["右鍵：設定"] = "Clic der.: opciones",
     ["拖曳：沿著小地圖移動"] = "Arrastra para moverlo por el minimapa",
     -- debug
     ["版本 %s　API：%s　法術書共 %d 個技能"] = "Versión %s  API: %s  Libro: %d hechizos",

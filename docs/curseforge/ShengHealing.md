@@ -39,7 +39,7 @@ Compares **HPS** (healing per second) and **HPM** (healing per mana) for every h
 **Language**
 - English and Traditional Chinese, following your client language.
 
-Minimap button (left click: window, right click: tooltip HPS on/off) and a resizable window. Other classes are left alone.
+Minimap button (left click: open/close, right click: settings) and a resizable window. Other classes are left alone.
 
 ## Commands
 
@@ -96,7 +96,7 @@ Minimap button (left click: window, right click: tooltip HPS on/off) and a resiz
 **語言**
 - 英文、繁體中文介面，依遊戲語言自動切換。
 
-小地圖按鈕（左鍵開視窗、右鍵開關提示的 HPS）、可調整大小的視窗。非治療職業不會啟用。
+小地圖按鈕（左鍵開關視窗、右鍵打開設定）、可調整大小的視窗。非治療職業不會啟用。
 
 ## 指令
 

@@ -154,9 +154,8 @@ HealHPS_Locales.enUS = {
     ["不喝水連打"] = "Pulls in a row", [" 波"] = "", ["救命 "] = "emergency ",
     ["坦克 %d%%、剩藍 %s"] = "Tank %d%%, mana left %s",
     -- minimap
-    ["技能提示的 HPS："] = "Spell tooltip HPS: ",
-    ["左鍵：開關比較表"] = "Left-click: toggle the table",
-    ["右鍵：開關技能提示的 HPS（目前"] = "Right-click: toggle tooltip HPS (now ",
+    ["左鍵：開啟／關閉"] = "Left-click: Open/Close",
+    ["右鍵：設定"] = "Right-click: Settings",
     ["拖曳：沿著小地圖移動"] = "Drag: move around the minimap",
     -- debug
     ["版本 %s　API：%s　法術書共 %d 個技能"] = "Version %s  API: %s  Spellbook: %d spells",

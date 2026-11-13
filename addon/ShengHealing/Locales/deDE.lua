@@ -149,9 +149,8 @@ HealHPS_Locales.deDE = {
     ["不喝水連打"] = "Pulls in Folge", [" 波"] = "", ["救命 "] = "Notfall ",
     ["坦克 %d%%、剩藍 %s"] = "Tank %d%%, Mana übrig %s",
     -- minimap
-    ["技能提示的 HPS："] = "HPS im Zauber-Tooltip: ",
-    ["左鍵：開關比較表"] = "Linksklick: Vergleich ein-/ausblenden",
-    ["右鍵：開關技能提示的 HPS（目前"] = "Rechtsklick: HPS im Tooltip umschalten (jetzt ",
+    ["左鍵：開啟／關閉"] = "Linksklick: Öffnen/Schließen",
+    ["右鍵：設定"] = "Rechtsklick: Einstellungen",
     ["拖曳：沿著小地圖移動"] = "Ziehen: auf der Minikarte verschieben",
     -- debug
     ["版本 %s　API：%s　法術書共 %d 個技能"] = "Version %s  API: %s  Zauberbuch: %d Zauber",
