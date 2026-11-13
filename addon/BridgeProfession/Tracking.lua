@@ -8,7 +8,7 @@ local KINDS = {
 local ORDER = { "mine", "herb" }
 local GATHER = { [2580] = "mine", [2383] = "herb" }
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7布里居|r|cffd9b25f專業幫手|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r " .. s) end
 local function DB()
   local db = ProfLevelCharDB
   if not db then ProfLevelCharDB = {}; db = ProfLevelCharDB end

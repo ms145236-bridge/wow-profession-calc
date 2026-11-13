@@ -1,13 +1,13 @@
-**專案名稱：** 布里居治療幫手 BridgeHealing
+**專案名稱：** 阿聖治療幫手 BridgeHealing
 **授權（License）：** GPL-3.0
-**系列：** 布里居 Bridge（另有 布里居練等幫手 BridgeLeveling、布里居專業幫手 BridgeProfession）
+**系列：** 阿聖 Bridge（另有 阿聖練等幫手 BridgeLeveling、阿聖專業幫手 BridgeProfession）
 **摘要（Summary，一行）：** 魔獸世界：永恆治療職 HPS／HPM 比較：直接讀遊戲技能說明與天賦，滑鼠提示與比較表告訴你哪一招最划算。
 **分類：** Healer、Tooltip、Class（Paladin/Priest/Druid/Shaman）
 **語言：** 繁體中文（zhTW）
 
 ---
 
-## 布里居治療幫手（魔獸世界：永恆）
+## 阿聖治療幫手（魔獸世界：永恆）
 
 比較治療職每個技能、每個等級的 **HPS**（每秒治療）和 **HPM**（每點法力治療），幫你決定什麼時候該用哪一招、哪一階。
 

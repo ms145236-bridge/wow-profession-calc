@@ -1,10 +1,10 @@
 ## Interface: 16001, 11508
 ## Title: |cff4fc3f7Bridge|rHealing
-## Title-zhTW: |cff4fc3f7布里居|r治療幫手
+## Title-zhTW: |cff4fc3f7阿聖|r治療幫手
 ## Notes: 魔獸世界：永恆治療職 HPS／HPM 比較。滑鼠提示顯示每個技能的 HPS，/hps 開啟比較表。
 ## IconTexture: Interface\AddOns\BridgeHealing\Media\Logo
 ## Author: ms145236-bridge
-## Version: 1.0.0
+## Version: 1.0.1
 ## SavedVariablesPerCharacter: HealHPSCharDB
 
 Data.lua

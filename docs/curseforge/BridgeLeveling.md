@@ -1,6 +1,6 @@
-**專案名稱：** 布里居練等幫手 BridgeLeveling
+**專案名稱：** 阿聖練等幫手 BridgeLeveling
 **授權（License）：** GPL-3.0（路線資料使用 Questie／QuestieDB 的資料，必須是 GPL-3.0）
-**系列：** 布里居 Bridge（另有 布里居治療幫手 BridgeHealing、布里居專業幫手 BridgeProfession）
+**系列：** 阿聖 Bridge（另有 阿聖治療幫手 BridgeHealing、阿聖專業幫手 BridgeProfession）
 **摘要（Summary，一行）：** 魔獸世界：永恆部落 1–60 練等路線：一次只顯示一步，任務一變就自動對齊，地圖標點＋箭頭，照著走就能升級。
 **分類：** Quests & Leveling、Map & Minimap
 **語言：** 繁體中文（zhTW）
@@ -8,7 +8,7 @@
 
 ---
 
-## 布里居練等幫手（魔獸世界：永恆）
+## 阿聖練等幫手（魔獸世界：永恆）
 
 部落 1–60 的練等路線指引。不用自己查攻略、不用想下一步去哪：步驟列只告訴你「現在做什麼」，做完自動跳下一步。
 

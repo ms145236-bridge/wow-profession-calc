@@ -1,6 +1,6 @@
-**專案名稱：** 布里居專業幫手 BridgeProfession
+**專案名稱：** 阿聖專業幫手 BridgeProfession
 **授權（License）：** GPL-3.0
-**系列：** 布里居 Bridge（另有 布里居練等幫手 BridgeLeveling、布里居治療幫手 BridgeHealing）
+**系列：** 阿聖 Bridge（另有 阿聖練等幫手 BridgeLeveling、阿聖治療幫手 BridgeHealing）
 **摘要（Summary，一行）：** 魔獸世界：永恆專業幫手：利潤表、製作佇列一鍵製作、最省衝級路線、Auctionator 購物清單、採集追蹤提醒。
 **分類：** Professions、Auction & Economy
 **語言：** 繁體中文（zhTW）
@@ -8,7 +8,7 @@
 
 ---
 
-## 布里居專業幫手（魔獸世界：永恆）
+## 阿聖專業幫手（魔獸世界：永恆）
 
 做專業最常遇到的問題：「做什麼賺錢？」「衝級要買多少材料、花多少錢？」「一堆東西要做，要一個一個點？」這個插件一次處理。
 

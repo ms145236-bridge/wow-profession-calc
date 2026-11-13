@@ -29,7 +29,7 @@ local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .
 local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
 local db
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7布里居|r|cffd9b25f專業幫手|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r " .. s) end
 local reported = {}
 local function safe(where, fn, ...)
   local ok, err = pcall(fn, ...)
@@ -949,7 +949,7 @@ local function createShoppingList()
     end
   end
   if #terms == 0 then msg("沒有要在拍賣行買的東西"); return end
-  local listName = current.queue and "布里居專業幫手 製作佇列" or string.format("布里居專業幫手 %s %d-%d", current.prof.name, current.S, current.T)
+  local listName = current.queue and "阿聖專業幫手 製作佇列" or string.format("阿聖專業幫手 %s %d-%d", current.prof.name, current.S, current.T)
   if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then
     msg(string.format("已建立 Auctionator 購物清單「%s」，共 %d 項（已扣掉背包和銀行裡的數量，商人物品不列入）", listName, #terms))
   end
@@ -986,7 +986,7 @@ local function buildFrame()
     frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
-  frame.TitleText:SetText("布里居專業幫手")
+  frame.TitleText:SetText("阿聖專業幫手")
   local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(ICON); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：專業切換、起點、目標
   frame.prevBtn = button(frame, 24, "<", function() end)
@@ -1302,7 +1302,7 @@ local function buildMinimapButton()
   b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("布里居專業幫手")
+    GameTooltip:AddLine("阿聖專業幫手")
     GameTooltip:AddLine("左鍵：開關視窗", 1, 1, 1)
     GameTooltip:AddLine("拖曳：沿著小地圖移動", .6, .6, .6)
     GameTooltip:Show()

@@ -1,10 +1,10 @@
 ## Interface: 16001, 11508
 ## Title: |cff4fc3f7Bridge|rProfession
-## Title-zhTW: |cff4fc3f7布里居|r專業幫手
+## Title-zhTW: |cff4fc3f7阿聖|r專業幫手
 ## Notes: 魔獸世界：永恆專業幫手：衝級路線、利潤表、製作佇列。依 Auctionator 價格挑最省的路線，列出製作步驟與購物清單，可一鍵建立 Auctionator 購物清單。/prof 開啟。
 ## IconTexture: Interface\AddOns\BridgeProfession\Media\Logo
 ## Author: ms145236-bridge
-## Version: 1.0.0
+## Version: 1.0.1
 ## OptionalDeps: Auctionator
 ## SavedVariablesPerCharacter: ProfLevelCharDB
 
