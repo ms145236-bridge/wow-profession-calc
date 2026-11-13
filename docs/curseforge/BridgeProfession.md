@@ -1,12 +1,14 @@
-**專案名稱：** 專業助手 ProfLevel
-**摘要（Summary，一行）：** 魔獸世界：永恆專業助手：利潤表、製作佇列一鍵製作、最省衝級路線、Auctionator 購物清單、採集追蹤提醒。
+**專案名稱：** 布里居專業幫手 BridgeProfession
+**授權（License）：** GPL-3.0
+**系列：** 布里居 Bridge（另有 布里居練等幫手 BridgeLeveling、布里居治療幫手 BridgeHealing）
+**摘要（Summary，一行）：** 魔獸世界：永恆專業幫手：利潤表、製作佇列一鍵製作、最省衝級路線、Auctionator 購物清單、採集追蹤提醒。
 **分類：** Professions、Auction & Economy
 **語言：** 繁體中文（zhTW）
 **選用相依（Optional dependency）：** Auctionator
 
 ---
 
-## 專業助手（魔獸世界：永恆）
+## 布里居專業幫手（魔獸世界：永恆）
 
 做專業最常遇到的問題：「做什麼賺錢？」「衝級要買多少材料、花多少錢？」「一堆東西要做，要一個一個點？」這個插件一次處理。
 
@@ -30,7 +32,7 @@
 - 學了採礦或草藥學卻沒開「尋找礦物／尋找草藥」時，自動開啟；遊戲不允許時，畫面上出現提醒按鈕，點一下就開。
 
 **專業視窗整合**
-- 打開專業視窗時，旁邊可以展開專業助手，直接把配方加進佇列。
+- 打開專業視窗時，旁邊可以展開專業幫手，直接把配方加進佇列。
 
 ### 指令
 
@@ -51,4 +53,4 @@
 
 ---
 
-**English:** Profession helper for WoW Forever (zhTW client): profit table for all your recipes, a crafting queue with one-click crafting, cheapest leveling route based on Auctionator prices, Auctionator shopping lists, and a gathering-tracking reminder. Requires Auctionator for prices.
+**English (BridgeProfession):** Profession helper for WoW Forever (zhTW client): profit table for all your recipes, a crafting queue with one-click crafting, cheapest leveling route based on Auctionator prices, Auctionator shopping lists, and a gathering-tracking reminder. Requires Auctionator for prices.
