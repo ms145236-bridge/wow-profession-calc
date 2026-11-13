@@ -900,7 +900,8 @@ local function refreshImpl()
     g.sep:ClearAllPoints(); g.sep:SetPoint("TOPLEFT", 14, y - 6); g.sep:SetWidth(fw - 28)
     y = y - 14
     g.voiceBtn:ClearAllPoints(); g.voiceBtn:SetPoint("TOPLEFT", 12, y)
-    frame:SetHeight(-y + 26 + 16)
+    local ry = NS.routeLayout and NS.quiet("採集路線", NS.routeLayout, g, fw, y - 34, all) -- 採集路線（RouteMap.lua）
+    frame:SetHeight(ry and (-ry + 14) or (-y + 26 + 16))
     return
   end
   local learned = learnedProfs()
@@ -1061,7 +1062,7 @@ local function refreshImpl()
       l:Hide()
     end
   end
-  local emptyTxt = db.tab == "queue" and "佇列是空的：在「利潤」點產品加入，或在「步驟」按「全部加入佇列」"
+  local emptyTxt = db.tab == "queue" and "佇列是空的：從「利潤」或「衝級」加入"
     or (db.tab == "profit" and "還沒有記下配方" or "這個範圍不需要製作任何東西")
   frame.foot:SetText(#rows == 0 and emptyTxt or (#rows > MAXLINES and string.format("共 %d 列，用滾輪捲動", #rows) or ""))
   -- 底部動作按鈕（依分頁）
@@ -1078,6 +1079,10 @@ local function refreshImpl()
   end
   frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
   frame.act2:ClearAllPoints(); frame.act2:SetPoint("RIGHT", frame.act1, "LEFT", -6, 0)
+  -- 底部說明不壓到右邊按鈕：放不下就截斷
+  local right = frame.act2:IsShown() and frame.act2 or (frame.act1:IsShown() and frame.act1)
+  frame.foot:SetWordWrap(false)
+  if right then frame.foot:SetPoint("RIGHT", right, "LEFT", -8, 0) end
   local hasAct = frame.act1:IsShown() or frame.atrBtn:IsShown()
   frame:SetHeight(TOP + shown * ROW_H + ((hasAct or frame.foot:GetText() ~= "") and 44 or 18))
   autoFit(cols)
@@ -1603,6 +1608,7 @@ SlashCmdList.PROFLEVEL = function(input)
 end
 
 NS.ensureDB, NS.msg, NS.learnedProfs, NS.recipes = ensureDB, msg, learnedProfs, recipes
+NS.goTo, NS.button, NS.fitButton, NS.fitText, NS.measure = goTo, button, fitButton, fitText, measure -- 採集路線區塊共用
 function NS.quiet(where, fn, ...) -- 跟 safe 一樣記錯誤，但不在聊天視窗顯示（公會同步要完全安靜）
   local r = { pcall(fn, ...) }
   if not r[1] then logError(where, tostring(r[2])); return nil end

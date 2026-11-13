@@ -11,10 +11,11 @@ local WANT = { softTargetInteract = 3, SoftTargetIconGameObject = 1, SoftTargetI
 local SKILL = { ore = "mining", herb = "herbalism" }
 local VOICE_HINTS = { "hanhan", "chinese (taiwan)", "zh-tw", "中文" }
 
-local byID, nodes = {}, { ore = {}, herb = {} }
+local byID, byName, nodes = {}, {}, { ore = {}, herb = {} }
 for i, n in ipairs(NS.voiceNodes) do
   local node = { name = n[1], kind = n[2], skill = n[3], i = i }
   for _, id in ipairs(n[4]) do byID[id] = node end
+  byName[n[1]] = node
   table.insert(nodes[n[2]], node)
 end
 for _, l in pairs(nodes) do table.sort(l, function(a, b) if a.skill ~= b.skill then return a.skill < b.skill end return a.i < b.i end) end
@@ -90,6 +91,27 @@ local function speak(text)
   if x then C_VoiceChat.SpeakText(x.voiceID, text, v.rate, v.volume, false) end
 end
 
+-- 名牌上的互動圖示是採礦還是採草（跟 NodeSight 一樣看材質／圖集名稱）
+local function iconKind(unit)
+  local plate = C_NamePlate and C_NamePlate.GetNamePlateForUnit and C_NamePlate.GetNamePlateForUnit(unit)
+  local icon = plate and plate.UnitFrame and plate.UnitFrame.SoftTargetFrame and plate.UnitFrame.SoftTargetFrame.Icon
+  if not icon or not icon:IsShown() then return end
+  for _, s in ipairs({ icon:GetTexture(), icon:GetAtlas() }) do
+    if type(s) == "string" and not secret(s) then
+      s = s:lower()
+      if s:find("herb", 1, true) then return "herb" end
+      if s:find("mine", 1, true) or s:find("mining", 1, true) then return "ore" end
+    end
+  end
+end
+
+-- 最近幾個物件為什麼沒念（/sprof voice why）
+local why = {}
+local function note(name, reason)
+  table.insert(why, 1, tostring(name) .. "：" .. reason)
+  if #why > 6 then why[7] = nil end
+end
+
 local heard, lastAt, inCombat = {}, 0, false
 local function consider(unit)
   local v = V()
@@ -100,15 +122,26 @@ local function consider(unit)
   end
   local guid = UnitGUID(unit)
   if secret(guid) or type(guid) ~= "string" then return end
-  local node = byID[tonumber(guid:match("^GameObject%-%d+%-%d+%-%d+%-%d+%-(%d+)")) or 0]
-  if not node or v.off[node.name] then return end
+  local id = tonumber(guid:match("^GameObject%-%d+%-%d+%-%d+%-%d+%-(%d+)")) or 0
+  local name = UnitName(unit)
+  if secret(name) or type(name) ~= "string" then name = nil end
+  -- 先用物件 ID；永恆的 ID 可能跟資料不同，再用名稱、最後用名牌圖示判斷
+  local node = byID[id] or (name and byName[name])
+  if not node then
+    local kind = iconKind(unit)
+    if not kind then note(name or id, "不是礦或草（ID " .. id .. "）"); return end
+    node = { name = name or (kind == "ore" and "礦" or "草"), kind = kind, skill = 0 }
+  end
+  if v.off[node.name] then note(node.name, "設定裡取消勾選"); return end
   local now = GetTime()
-  if (heard[guid] and now - heard[guid] < REPEAT) or now - lastAt < GAP then return end
+  if heard[guid] and now - heard[guid] < REPEAT then note(node.name, "兩分鐘內念過"); return end
+  if now - lastAt < GAP then note(node.name, "跟上一句太近"); return end
   if v.learnedOnly or v.canGather then
     local L = NS.learnedProfs(true)[SKILL[node.kind]]
-    if v.learnedOnly and not L then return end
-    if v.canGather and node.skill > (L and L.cur or 0) then return end
+    if v.learnedOnly and not L then note(node.name, "沒學" .. (node.kind == "ore" and "採礦" or "草藥學")); return end
+    if v.canGather and node.skill > (L and L.cur or 0) then note(node.name, "點數不夠（要 " .. node.skill .. "）"); return end
   end
+  note(node.name, "已念")
   for g, t in pairs(heard) do if now - t >= REPEAT then heard[g] = nil end end
   heard[guid], lastAt = now, now
   speak(node.name)
@@ -286,6 +319,9 @@ function NS.voiceToggle() NS.quiet("語音提示", toggle) end
 function NS.voiceSlash(arg)
   if arg == "config" then NS.quiet("語音設定", openSettings)
   elseif arg == "test" then NS.quiet("語音試聽", speak, SAMPLE)
+  elseif arg == "why" then
+    if #why == 0 then NS.msg("語音提示：附近還沒偵測到任何物件（確認「互動鍵」相關設定有開）") end
+    for i = #why, 1, -1 do NS.msg("語音提示：" .. why[i]) end
   else
     NS.quiet("語音提示", toggle)
     NS.msg("語音提示：" .. (V().on and "開" or "關"))
@@ -306,5 +342,14 @@ ev:SetScript("OnEvent", function(_, e, unit)
   elseif e == "PLAYER_LOGOUT" then NS.quiet("語音提示", setup, true)
   end
 end)
+if NamePlateDriverFrame and NamePlateDriverFrame.OnSoftTargetUpdate then
+  hooksecurefunc(NamePlateDriverFrame, "OnSoftTargetUpdate", function()
+    if inCombat or not V().on then return end
+    for _, plate in ipairs(C_NamePlate.GetNamePlates()) do
+      local u = plate.UnitFrame and plate.UnitFrame.unit
+      if u then NS.quiet("語音提示", consider, u) end
+    end
+  end)
+end
 for _, e in ipairs({ "NAME_PLATE_UNIT_ADDED", "PLAYER_SOFT_INTERACT_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
   "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LOGOUT" }) do pcall(ev.RegisterEvent, ev, e) end

@@ -31,6 +31,9 @@
 **採集追蹤提醒**
 - 學了採礦或草藥學卻沒開「尋找礦物／尋找草藥」時，自動開啟；遊戲不允許時，畫面上出現提醒按鈕，點一下就開。
 
+**採集路線**
+- 「採集」分頁依目前採礦／草藥點數推薦部落採集路線（礦、草、雙採共 41 條），選一條就在世界地圖畫出整圈、小地圖沿路顯示虛線點（需要 Questie 等附 HereBeDragons 的插件），「去起點」設航點；滑鼠提示列出建議等級、產出與危險地點。
+
 **語音提示**
 - 附近出現礦或草時念出名稱（例如「錫礦」），預設只念你學會、點數也夠採的；戰鬥中不念。主視窗右上角「語音：開／關」，右鍵或 `/sprof voice config` 進設定：音量、語速、語音、每種礦草個別開關；`/sprof voice` 開關、`/sprof voice test` 試聽。
 
@@ -66,4 +69,5 @@
 
 - **Guild crafters:** guild members who also run ShengProfession share their known recipes automatically; recipe rows and item tooltips show who in your guild can craft it (`/sprof guild`, `/sprof guild <name>`; `/sprof guild off` stops sharing yours, on by default).
 - **Next rank trainer:** when a profession nears its cap, the window shows where to learn Expert/Artisan (Horde trainer, level and skill requirements, cost; the book or quest for Cooking, First Aid and Fishing) with a button that sets a waypoint (uses WaypointUI if installed). `/sprof train` lists the next rank location for all your professions.
+- **Gathering routes:** the Gathering tab recommends Horde mining, herbalism and dual-gathering loops (41 routes) for your current skill; pick one to draw the full loop on the world map and a dotted trail on the minimap (needs an addon that ships HereBeDragons, such as Questie), and 「去起點」 sets a waypoint to the start. Tooltips show the suggested level, yields and danger spots.
 - **Voice alerts:** speaks the name of herbs and ore that come into range (text-to-speech), by default only ones you have the profession and skill to gather, never in combat. Toggle with the 「語音：開／關」 button or `/sprof voice`; volume, speed, voice and per-node switches in the game's AddOn settings (`/sprof voice config`, `/sprof voice test` plays a sample).
