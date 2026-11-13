@@ -42,7 +42,7 @@ HealHPS_Locales.enUS = {
     ["掛上滑鼠提示"] = "Tooltip hook", ["小地圖按鈕"] = "Minimap button",
     -- spell rows (Data.lua labels)
     ["聖光術"] = "Holy Light", ["聖光閃現"] = "Flash of Light", ["神聖震擊"] = "Holy Shock",
-    ["聖光戒備→震擊"] = "Light's Vigil → Shock",
+    ["聖光戒備→震擊"] = "Light's Vigil > Shock",
     ["次級治療術"] = "Lesser Heal", ["治療術"] = "Heal", ["快速治療"] = "Flash Heal", ["強效治療術"] = "Greater Heal",
     ["恢復"] = "Renew", ["真言術：盾"] = "Power Word: Shield", ["治療禱言"] = "Prayer of Healing", ["懺悟"] = "Penance",
     ["癒合禱言"] = "Prayer of Mending", ["神聖新星（治療）"] = "Holy Nova (heal)",
@@ -88,7 +88,8 @@ HealHPS_Locales.enUS = {
     ["聖光誓約：讀不到加成量（請執行 /shps debug 回報）"] = "Oath of Light: bonus not found (run /shps debug and report it)",
     ["聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d"] = "Oath of Light: Holy Light +%d, Flash of Light +%d, Holy Shock +%d",
     ["綻放：每次 HoT 結束 +"] = "Bloom per HoT expiry: +",
-    -- shared bits
+    -- shared bits (symbols: Latin-1 and plain punctuation only, other glyphs turn into boxes)
+    ["…"] = "...", ["▼"] = "v ", ["★"] = "*",
     ["："] = ": ", ["、"] = ", ", ["＋"] = " + ", ["（"] = " (", ["）"] = ")", [" ／ "] = " / ",
     [" 等級"] = " Rank ", [" 秒"] = " sec", ["開"] = "On", ["關"] = "Off",
     ["單補"] = "Single", ["群補"] = "Group", ["冷卻"] = "Cooldown", ["救命"] = "Emergency",
@@ -108,7 +109,7 @@ HealHPS_Locales.enUS = {
     -- spell tooltip
     ["（吸收）"] = " (absorb)", ["（%d人）"] = " (%d targets)", ["|cffd9b25fHPS ／ HPM|r"] = "|cffd9b25fHPS / HPM|r",
     ["降級"] = "Downrank", ["治療效果只算 %d%%"] = "%d%% of Bonus Healing",
-    ["★ %s HPS最高"] = "★ Best HPS (%s)", ["★ %s HPM最高"] = "★ Best HPM (%s)",
+    ["★ %s HPS最高"] = "* Best HPS (%s)", ["★ %s HPM最高"] = "* Best HPM (%s)",
     -- window
     ["拖曳調整視窗大小"] = "Drag to resize",
     ["設定"] = "Settings",
@@ -121,9 +122,9 @@ HealHPS_Locales.enUS = {
       "HPS = heal ÷ cast time\n|cff9a9282Instant casts count as 1.5 sec\nHoTs use their duration; Group counts how many targets you can keep them on\nCooldown spells have their own tab, per cast|r",
     ["（吸收）|r"] = " (absorb)|r",
     ["這一頁沒有你學會的技能。"] = "No learned spells on this tab.",
-    ["|cffffd100★ HPS最高|r %s 等級%d　　|cff66ff66★ HPM最高|r %s 等級%d"] = "|cffffd100★ Best HPS|r %s Rank %d    |cff66ff66★ Best HPM|r %s Rank %d",
+    ["|cffffd100★ HPS最高|r %s 等級%d"] = "|cffffd100* Best HPS|r %s Rank %d", ["|cff66ff66★ HPM最高|r %s 等級%d"] = "|cff66ff66* Best HPM|r %s Rank %d",
     ["目前沒有可比較的治療技能（吸收盾不參加比較）"] = "No healing spells to compare (absorbs are excluded)",
-    ["　|cff9a9282（滾輪看更多）|r"] = "  |cff9a9282(scroll for more)|r",
+    ["（滾輪看更多）"] = "(scroll for more)",
     ["吸收量不是治療量，不參加 HPS／HPM 最高的比較"] = "Absorbs aren't healing and are excluded from best HPS / HPM",
     ["學習等級"] = "Learned at", ["（%d%%）"] = " (%d%%)",
     ["部分數值來自資料表（遊戲讀不到）"] = "Some values come from the data table (not readable in game)",
@@ -139,7 +140,7 @@ HealHPS_Locales.enUS = {
     ["範圍命中 隨機 %d 人"] = "AoE hits %d random", ["範圍命中 全員"] = "AoE hits everyone",
     ["最省藍"] = "Most efficient", ["最穩定"] = "Most stable", ["撐最久"] = "Lasts longest",
     ["沒有可以補的技能"] = "No healing spells to use", ["沒有可以單補的技能"] = "No single-target heals to use",
-    ["|cffffd100最省藍：|r%s；|cffffd100最穩定：|r%s"] = "|cffffd100Most efficient:|r %s; |cffffd100Most stable:|r %s",
+    ["|cffffd100最省藍：|r%s"] = "|cffffd100Most efficient:|r %s", ["|cffffd100最穩定：|r%s"] = "|cffffd100Most stable:|r %s",
     ["|cffff6b6b都撐不住：|r最好 %s（%s）"] = "|cffff6b6bNone survive:|r best %s (%s)",
     ["%d 秒滅團"] = "wipe at %d sec", ["倒 %d 人"] = "%d dead",
     ["|cffff6b6b都撐不住：|r最久 %s（撐 %d 秒）"] = "|cffff6b6bNone survive:|r longest %s (%d sec)",
@@ -184,7 +185,7 @@ HealHPS_Locales.enUS = {
     ["　目前："] = "  Now: ", ["直接採用說明數字"] = "using description values", ["基礎＋治療效果×係數"] = "base + Bonus Healing × coefficient",
     ["介面語言：%s（/reload 後生效）"] = "UI language: %s (applies after /reload)",
     ["設定已重設"] = "Settings reset",
-    ["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|auto　/shps debug　/shps reset"] =
-      "/shps toggle window  /shps pct <n>|auto  /shps absorb <n>|auto  /shps targets 2-10  /shps tip  /shps scale 1.2  /shps minimap  /shps downrank  /shps desc incl|base|auto  /shps lang en|zh|auto  /shps debug  /shps reset",
+    ["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|stress|auto（stress＝版面壓力測試，英文加長 35%）　/shps debug　/shps reset"] =
+      "/shps toggle window  /shps pct <n>|auto  /shps absorb <n>|auto  /shps targets 2-10  /shps tip  /shps scale 1.2  /shps minimap  /shps downrank  /shps desc incl|base|auto  /shps lang en|zh|stress|auto (stress = layout stress test, English padded 35%)  /shps debug  /shps reset",
   },
 }

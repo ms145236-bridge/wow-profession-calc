@@ -15,9 +15,14 @@ local function localeOf(code) return LOCALES[code] or (code:find("^zh") and LOCA
 local GAME = localeOf(GAME_LOCALE).game
 -- 介面文字：查不到就回傳原文（中文）
 local L = setmetatable({}, { __index = function(_, k) return k end })
+-- 壓力測試（/shps lang stress）：英文字串前後加 [ ]、尾巴補 ~，總長多約 35%（色碼不算長度）；3 個字以內的單位、符號不動
+local function stretch(s)
+  local n = #(s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("[\128-\191]", ""))
+  return n < 4 and s or ("[" .. s .. string.rep("~", math.max(0, math.ceil(n * 0.35) - 2)) .. "]")
+end
 local function applyLang(lang)
-  local ui = localeOf(lang == "en" and "enUS" or lang == "zh" and "zhTW" or GAME_LOCALE).ui
-  for k, v in pairs(ui or {}) do L[k] = v end
+  local ui = localeOf((lang == "en" or lang == "stress") and "enUS" or lang == "zh" and "zhTW" or GAME_LOCALE).ui
+  for k, v in pairs(ui or {}) do L[k] = lang == "stress" and stretch(v) or v end
 end
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
@@ -1434,7 +1439,7 @@ local function addTooltip(tt, id)
     -- 左欄標籤、右欄數字，兩排數字靠右對齊
     tt:AddDoubleLine(L["|cffd9b25fHPS ／ HPM|r"] .. tag, fmt1(r.hpsT) .. L[" ／ "] .. fmt2(r.hpmT), 1, 1, 1, 1, 1, 1)
     local detail = breakdown(r)
-    if detail and db.tipLevel >= 2 then tt:AddLine(detail, .8, .8, .8) end
+    if detail and db.tipLevel >= 2 then tt:AddLine(detail, .8, .8, .8, true) end
     if r.oathAdd > 0 and not r.withOath and sit and db.tipLevel >= 2 then
       local h = r.totalHeal + r.oathAdd
       tt:AddDoubleLine("|cffd9b25f" .. L[sit.tip] .. "|r", fmt1(r.time > 0 and h / r.time or 0) .. L[" ／ "] .. fmt2(r.manaEff > 0 and h / r.manaEff or 0), 1, 1, 1, 1, 1, 1)
@@ -1492,6 +1497,7 @@ end
 
 
 -- 右下角的調整把手：拖曳放大縮小整個視窗（左上角固定），大小記在設定裡
+local saveTopLeft, placeTopLeft -- 定義在下面（縮放把手放開時要用）
 local function addResizeGrip(f)
   local g = CreateFrame("Button", nil, f)
   g:SetSize(18, 18); g:SetPoint("BOTTOMRIGHT", -4, 4); g:SetFrameLevel(f:GetFrameLevel() + 10)
@@ -1513,22 +1519,10 @@ local function addResizeGrip(f)
       f:ClearAllPoints(); f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", leftPx / eff, topPx / eff)
     end)
   end)
-  g:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+  g:SetScript("OnMouseUp", function(self) -- 縮放變了，螢幕放得下的寬度和列數跟著變
+    self:SetScript("OnUpdate", nil); saveTopLeft(); f.stableW = nil; HealHPS_Refresh()
+  end)
   g:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
-end
-
--- 按鈕寬度配合文字（字型較大時不會超出按鈕）
-local function fitButton(b, minW)
-  local fs = b:GetFontString()
-  local w = fs and fs.GetStringWidth and fs:GetStringWidth()
-  if type(w) == "number" and w > 0 then b:SetWidth(math.max(minW or 0, w + 24)) end
-end
-
-local function button(parent, w, label, onClick)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w + 16, 26); b:SetText(label); b:SetScript("OnClick", onClick)
-  fitButton(b, w + 16)
-  return b
 end
 
 local GAP = 16
@@ -1539,6 +1533,94 @@ local function measure(fsObj)
   end
   local w = fsObj.GetStringWidth and fsObj:GetStringWidth()
   return type(w) == "number" and w or 0
+end
+
+-- ── 文字適配（跟 ShengProfession 同一套規則）──────────────────────────────
+-- 單行文字只有兩種：寬度算進視窗下限（會撐寬），或 fitText＋滑鼠提示看全文；不准引擎自己截斷、不准放不下就隱藏。
+
+-- 放得下就用完整文字，不然換短版，再不行就截斷加「…」；回傳有沒有縮短（呼叫的地方要有提示框顯示完整文字）
+-- 截斷：色碼、材質、連結當成零寬度整段保留（截完補 |r）；中日韓逐字，拉丁／西里爾文字退到空白；連「…」都放不下才隱藏
+local function fitText(fs, maxW, full, short)
+  fs:Show(); fs:SetText(full)
+  if measure(fs) <= maxW then return false end
+  local t = short or full
+  fs:SetText(t)
+  if measure(fs) <= maxW then return true end
+  local tk, vis = {}, {} -- tk：每一段文字；vis：可見字在 tk 裡的位置
+  local i = 1
+  while i <= #t do
+    local esc = t:match("^|c%x%x%x%x%x%x%x%x", i) or t:match("^|r", i) or t:match("^|T.-|t", i) or t:match("^|H.-|h", i) or t:match("^|h", i)
+    local c = esc or t:match("^[%z\1-\127\194-\244][\128-\191]*", i) or t:sub(i, i)
+    tk[#tk + 1] = c
+    if not esc then vis[#vis + 1] = #tk end
+    i = i + #c
+  end
+  local function cut(n) -- 前 n 個可見字（含中間的色碼）＋「…」
+    local s = table.concat(tk, "", 1, n > 0 and vis[n] or 0)
+    local open = false
+    for code in s:gmatch("|[cr]") do open = code == "|c" end
+    return s .. (open and "|r" or "") .. L["…"]
+  end
+  local lo, hi = 0, #vis
+  while lo < hi do
+    local mid = math.ceil((lo + hi) / 2)
+    fs:SetText(cut(mid))
+    if measure(fs) <= maxW then lo = mid else hi = mid - 1 end
+  end
+  -- 斷在字中間（前後都是字母）：退到前一個空白
+  local function word(n) return n >= 1 and n <= #vis and tk[vis[n]]:find("^[%w'\195-\213]") ~= nil end
+  if word(lo) and word(lo + 1) then
+    for n = lo - 1, 1, -1 do if tk[vis[n]] == " " then lo = n - 1; break end end
+  end
+  fs:SetText(cut(lo))
+  if lo == 0 and measure(fs) > maxW then fs:SetText(""); fs:Hide() end
+  return true
+end
+
+-- 按鈕寬度配合文字（字型較大時不會超出按鈕）；換字一律走 setLabel
+local function fitButton(b, minW)
+  local fs = b:GetFontString()
+  local w = fs and measure(fs) or 0
+  if w > 0 then b:SetWidth(math.max(minW or 0, w + 24)) end
+end
+local function setLabel(b, text, minW) b:SetText(text); fitButton(b, minW) end
+
+local function button(parent, w, label, onClick)
+  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  b:SetSize(w + 16, 26); b:SetScript("OnClick", onClick)
+  setLabel(b, label, w + 16)
+  return b
+end
+
+-- 視窗內容最多多寬、比較表最多幾列：照螢幕大小（換算成視窗自己的縮放），不小於設計值
+local function maxContentW()
+  return math.max(W, math.floor(UIParent:GetWidth() / frame:GetScale()) - 68)
+end
+local function visibleRows()
+  return math.max(5, math.min(MAXLINES, math.floor((UIParent:GetHeight() / frame:GetScale() - TOP - 60 - 40) / ROW_H)))
+end
+-- 視窗位置一律用左上角（存成 UIParent 的座標）：切分頁改大小時標題和分頁列不動，只有右緣、下緣變
+saveTopLeft = function()
+  local l, t, sc = frame:GetLeft(), frame:GetTop(), frame:GetScale()
+  if not (l and t) then return end
+  frame:ClearAllPoints(); frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", l, t)
+  db.pos = { l * sc, t * sc }
+end
+placeTopLeft = function()
+  if not db.pos then return end
+  local sc = frame:GetScale()
+  frame:ClearAllPoints(); frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.pos[1] / sc, db.pos[2] / sc)
+end
+-- 視窗寬只增不減（這次登入看過的最大值），切分頁時右緣不會跳；縮放改了才重算
+local function setFrameWidth(w)
+  w = math.max(w, frame.stableW or 0)
+  frame.stableW = w; frame:SetWidth(w)
+  return w
+end
+-- 資訊列（等級、治療效果、精神、回藍）：撐到螢幕上限為止，再長就截斷，全文放在它的滑鼠提示
+local function fitInfo(w)
+  frame.info:SetWidth(w)
+  frame.infoCut = fitText(frame.info, w, frame.infoFull)
 end
 local autoFit -- 定義在下面
 local function refreshImpl()
@@ -1555,10 +1637,19 @@ local function refreshImpl()
   local sit = SIT[cls]
   local has = (cls == "PALADIN" and o ~= nil) or ((cls == "PRIEST" or cls == "DRUID") and tal.sitLearned) or (cls == "SHAMAN" and ctx.ripKnown)
   if cls == "DRUID" and has then frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. L["綻放：每次 HoT 結束 +"] .. fint(ctx.spirit) end
-  if sit then frame.oathBtn:SetText(L[sit.label] .. L["："] .. (not has and L["沒學"] or (db.oath and L["計入"] or L["不計入"]))) end
+  if sit then setLabel(frame.oathBtn, L[sit.label] .. L["："] .. (not has and L["沒學"] or (db.oath and L["計入"] or L["不計入"])), 266) end
   local isPal = sit ~= nil -- 有情境加成的職業才顯示這個按鈕（四個治療職業都有）
   frame.oathBtn:SetShown(isPal)
   frame.sitHelp = sit and L[sit.help] or ""
+  setLabel(frame.tipBtn, L["技能提示："] .. (not db.tip and L["關"] or ({ L["精簡"], L["標準"], L["完整"] })[db.tipLevel]), 266)
+  -- 群補人數：標籤用最大的人數量一次寬度，滑桿固定 150 寬，標籤再長也不會把滑桿擠短
+  frame.tgtLabel:SetText(L["群補人數 "] .. 10)
+  local lw = math.ceil(measure(frame.tgtLabel)) + 4
+  frame.tgtLabel:SetWidth(lw); frame.tgtLabel:SetText(L["群補人數 "] .. (db.targets or 5))
+  frame.tgtBtn:SetWidth(4 + lw + 12 + 150 + 6)
+  -- 設定面板寬＝最寬的按鈕／滑桿列＋左右邊距，說明文字跟著面板寬換行
+  local pw = math.max(290, frame.tipBtn:GetWidth() + 24, isPal and frame.oathBtn:GetWidth() + 24 or 0, frame.tgtBtn:GetWidth() + 24)
+  frame.opts:SetWidth(pw); frame.how:SetWidth(pw - 24)
   local th = frame.how.GetStringHeight and frame.how:GetStringHeight()
   th = (type(th) == "number" and th > 0) and th or 40
   frame.tgtBtn:ClearAllPoints(); frame.tgtBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(10 + th + 12))
@@ -1571,16 +1662,15 @@ local function refreshImpl()
   if okR and type(idle) == "number" and type(active) == "number" and not secret(idle) and not secret(active) then
     info = info .. string.format(L[" · 回藍 停手 %d／施法 %d（每 5 秒）"], math.floor(idle * 5 + .5), math.floor(active * 5 + .5))
   end
+  frame.infoFull = info
   frame.info:SetText(info)
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" }, { frame.cdModeBtn, "cd" }, { frame.anaBtn, "analysis" } }) do
     local on = db.mode == m[2]
     m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
-  frame.tipBtn:SetText(L["技能提示："] .. (not db.tip and L["關"] or ({ L["精簡"], L["標準"], L["完整"] })[db.tipLevel]))
-  frame.tgtLabel:SetText(L["群補人數 "] .. (db.targets or 5))
   if frame.tgtSlider:GetValue() ~= (db.targets or 5) then frame.tgtSlider:SetValue(db.targets or 5) end
   local ana = db.mode == "analysis"
-  frame.ana:SetShown(ana); frame.head:SetShown(not ana); frame.foot:SetShown(not ana)
+  frame.ana:SetShown(ana); frame.head:SetShown(not ana); frame.foot:SetShown(not ana); frame.more:SetShown(false)
   if ana then
     for i = 1, MAXLINES do frame.lines[i]:Hide(); frame.lines[i].row = nil end
     local g = db.anaGroup and true or false
@@ -1602,8 +1692,6 @@ local function refreshImpl()
     end
     local concTop = 30 + inputs.rows * 28 + 6
     frame.anaConc:ClearAllPoints(); frame.anaConc:SetPoint("TOPLEFT", 0, -concTop)
-    frame.anaListTop = concTop + 26
-    for i, l in ipairs(frame.anaLines) do l:ClearAllPoints(); l:SetPoint("TOPLEFT", 0, -(frame.anaListTop + (i - 1) * ROW_H)) end
     local inCombat = InCombatLockdown and InCombatLockdown()
     if inCombat then frame.anaKey = nil -- 脫戰後再開會重算
     else
@@ -1652,7 +1740,7 @@ local function refreshImpl()
     end
     local best = list[1]
     local conc = inCombat and L["戰鬥中不分析"] or (res and res.err) or (res and not best and (g and L["沒有可以補的技能"] or L["沒有可以單補的技能"]))
-      or (byMana[1] and string.format(L["|cffffd100最省藍：|r%s；|cffffd100最穩定：|r%s"], byMana[1].name, byMin[1].name))
+      or (byMana[1] and (string.format(L["|cffffd100最省藍：|r%s"], byMana[1].name) .. "\n" .. string.format(L["|cffffd100最穩定：|r%s"], byMin[1].name)))
       or (best and best.group and string.format(L["|cffff6b6b都撐不住：|r最好 %s（%s）"], best.name,
         best.wiped and string.format(L["%d 秒滅團"], math.floor(best.wiped + 0.5)) or string.format(L["倒 %d 人"], best.deaths)))
       or (best and string.format(L["|cffff6b6b都撐不住：|r最久 %s（撐 %d 秒）"], best.long, math.floor(best.dead + 0.5))) or ""
@@ -1685,37 +1773,55 @@ local function refreshImpl()
         l.res = r; l:Show()
       else l.res = nil; l:Hide() end
     end
-    -- 欄寬照實際文字量（遊戲字型比預期大，不寫死寬度）
-    local x = 0
+    -- 欄寬照實際文字量（遊戲字型比預期大，不寫死寬度）；超過螢幕放得下的寬度：
+    -- 先縮方案名稱欄（列的滑鼠提示有完整名稱），還不夠就拿掉最後一欄「可連打 N 波」（滑鼠提示有「不喝水連打」）
+    local ws, x = {}, -GAP
     for c = 1, cols do
       local w = 0
       for i = 1, n do w = math.max(w, measure(frame.anaLines[i].c[c]) + 4) end
-      w = math.ceil(w)
-      for _, l in ipairs(frame.anaLines) do
-        l.c[c]:ClearAllPoints(); l.c[c]:SetPoint("LEFT", l, "LEFT", x, 0); l.c[c]:SetWidth(w)
-      end
-      x = x + w + GAP
+      ws[c] = math.ceil(w); x = x + ws[c] + GAP
     end
-    local total = math.ceil(math.max(x - GAP, inputs.w, presetW, measure(frame.anaConc) + 4, measure(frame.info) + 4, 360, frame.topW))
+    local cap = maxContentW()
+    if x > cap then
+      local w2 = math.max(120, ws[2] - (x - cap))
+      x = x - ws[2] + w2; ws[2] = w2
+      for i = 1, n do local l = frame.anaLines[i]; fitText(l.c[2], w2 - 4, l.c[2]:GetText()) end
+    end
+    if x > cap then x = x - ws[cols] - GAP; ws[cols] = 0 end
+    local px = 0
+    for c = 1, cols do
+      for _, l in ipairs(frame.anaLines) do
+        l.c[c]:ClearAllPoints(); l.c[c]:SetPoint("LEFT", l, "LEFT", px, 0); l.c[c]:SetWidth(math.max(1, ws[c])); l.c[c]:SetShown(ws[c] > 0)
+      end
+      if ws[c] > 0 then px = px + ws[c] + GAP end
+    end
+    frame.info:SetText(frame.infoFull)
+    local fw = setFrameWidth(math.ceil(math.max(x, inputs.w, presetW, 360, frame.topW, math.min(measure(frame.info) + 4, cap))) + 28)
+    local total = fw - 28
     for _, l in ipairs(frame.anaLines) do l:SetWidth(total) end
-    frame.anaConc:SetWidth(total); frame.info:SetWidth(total); frame.ana:SetWidth(total)
-    local top = frame.anaListTop
+    fitInfo(total); frame.ana:SetWidth(total)
+    -- 結論可換行（方案名稱不截），排名列接在它下面
+    frame.anaConc:SetWidth(total)
+    local ch = frame.anaConc:GetStringHeight()
+    local top = concTop + math.ceil(type(ch) == "number" and ch > 0 and ch or 14) + 12
+    for i, l in ipairs(frame.anaLines) do l:ClearAllPoints(); l:SetPoint("TOPLEFT", 0, -(top + (i - 1) * ROW_H)) end
     frame.ana:SetHeight(top + n * ROW_H)
-    frame:SetWidth(total + 28)
     frame:SetHeight(ANA_TOP + top + n * ROW_H + 16)
     return
   end
   for _, h in ipairs(frame.heads) do
     local on = h.key == db.sort
-    h.fs:SetText((on and "▼" or "") .. h.label) -- 箭頭放左邊，右邊緣才會跟數字對齊
+    h.fs:SetText((on and L["▼"] or "") .. h.label) -- 箭頭放左邊，右邊緣才會跟數字對齊
     h.fs:SetTextColor(unpack(on and GOLD or DIM))
   end
   local bh, bm = bests(list)
-  local maxOff = math.max(0, #list - MAXLINES)
+  -- 最多幾列照螢幕高度（放大後不會超出螢幕），多的用滾輪捲動
+  local vis = visibleRows()
+  local maxOff = math.max(0, #list - vis)
   if offset > maxOff then offset = maxOff end
   local n = 0
   for i = 1, MAXLINES do
-    local l, r = frame.lines[i], list[i + offset]
+    local l, r = frame.lines[i], i <= vis and list[i + offset] or nil
     if r then
       n = i
       local isH, isM = sameRow(r, bh), sameRow(r, bm)
@@ -1724,7 +1830,7 @@ local function refreshImpl()
       elseif r.f.key == "bh" then amt = fint(r.perHeal) .. "×2"
       elseif r.hotPart then amt = fint(r.directPart) .. "+" .. fint(r.hotPart)
       else amt = fint(r.perHeal) end
-      local star = (isH and "|cffffd100★|r" or "") .. (isM and "|cff66ff66★|r" or "")
+      local star = (isH and ("|cffffd100" .. L["★"] .. "|r") or "") .. (isM and ("|cff66ff66" .. L["★"] .. "|r") or "")
       local name = (r.f.kind == "absorb" and ("|cff8cc4ff" .. r.label .. L["（吸收）|r"]) or r.label)
         .. (r.down < 0.9995 and string.format(" |cffff9d5c%d%%|r", math.floor(r.down * 100 + .5)) or "")
       local vals = { star, name, r.rank, amt, fint(r.manaEff), fmt1(r.time), fmt1(r.hps), fmt2(r.hpm) }
@@ -1738,19 +1844,18 @@ local function refreshImpl()
       l:Show()
     else l:Hide(); l.row = nil end
   end
-  local foot
-  if #list == 0 then foot = L["這一頁沒有你學會的技能。"]
-  else
-    foot = (bh and bm) and string.format(L["|cffffd100★ HPS最高|r %s 等級%d　　|cff66ff66★ HPM最高|r %s 等級%d"], bh.label, bh.rank, bm.label, bm.rank)
-      or L["目前沒有可比較的治療技能（吸收盾不參加比較）"]
-    if #list > MAXLINES then foot = foot .. L["　|cff9a9282（滾輪看更多）|r"] end
-  end
-  frame.foot:SetText(foot)
+  -- 底部：HPS 最高、HPM 最高各一行（會換行、名稱不截），「滾輪看更多」獨立放在下面靠右
+  frame.footLines = #list == 0 and { L["這一頁沒有你學會的技能。"] }
+    or (bh and bm) and { string.format(L["|cffffd100★ HPS最高|r %s 等級%d"], bh.label, bh.rank), string.format(L["|cff66ff66★ HPM最高|r %s 等級%d"], bm.label, bm.rank) }
+    or { L["目前沒有可比較的治療技能（吸收盾不參加比較）"] }
   frame.foot:ClearAllPoints()
   frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 10))
-  local fh = frame.foot.GetStringHeight and frame.foot:GetStringHeight()
-  frame:SetHeight(TOP + n * ROW_H + 24 + ((type(fh) == "number" and fh > 0) and fh or 16))
   autoFit()
+  local fh = frame.foot:GetStringHeight()
+  fh = math.ceil((type(fh) == "number" and fh > 0) and fh or 16)
+  frame.more:SetShown(#list > vis)
+  frame.more:ClearAllPoints(); frame.more:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -(TOP + n * ROW_H + 10 + fh + 4))
+  frame:SetHeight(TOP + n * ROW_H + 24 + fh + (frame.more:IsShown() and 18 or 0))
 end
 
 autoFit = function()
@@ -1771,13 +1876,18 @@ autoFit = function()
     for i = 1, MAXLINES do place(frame.lines[i].c[c], frame.lines[i]) end
     x = x + w + GAP
   end
-  local total = math.max(x - GAP, measure(frame.info) + 4, 360, frame.topW) -- 資訊列（精神、回藍）、第一列按鈕也要放得下
+  -- 底部每一行、資訊列（精神、回藍）、第一列按鈕也要放得下；說明文字最多撐到螢幕寬，再長就換行（底部）或截斷＋提示（資訊列）
+  local cap = maxContentW()
+  local footW = 0
+  for _, line in ipairs(frame.footLines) do frame.foot:SetText(line); footW = math.max(footW, measure(frame.foot)) end
+  frame.foot:SetText(table.concat(frame.footLines, "\n"))
+  frame.info:SetText(frame.infoFull)
+  local fw = setFrameWidth(math.ceil(math.max(x - GAP, 360, frame.topW, math.min(measure(frame.info) + 4, cap), math.min(footW + 4, cap))) + 28)
+  local total = fw - 28
   frame.head:SetWidth(total)
   for i = 1, MAXLINES do frame.lines[i]:SetWidth(total) end
-  frame.info:SetWidth(total)
-  local footW = measure(frame.foot)
-  frame.foot:SetWidth(math.max(total, footW + 4))
-  frame:SetWidth(math.max(total, footW + 4) + 28)
+  fitInfo(total)
+  frame.foot:SetWidth(total)
 end
 
 function HealHPS_Refresh() safe("比較表", refreshImpl) end
@@ -1829,14 +1939,15 @@ end
 
 local function buildFrame()
   frame = CreateFrame("Frame", "HealHPSFrame", UIParent, "BasicFrameTemplateWithInset")
-  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1)
+  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1); placeTopLeft()
+  frame:SetClampedToScreen(true) -- 撐寬時不跑出螢幕
   addResizeGrip(frame)
   -- 右上角的關閉鈕：範本預設走 HideUIPanel，戰鬥中可能被擋而關不掉；改成直接隱藏（一般視窗隨時都能關）
   local close = frame.CloseButton or _G[frame:GetName() .. "CloseButton"]
   if close then close:SetScript("OnClick", function() frame:Hide() end) end
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
-  frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+  frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); saveTopLeft() end)
   frame:SetFrameStrata("DIALOG")
   tinsert(UISpecialFrames, "HealHPSFrame") -- 按 Esc 關閉
   if not frame.TitleText then
@@ -1865,6 +1976,7 @@ local function buildFrame()
   local infoHit = CreateFrame("Frame", nil, frame); infoHit:SetAllPoints(frame.info); infoHit:EnableMouse(true)
   infoHit:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    if frame.infoCut then GameTooltip:AddLine(frame.infoFull, 1, 1, 1, true); GameTooltip:AddLine(" ") end
     GameTooltip:AddLine(L["天賦加成"])
     GameTooltip:AddLine(frame.talTxt ~= "" and frame.talTxt or L["沒有偵測到治療加成天賦"], 1, 1, 1, true)
     GameTooltip:Show()
@@ -1886,7 +1998,7 @@ local function buildFrame()
   frame.tgtBtn = CreateFrame("Frame", nil, frame.opts)
   frame.tgtBtn:SetSize(250, 26)
   frame.tgtLabel = frame.tgtBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  frame.tgtLabel:SetPoint("LEFT", 4, 0)
+  frame.tgtLabel:SetPoint("LEFT", 4, 0); frame.tgtLabel:SetJustifyH("LEFT"); frame.tgtLabel:SetWordWrap(false)
   frame.tgtSlider = slider(frame.tgtBtn, frame.tgtLabel, 2, 10, 1, db.targets or 5, function(v) db.targets = v end)
   frame.tipBtn = button(frame.opts, 250, "", function()
     -- 完整 → 標準 → 精簡 → 關 → 完整
@@ -1961,7 +2073,8 @@ local function buildFrame()
     HealHPS_Refresh()
   end)
   frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  frame.foot:SetWidth(W); frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(false)
+  frame.foot:SetWidth(W); frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(true)
+  frame.more = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable"); frame.more:SetText(L["（滾輪看更多）"]); frame.more:Hide()
   -- 分析頁：預設組合、四條滑桿、結論、排名（只在「分析」顯示）
   frame.ana = CreateFrame("Frame", nil, frame)
   frame.ana:SetPoint("TOPLEFT", 14, -ANA_TOP); frame.ana:SetSize(W, 200)
@@ -2057,7 +2170,7 @@ local function buildFrame()
     { "gAoe", L["範圍每次傷害 %d"], 0, 5000, 10, 5000, L["範圍每次傷害 無"] }, { "gAoeGap", L["範圍間隔 %.1f 秒"], 1, 30, 0.5, 30 },
     { "gAoeK", L["範圍命中 隨機 %d 人"], 0, 5, 1, 5, L["範圍命中 全員"] } }, 2, 150)
   frame.anaConc = frame.ana:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  frame.anaConc:SetJustifyH("LEFT"); frame.anaConc:SetWordWrap(false)
+  frame.anaConc:SetJustifyH("LEFT"); frame.anaConc:SetWordWrap(true)
   frame.anaLines = {}
   for i = 1, 8 do
     local l = CreateFrame("Frame", nil, frame.ana)
@@ -2109,7 +2222,11 @@ local function buildFrame()
     frame.anaLines[i] = l
   end
   frame.ana:Hide()
-  frame:SetScript("OnShow", function() frame.anaKey = nil; HealHPS_Refresh() end)
+  frame:SetScript("OnShow", function()
+    -- 舊版存的是置中或其他錨點：第一次打開時照目前看到的位置換成左上角
+    if frame:GetPoint() ~= "TOPLEFT" then saveTopLeft() end
+    frame.anaKey = nil; HealHPS_Refresh()
+  end)
   frame:Hide()
 end
 
@@ -2240,22 +2357,22 @@ SlashCmdList.HEALHPS = function(input)
     db.downrank = not db.downrank; msg(L["降級衰減："] .. (db.downrank and L["開"] or L["關"]))
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
-    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg(L["視窗縮放："] .. v)
+    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v); placeTopLeft(); frame.stableW = nil end; msg(L["視窗縮放："] .. v)
     else msg(L["用法：/shps scale 1.2（0.5～2，目前 "] .. (db.scale or 1) .. L["）"]) end
   elseif cmd == "desc" then
     db.desc = (arg == "incl" or arg == "base") and arg or "auto"
     msg(L["技能說明數字："] .. (db.desc == "incl" and L["已含治療效果（手動）"] or db.desc == "base" and L["只有基礎量（手動）"] or L["自動判斷"])
       .. L["　目前："] .. (descIncludesBonus() and L["直接採用說明數字"] or L["基礎＋治療效果×係數"]))
   elseif cmd == "lang" then
-    -- 介面語言（測試用）：只換介面文字，解析技能說明仍照客戶端語言
-    db.lang = (arg == "en" or arg == "zh") and arg or "auto"
+    -- 介面語言（測試用）：只換介面文字，解析技能說明仍照客戶端語言；stress＝英文加長約 35%，加新語言前檢查版面
+    db.lang = (arg == "en" or arg == "zh" or arg == "stress") and arg or "auto"
     msg(string.format(L["介面語言：%s（/reload 後生效）"], db.lang))
   elseif cmd == "debug" then
     safe("除錯指令", debugDump)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg(L["設定已重設"])
   else
-    msg(L["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|auto　/shps debug　/shps reset"])
+    msg(L["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|stress|auto（stress＝版面壓力測試，英文加長 35%）　/shps debug　/shps reset"])
   end
   if frame then HealHPS_Refresh() end
 end
