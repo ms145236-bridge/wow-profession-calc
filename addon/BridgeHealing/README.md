@@ -1,4 +1,4 @@
-# 治療 HPS 計算器（魔獸世界：永恆插件）
+# 布里居治療幫手 BridgeHealing（魔獸世界：永恆插件）
 
 ![LOGO](Media/Logo256.png)
 
@@ -6,10 +6,10 @@
 
 ## 安裝
 
-1. 下載 `HealHPS.zip`，解壓縮。
-2. 把 `HealHPS` 資料夾放到 `World of Warcraft\_forever_\Interface\AddOns\`。
-   放好後路徑應該是 `...\Interface\AddOns\HealHPS\HealHPS.toc`。
-3. 進遊戲，在角色選擇畫面左下角的「插件」確認「治療 HPS 計算器」有勾選。
+1. 下載 `BridgeHealing.zip`，解壓縮。
+2. 把 `BridgeHealing` 資料夾放到 `World of Warcraft\_forever_\Interface\AddOns\`。
+   放好後路徑應該是 `...\Interface\AddOns\BridgeHealing\BridgeHealing.toc`。
+3. 進遊戲，在角色選擇畫面左下角的「插件」確認「布里居治療幫手」有勾選。
    如果顯示「過期」，勾選「載入過期插件」。
 
 ## 用法

@@ -1,4 +1,4 @@
-// 把網頁（index.html）內建的衝級路線資料轉成插件用的 addon/ProfLevel/Data.lua
+// 把網頁（index.html）內建的衝級路線資料轉成插件用的 addon/BridgeProfession/Data.lua
 // 用法（在 repo 根目錄）：node tools/proflevel-data.mjs
 // 更新路線的流程：tools/build.mjs 重建 index.html 之後，再執行這支
 import fs from 'fs';
@@ -49,7 +49,7 @@ for (const [prof, vs] of Object.entries(D.variants)) {
 out.push('  },');
 out.push('  defaultVariant = { ' + Object.entries(D.defaultVariant).map(([p, i]) => `[${q(p)}] = ${i + 1}`).join(', ') + ' },');
 out.push('}');
-const dest = path.join(root, 'addon', 'ProfLevel', 'Data.lua');
+const dest = path.join(root, 'addon', 'BridgeProfession', 'Data.lua');
 fs.mkdirSync(path.dirname(dest), { recursive: true });
 fs.writeFileSync(dest, out.join('\n') + '\n');
 console.log('寫入', path.relative(root, dest), (fs.statSync(dest).size / 1024).toFixed(0) + ' KB',

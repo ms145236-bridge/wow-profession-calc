@@ -29,7 +29,7 @@ local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .
 local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
 local db
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f專業助手|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7布里居|r|cffd9b25f專業幫手|r " .. s) end
 local reported = {}
 local function safe(where, fn, ...)
   local ok, err = pcall(fn, ...)
@@ -949,7 +949,7 @@ local function createShoppingList()
     end
   end
   if #terms == 0 then msg("沒有要在拍賣行買的東西"); return end
-  local listName = current.queue and "專業助手 製作佇列" or string.format("專業助手 %s %d-%d", current.prof.name, current.S, current.T)
+  local listName = current.queue and "布里居專業幫手 製作佇列" or string.format("布里居專業幫手 %s %d-%d", current.prof.name, current.S, current.T)
   if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then
     msg(string.format("已建立 Auctionator 購物清單「%s」，共 %d 項（已扣掉背包和銀行裡的數量，商人物品不列入）", listName, #terms))
   end
@@ -986,7 +986,7 @@ local function buildFrame()
     frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
-  frame.TitleText:SetText("專業助手")
+  frame.TitleText:SetText("布里居專業幫手")
   local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(ICON); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：專業切換、起點、目標
   frame.prevBtn = button(frame, 24, "<", function() end)
@@ -1191,7 +1191,7 @@ local function updateProfUI()
   if not profUI or not profUI:IsVisible() then return end
   local open = frame and frame:IsShown() and true or false
   profUI.text:SetShown(open); profUI.addBtn:SetShown(open)
-  profUI.openBtn:SetText(open and "關閉助手" or "專業助手"); fitButton(profUI.openBtn, 110)
+  profUI.openBtn:SetText(open and "關閉幫手" or "專業幫手"); fitButton(profUI.openBtn, 110)
   if not open then return end
   local p, id = openProf(), selectedRecipe()
   profUI.id, profUI.prof, profUI.rec = id, p and p.key, nil
@@ -1257,7 +1257,7 @@ local function setupProfUI()
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   fitButton(b, 110)
   local o = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  o:SetSize(110, 24); o:SetText("專業助手"); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
+  o:SetSize(110, 24); o:SetText("專業幫手"); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
   b:SetPoint("LEFT", o, "RIGHT", 6, 0)
   -- 點了才打開（不會改「自動開啟」的設定）
   o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else dockOpen(true) end end)
@@ -1302,7 +1302,7 @@ local function buildMinimapButton()
   b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("專業助手")
+    GameTooltip:AddLine("布里居專業幫手")
     GameTooltip:AddLine("左鍵：開關視窗", 1, 1, 1)
     GameTooltip:AddLine("拖曳：沿著小地圖移動", .6, .6, .6)
     GameTooltip:Show()

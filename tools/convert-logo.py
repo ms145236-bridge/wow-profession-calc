@@ -1,13 +1,13 @@
 # 把 LOGO 原圖轉成插件用的圖：去掉圓外的白底、裁成圓形
 # 用法（在 repo 根目錄）：python tools/convert-logo.py [原圖路徑]
-# 沒給路徑就用 addon/HealHPS/Media/LogoSource.png
-# 輸出：addon/HealHPS/Media/Logo.tga（64×64，遊戲用）、Logo256.png（預覽用）
+# 沒給路徑就用 addon/BridgeHealing/Media/LogoSource.png
+# 輸出：addon/BridgeHealing/Media/Logo.tga（64×64，遊戲用）、Logo256.png（預覽用）
 import os
 import sys
 from PIL import Image, ImageDraw
 
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-media = os.path.join(root, 'addon', 'HealHPS', 'Media')
+media = os.path.join(root, 'addon', 'BridgeHealing', 'Media')
 src_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(media, 'LogoSource.png')
 im = Image.open(src_path).convert('RGBA')
 

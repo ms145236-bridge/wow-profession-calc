@@ -1,4 +1,4 @@
--- 治療 HPS 計算器（魔獸世界：永恆）
+-- 布里居治療幫手 BridgeHealing（魔獸世界：永恆）
 -- 盡量從遊戲讀取：技能與階級（法術書）、法力、施法時間、冷卻、學習等級、基礎治療量（技能說明）、治療效果、天賦。
 -- 遊戲讀不到的欄位才用 Data.lua（由網頁資料產生）。治療係數遊戲不會顯示，一律用資料表。
 
@@ -6,7 +6,7 @@ local ADDON = ...
 local D = HealHPS_Data
 local DEFAULTS = { mode = "single", tipLevel = 3, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25 }
-local LOGO = "Interface\\AddOns\\HealHPS\\Media\\Logo"
+local LOGO = "Interface\\AddOns\\BridgeHealing\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
 -- 技能說明的數字是否已經含治療效果：永恆（新版引擎）實測會含；經典版不含。/hps desc 可手動指定
@@ -30,7 +30,7 @@ local function ensureDB()
   return db
 end
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cffd9b25f治療HPS|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7布里居|r|cffd9b25f治療幫手|r " .. s) end
 
 -- ── 遊戲 API 相容層：永恆用新版引擎（C_Spell／C_SpellBook），經典版用舊的全域函式 ─────
 local API = {}
@@ -887,7 +887,7 @@ local function buildFrame()
     frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
-  frame.TitleText:SetText("治療 HPS")
+  frame.TitleText:SetText("布里居治療幫手")
   local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(LOGO); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：單補／群補、設定
   frame.singleBtn = button(frame, 52, "單補", function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
@@ -1061,7 +1061,7 @@ local function buildMinimapButton()
   b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("治療 HPS 計算器")
+    GameTooltip:AddLine("布里居治療幫手")
     GameTooltip:AddLine("左鍵：開關比較表", 1, 1, 1)
     GameTooltip:AddLine("右鍵：開關技能提示的 HPS（目前" .. (db.tip and "開" or "關") .. "）", 1, 1, 1)
     GameTooltip:AddLine("拖曳：沿著小地圖移動", .6, .6, .6)
