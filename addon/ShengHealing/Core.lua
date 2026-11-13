@@ -1522,7 +1522,15 @@ local function refreshImpl()
   th = (type(th) == "number" and th > 0) and th or 40
   frame.tgtBtn:ClearAllPoints(); frame.tgtBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(10 + th + 12))
   frame.opts:SetHeight(10 + th + 12 + (isPal and 3 or 2) * 30 + 8)
-  frame.info:SetText(string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus))
+  -- 精神與回藍（每 5 秒，跟角色面板一樣）：停手 5 秒後／施法中；讀不到（秘密值）就不顯示
+  local secret = issecretvalue or function() return false end
+  local info = string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus)
+  if type(ctx.spirit) == "number" and not secret(ctx.spirit) then info = info .. string.format(" · 精神 %d", ctx.spirit) end
+  local okR, idle, active = pcall(GetManaRegen)
+  if okR and type(idle) == "number" and type(active) == "number" and not secret(idle) and not secret(active) then
+    info = info .. string.format(" · 回藍 停手 %d／施法 %d（每 5 秒）", math.floor(idle * 5 + .5), math.floor(active * 5 + .5))
+  end
+  frame.info:SetText(info)
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" }, { frame.cdModeBtn, "cd" }, { frame.anaBtn, "analysis" } }) do
     local on = db.mode == m[2]
     m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
@@ -1645,7 +1653,7 @@ local function refreshImpl()
       end
       x = x + w + GAP
     end
-    local total = math.ceil(math.max(x - GAP, inputs.w, presetW, measure(frame.anaConc) + 4, 360))
+    local total = math.ceil(math.max(x - GAP, inputs.w, presetW, measure(frame.anaConc) + 4, measure(frame.info) + 4, 360))
     for _, l in ipairs(frame.anaLines) do l:SetWidth(total) end
     frame.anaConc:SetWidth(total); frame.info:SetWidth(total); frame.ana:SetWidth(total)
     local top = frame.anaListTop
@@ -1720,7 +1728,7 @@ autoFit = function()
     for i = 1, MAXLINES do place(frame.lines[i].c[c], frame.lines[i]) end
     x = x + w + GAP
   end
-  local total = math.max(x - GAP, 360)
+  local total = math.max(x - GAP, measure(frame.info) + 4, 360) -- 資訊列（精神、回藍）也要放得下
   frame.head:SetWidth(total)
   for i = 1, MAXLINES do frame.lines[i]:SetWidth(total) end
   frame.info:SetWidth(total)
