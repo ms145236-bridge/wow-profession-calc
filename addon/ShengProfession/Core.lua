@@ -1520,7 +1520,8 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     end
     queueScan()
   elseif e == "UNIT_SPELLCAST_SUCCEEDED" then
-    local spellID = select(2, ...) -- 參數：unit（a1）, castGUID, spellID
+    local spellID = select(2, ...) -- 參數：unit（a1）, castGUID, spellID；限制中（戰鬥、副本）是秘密值，不能比較，跳過
+    if issecretvalue and (issecretvalue(a1) or issecretvalue(spellID)) then return end
     if a1 == "player" and spellID and onCrafted(spellID) and frame and frame:IsShown() then ProfLevel_Refresh() end
   elseif REFRESH_EVENTS[e] then
     if frame and frame:IsShown() then ProfLevel_Refresh() end
@@ -1529,4 +1530,4 @@ end)
 for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN" }) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(REFRESH_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(SCAN_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
-pcall(ev.RegisterEvent, ev, "UNIT_SPELLCAST_SUCCEEDED")
+if ev.RegisterUnitEvent then pcall(ev.RegisterUnitEvent, ev, "UNIT_SPELLCAST_SUCCEEDED", "player") else pcall(ev.RegisterEvent, ev, "UNIT_SPELLCAST_SUCCEEDED") end

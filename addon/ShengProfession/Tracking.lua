@@ -187,13 +187,15 @@ end
 local ev = CreateFrame("Frame")
 ev:SetScript("OnEvent", function(_, e, unit)
   if e == "PLAYER_LOGIN" then place() end
-  if e == "UNIT_AURA" and unit ~= "player" then return end
+  if e == "UNIT_AURA" and ((issecretvalue and issecretvalue(unit)) or unit ~= "player") then return end
   if C_Timer then C_Timer.After(0.3, update) else update() end
 end)
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "MINIMAP_UPDATE_TRACKING", "PLAYER_REGEN_ENABLED",
-  "PLAYER_ALIVE", "PLAYER_UNGHOST", "SPELLS_CHANGED", "SKILL_LINES_CHANGED", "ZONE_CHANGED_NEW_AREA", "PLAYER_CONTROL_GAINED", "UNIT_AURA" }) do
+  "PLAYER_ALIVE", "PLAYER_UNGHOST", "SPELLS_CHANGED", "SKILL_LINES_CHANGED", "ZONE_CHANGED_NEW_AREA", "PLAYER_CONTROL_GAINED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
+-- 只聽自己的增益變化（全部單位的 UNIT_AURA 戰鬥中很密，參數還可能是秘密值）
+if ev.RegisterUnitEvent then pcall(ev.RegisterUnitEvent, ev, "UNIT_AURA", "player") else pcall(ev.RegisterEvent, ev, "UNIT_AURA") end
 -- 保險：每 10 秒檢查一次（有些客戶端關閉追蹤不會發事件）
 if C_Timer and C_Timer.NewTicker then C_Timer.NewTicker(10, function() if btn:IsShown() or not pending then update() end end) end
 

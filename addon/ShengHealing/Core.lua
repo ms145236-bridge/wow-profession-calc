@@ -20,7 +20,16 @@ end
 
 -- 有治療技能的職業；其他職業不掛滑鼠提示、不建小地圖按鈕
 local HEALER_CLASSES = { PALADIN = true, PRIEST = true, DRUID = true, SHAMAN = true }
-local function isHealerClass() return HEALER_CLASSES[select(2, UnitClass("player"))] == true end
+-- 玩家職業：限制啟動時 UnitClass 可能回傳秘密值（不能當表格鍵、不能比較），讀到一次正常值就記住（職業不會變）
+local myClass
+local function playerClass()
+  if not myClass then
+    local _, c = UnitClass("player")
+    if not (issecretvalue and issecretvalue(c)) and type(c) == "string" then myClass = c end
+  end
+  return myClass
+end
+local function isHealerClass() return HEALER_CLASSES[playerClass()] == true end
 
 local function ensureDB()
   if db then return db end
@@ -315,7 +324,7 @@ local function rankOf(sub, id)
 end
 
 local function rescan()
-  local _, class = UnitClass("player")
+  local class = playerClass()
   local fams = {}
   local byName = {}
   for _, f in ipairs(D.families) do
@@ -442,8 +451,7 @@ local function compute()
     if type(v) ~= "number" or (issecretvalue and issecretvalue(v)) then return prev or 0 end
     return v
   end
-  local _, class = UnitClass("player")
-  if type(class) ~= "string" or (issecretvalue and issecretvalue(class)) then class = old.class end
+  local class = playerClass() or old.class
   local ctx = { level = num(UnitLevel("player"), old.level), bonus = num(GetSpellBonusHealing and GetSpellBonusHealing(), old.bonus) }
   ctx.descIncl = descIncludesBonus()
   ctx.class = class
@@ -761,8 +769,10 @@ local function analyze()
       long = "保持" .. table.concat(b, "、") .. "＋" .. nm(main, " 等級") .. (emerg ~= main and ("，救命 " .. nm(emerg, " 等級")) or "")
     else
       local tag = pause and string.format("（停到 %d%%）", math.floor(pause * 100 + 0.5)) or ""
-      name = nm(main, " ") .. (emerg ~= main and ("＋" .. nm(emerg, " ")) or "") .. tag
-      long = nm(main, " 等級") .. (emerg ~= main and ("＋" .. nm(emerg, " 等級")) or "") .. tag
+      -- 主力＋救命：「聖光閃現 1（救命 3）」；救命是別招就寫全名
+      local save = emerg ~= main and ("（救命 " .. (emerg.r.label == main.r.label and tostring(emerg.r.rank) or nm(emerg, " ")) .. "）") or ""
+      name = nm(main, " ") .. save .. tag
+      long = nm(main, " 等級") .. (emerg ~= main and ("，坦克快倒時改放 " .. nm(emerg, " 等級")) or "") .. tag
     end
     local allApplied = true
     for _, k in ipairs(keep) do if not applied[k.key] then allApplied = false end end
@@ -1313,7 +1323,7 @@ local function analyzeGroup()
     for _, v in ipairs(two("vigil")) do add(nm(v), { group = mk(v, "mark") }) end
   end
   if cls == "SHAMAN" or cls == "PALADIN" or #rots == 0 then -- 只單補（對照組）：填充招試最省藍和最快的那招
-    add(nm(M.r) .. (E ~= M and ("＋" .. nm(E.r)) or ""), {})
+    add(nm(M.r) .. (E ~= M and ("（救命 " .. (E.r.label == M.r.label and tostring(E.r.rank) or nm(E.r)) .. "）") or ""), {})
     if E ~= M then add(nm(E.r), { main = E }) end
   end
 
@@ -1397,7 +1407,7 @@ local function addTooltip(tt, id)
   local firstLine = (tt.NumLines and tt:NumLines() or 0) + 1
   for _, r in ipairs(rows) do
     local tag = r.f.kind == "absorb" and "（吸收）" or ((r.f.group or r.f.key == "bh" or r.targets > 1) and string.format("（%d人）", r.targets) or "")
-    local sit = SIT[select(2, UnitClass("player"))]
+    local sit = SIT[playerClass()]
     if r.withOath and sit then tag = "（" .. sit.tip .. "）" end
     -- 左欄標籤、右欄數字，兩排數字靠右對齊
     tt:AddDoubleLine("|cffd9b25fHPS ／ HPM|r" .. tag, fmt1(r.hpsT) .. " ／ " .. fmt2(r.hpmT), 1, 1, 1, 1, 1, 1)
@@ -1420,7 +1430,7 @@ end
 local function hookTooltips()
   if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Spell then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Spell, function(tt, data)
-      if tt == GameTooltip and data then safe("滑鼠提示", addTooltip, tt, data.id) end
+      if tt == GameTooltip and data and not (issecretvalue and issecretvalue(data.id)) then safe("滑鼠提示", addTooltip, tt, data.id) end
     end)
   else
     GameTooltip:HookScript("OnTooltipSetSpell", function(tt)
@@ -1519,7 +1529,7 @@ local function refreshImpl()
     frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. (o.unknown and "聖光誓約：讀不到加成量（請執行 /shps debug 回報）"
       or string.format("聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d", o.hl, o.fol, o.hs))
   end
-  local cls = select(2, UnitClass("player"))
+  local cls = playerClass()
   local sit = SIT[cls]
   local has = (cls == "PALADIN" and o ~= nil) or ((cls == "PRIEST" or cls == "DRUID") and tal.sitLearned) or (cls == "SHAMAN" and ctx.ripKnown)
   if cls == "DRUID" and has then frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. "綻放：每次 HoT 結束 +" .. fint(ctx.spirit) end
@@ -1639,7 +1649,9 @@ local function refreshImpl()
         local fate = not r.dead and "活" or not r.group and string.format("倒下 %d 秒", math.floor(r.dead + 0.5))
           or r.wiped and string.format("滅團 %d 秒", math.floor(r.wiped + 0.5)) or string.format("倒 %d 人 %d 秒", r.deaths, math.floor(r.dead + 0.5))
         local vals = { e.no .. ".", r.name, fate,
-          r.oom and string.format("沒藍 %d 秒", math.floor(r.oom + 0.5)) or ("剩藍 " .. fint(r.mana)),
+          -- 倒下且沒藍：寫幾秒沒藍；活下來但補滿坦克還不夠：寫差多少；其餘寫剩多少
+          (r.dead and r.oom) and string.format("沒藍 %d 秒", math.floor(r.oom + 0.5))
+            or r.mana < 0 and ("補滿差 " .. fint(-r.mana)) or ("剩藍 " .. fint(r.mana)),
           string.format("最低 %d%%", math.floor(r.minPct + 0.5)),
           r.every and ("每 " .. fmt1(r.every) .. " 秒一發") or "沒出手",
           r.pulls and (r.pulls == math.huge and "不用喝水" or r.pulls < 1 and "打完要喝水" or string.format("可連打 %d 波", r.pulls)) or "" }
@@ -1837,7 +1849,7 @@ local function buildFrame()
   frame.oathBtn:SetHeight(26); frame.oathBtn:SetPoint("TOP", frame.tipBtn, "BOTTOM", 0, -4)
   frame.oathBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    local sit = SIT[select(2, UnitClass("player"))]
+    local sit = SIT[playerClass()]
     GameTooltip:AddLine(sit and sit.label or "")
     GameTooltip:AddLine(frame.sitHelp or "", 1, 1, 1, true)
     GameTooltip:Show()
@@ -1883,7 +1895,7 @@ local function buildFrame()
       if r.down < 0.9995 then GameTooltip:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
       if r.cd > 0 then GameTooltip:AddDoubleLine("冷卻", fmt1(r.cd) .. " 秒", .8, .8, .8, 1, 1, 1) end
       if r.oathAdd and r.oathAdd > 0 then
-        local sit = SIT[select(2, UnitClass("player"))]
+        local sit = SIT[playerClass()]
         GameTooltip:AddDoubleLine(sit and sit.label or "", "+" .. fint(r.oathAdd) .. (r.oathRatio and string.format("（%d%%）", math.floor(r.oathRatio * 100 + .5)) or ""), .8, .8, .8, 1, 1, 1)
       end
       if r.srcText ~= "遊戲" then GameTooltip:AddLine("部分數值來自資料表（遊戲讀不到）", 1, .6, .3) end
@@ -2109,12 +2121,12 @@ end
 
 -- ── 指令 ───────────────────────────────────────────────────────────────────
 local function debugDump()
-  local _, class = UnitClass("player")
+  local class = playerClass()
   local book = API.Spellbook()
   msg(string.format("版本 0.8.7　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
   rescan()
   local _, ctx = compute()
-  msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", class, ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
+  msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", tostring(class), ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
     (#ctx.talents.found > 0 and table.concat(ctx.talents.found, "、") or "沒找到") .. "（" .. ctx.talents.source .. "）"))
   local o = ctx.talents.oath
   if o then
