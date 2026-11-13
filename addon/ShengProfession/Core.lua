@@ -841,6 +841,7 @@ local function refreshImpl()
   frame.bagBtn:SetText(db.useBag and "扣背包：開" or "扣背包：關"); fitButton(frame.bagBtn, 90)
   frame.bankBtn:SetText(db.useBank and "扣銀行：開" or "扣銀行：關"); fitButton(frame.bankBtn, 90)
   frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
+  frame.voiceBtn:SetText(NS.voiceLabel()); fitButton(frame.voiceBtn, 60)
   local isLv = db.tab == "steps" or db.tab == "shop"
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
   frame.decBtn:ClearAllPoints()
@@ -1088,6 +1089,14 @@ local function buildFrame()
     GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("起點改回目前的專業點數"); GameTooltip:Show()
   end)
   frame.nowBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- 第一列最右邊：語音提示開關（右鍵開設定，見 Voice.lua）
+  frame.voiceBtn = button(frame, 60, "", function(_, btn) if btn == "RightButton" then NS.voiceSlash("config") else NS.voiceToggle() end end)
+  frame.voiceBtn:SetHeight(22); frame.voiceBtn:SetPoint("TOPRIGHT", -14, -32)
+  frame.voiceBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  frame.voiceBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("附近的礦和草念出名稱"); GameTooltip:AddLine("右鍵：設定", .6, .6, .6); GameTooltip:Show()
+  end)
+  frame.voiceBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第二、三列：價格來源、總花費
   frame.status = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   frame.status:SetPoint("TOPLEFT", 14, -66); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
@@ -1447,6 +1456,8 @@ SlashCmdList.PROFLEVEL = function(input)
     if n == 0 then msg("沒偵測到專業") end
   elseif cmd == "track" then
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
+  elseif cmd == "voice" then
+    NS.voiceSlash((input or ""):lower():match("voice%s+(%S+)"))
   elseif cmd == "debug" then
     local learned = learnedProfs()
     local t = {}
@@ -1478,7 +1489,7 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
+    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof voice 語音提示（config 設定、test 試聽）/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
   end
 end
 

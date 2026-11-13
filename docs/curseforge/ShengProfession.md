@@ -31,6 +31,9 @@
 **採集追蹤提醒**
 - 學了採礦或草藥學卻沒開「尋找礦物／尋找草藥」時，自動開啟；遊戲不允許時，畫面上出現提醒按鈕，點一下就開。
 
+**語音提示**
+- 附近出現礦或草時念出名稱（例如「錫礦」），預設只念你學會、點數也夠採的；戰鬥中不念。主視窗右上角「語音：開／關」，右鍵或 `/sprof voice config` 進設定：音量、語速、語音、每種礦草個別開關；`/sprof voice` 開關、`/sprof voice test` 試聽。
+
 **公會誰會做**
 - 有裝本插件的公會成員會自動互傳學會的配方：利潤表、佇列和物品滑鼠提示會顯示「公會：誰會做」；`/sprof guild` 看收到幾人的資料，`/sprof guild 名字` 看單人的專業與點數，`/sprof guild off` 不分享自己的（預設分享）。
 
@@ -63,3 +66,4 @@
 
 - **Guild crafters:** guild members who also run ShengProfession share their known recipes automatically; recipe rows and item tooltips show who in your guild can craft it (`/sprof guild`, `/sprof guild <name>`; `/sprof guild off` stops sharing yours, on by default).
 - **Next rank trainer:** when a profession nears its cap, the window shows where to learn Expert/Artisan (Horde trainer, level and skill requirements, cost; the book or quest for Cooking, First Aid and Fishing) with a button that sets a waypoint (uses WaypointUI if installed). `/sprof train` lists the next rank location for all your professions.
+- **Voice alerts:** speaks the name of herbs and ore that come into range (text-to-speech), by default only ones you have the profession and skill to gather, never in combat. Toggle with the 「語音：開／關」 button or `/sprof voice`; volume, speed, voice and per-node switches in the game's AddOn settings (`/sprof voice config`, `/sprof voice test` plays a sample).
