@@ -1,0 +1,42 @@
+# 阿聖專業幫手｜永恆 zhCN 訓練師名稱
+
+- 查到 **34／34** 位，查無 **0** 位。
+- 依 `tools/english-prof-data.md` 的 34 個 NPC ID 比對。英文欄供確認同一 NPC，其他欄只列該語系的 NPC 顯示名稱。
+- 主來源為 [Wowhead Forever zhCN](https://www.wowhead.com/forever/cn) 及[本機 QuestieDB Forever l10n 說明](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md)。方括號內的英文是 Wowhead 回退標記。原名同 enUS 時，若兩來源都有同一語系值，保留該名稱。
+
+| NPC ID | 專業／階段 | enUS | zhCN | 來源 | 核對註記 |
+|---:|---|---|---|---|---|
+| 4611 | Alchemy / Expert | Doctor Herbert Halsey | 赫伯特·哈尔希医生 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/4611?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 1386 | Alchemy / Artisan | Rogvar | 罗格瓦尔 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/1386?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 259585 | Alchemy / Artisan | Master Mycologist Shurome | 菌类学大师舒罗姆 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/259585?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | Wowhead 回傳英文回退，採 QuestieDB 的語系欄。 |
+| 3355 | Blacksmithing / Expert | Saru Steelfury | 萨鲁·钢怒 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3355?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2836 | Blacksmithing / Artisan | Brikk Keencraft | 布里克·基克拉夫 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/2836?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11074 | Enchanting / Expert | Hgarth | 赫加斯 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/11074?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11073 | Enchanting / Artisan | Annora | 安诺拉 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/11073?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11017 | Engineering / Expert | Roxxik | 罗克希克 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/11017?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 8736 | Engineering / Artisan | Buzzek Bracketswing | 巴兹克·布拉斯温 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/8736?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3007 | Leatherworking / Expert | Una | 犹纳 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3007?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11098 | Leatherworking / Artisan | Hahrana Ironhide | 哈拉纳·铁皮 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/11098?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 4576 | Tailoring / Expert | Josef Gregorian | 乔瑟夫·格里高利 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/4576?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2399 | Tailoring / Artisan | Daryl Stack | 达瑞尔·斯塔克 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/2399?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3404 | Herbalism / Expert / Artisan | Jandi | 加迪 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3404?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 4614 | Herbalism / Expert / Artisan | Martha Alliestar | 马尔萨·奥列斯塔 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/4614?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3013 | Herbalism / Expert / Artisan | Komin Winterhoof | 克米恩·冰蹄 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3013?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2114 | Herbalism / Expert / Artisan | Faruza | 法鲁萨 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/2114?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3185 | Herbalism / Expert / Artisan | Mishiki | 米什基 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3185?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3357 | Mining / Expert / Artisan | Makaru | 马卡鲁 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3357?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 4598 | Mining / Expert / Artisan | Brom Killian | 布罗姆·基里安 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/4598?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3001 | Mining / Expert / Artisan | Brek Stonehoof | 布瑞克·石蹄 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3001?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3175 | Mining / Expert / Artisan | Krunn | 克鲁恩 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3175?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3555 | Mining / Expert / Artisan | Johan Focht | 乔汉·弗彻 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/3555?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 7088 | Skinning / Expert / Artisan | Thuwd | 苏尔德 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/7088?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 7087 | Skinning / Expert / Artisan | Killian Hagey | 基里安·哈根 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/7087?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 7089 | Skinning / Expert / Artisan | Mooranta | 莫兰塔 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/7089?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 6290 | Skinning / Expert / Artisan | Yonn Deepcut | 姚恩·深刺 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/6290?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 8144 | Skinning / Expert / Artisan | Kulleg Stonehorn | 库雷格·石角 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/8144?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 12033 | Cooking / Expert | Wulan | 乌兰 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/12033?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 8125 | Cooking / Artisan | Dirge Quikcleave | 迪尔格·奎克里弗 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/8125?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 13476 | First Aid / Expert | Balai Lok'Wein | 巴莱·洛克维 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/13476?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 12920 | First Aid / Artisan | Doctor Gregory Victor | 格里高利·维克托医生 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/12920?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2626 | Fishing / Expert | Old Man Heming | 老人海明威 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/2626?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 12919 | Fishing / Artisan | Nat Pagle | 纳特·帕格 | [Forever zhCN 名稱](https://nether.wowhead.com/forever/tooltip/npc/12919?locale=zhCN) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |

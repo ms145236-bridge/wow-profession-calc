@@ -126,9 +126,9 @@ local function nextRank(key, sk)
   local rk = t and ((sk.max == 150 and "expert") or (sk.max == 225 and "master"))
   if rk and t[rk] then return t[rk], rk == "expert" and L["專家"] or L["大師"] end
 end
--- 訓練師「地點 名字」（英文是「名字, 地點」）
+-- 訓練師「地點 名字」（中文以外是「名字, 地點」）
 local function whoAt(a)
-  if NS.zh then return a.place .. " " .. a.name end
+  if NS.zh or NS.lang == "zhCN" then return loc(a, "place") .. " " .. loc(a, "name") end
   return loc(a, "name") .. ", " .. loc(a, "place")
 end
 -- 一行說明，例如「下一階 大師：斯通納德 羅格瓦爾（35 級、技能 200、5 金）」；第二個回傳值：角色等級還不夠；第四個：不含括號條件的短版
@@ -245,7 +245,9 @@ end
 local function srcName(s)
   if SRC[s] then return L[SRC[s]] end
   if s == nil or s == "" then return "" end
-  return string.format(L["%s（商人）"], (D["npcs_" .. NS.lang] or {})[s] or D.npcs[s] or s)
+  local name -- 依查字順序找 npcs_<語言>（和英文同名的不列），都沒有用繁中
+  for _, code in ipairs(NS.chain) do name = name or (D["npcs_" .. code] or {})[s] end
+  return string.format(L["%s（商人）"], name or D.npcs[s] or s)
 end
 
 -- ── 路線計算（移植自網頁 tools/calc.js） ───────────────────────────────────
@@ -1742,10 +1744,12 @@ SlashCmdList.PROFLEVEL = function(input)
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
   elseif cmd == "lang" then -- 測試用：中文客戶端也能預覽其他語言的介面（偵測專業、讀遊戲文字仍照客戶端語言）
     local v = (input or ""):lower():match("lang%s+(%a+)")
-    -- stress：英文字串加長約 35%，加新語言前先用它檢查每個分頁的版面
-    if v == "en" or v == "stress" or (v == "zh" and NS.clientZh) or v == "auto" then -- 非中文客戶端的字型沒有中文字，不給切中文
-      db.lang = v ~= "auto" and v or nil
-      msg(string.format(L["介面語言：%s（/reload 後生效）"], v))
+    -- stress：英文字串加長約 35%，加新語言前先用它檢查每個分頁的版面；也可以指定有語言檔的代碼（例如 /sprof lang dede）
+    local code
+    for c in pairs(NS.locales) do if c:lower() == v and NS.canShow(c) then code = c end end -- 字型沒有該語言的文字就不給切
+    if v == "en" or v == "stress" or (v == "zh" and NS.clientZh) or v == "auto" or code then -- 非中文客戶端的字型沒有中文字，不給切中文
+      db.lang = code or (v ~= "auto" and v or nil)
+      msg(string.format(L["介面語言：%s（/reload 後生效）"], code or v))
     else msg(string.format(L["用法：/sprof lang en/zh/stress/auto（目前 %s）"], db.lang or "auto")) end
   elseif cmd == "debug" then
     local learned = learnedProfs()

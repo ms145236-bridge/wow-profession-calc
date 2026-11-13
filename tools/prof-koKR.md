@@ -1,0 +1,42 @@
+# 阿聖專業幫手｜永恆 koKR 訓練師名稱
+
+- 查到 **33／34** 位，查無 **1** 位。
+- 依 `tools/english-prof-data.md` 的 34 個 NPC ID 比對。英文欄供確認同一 NPC，其他欄只列該語系的 NPC 顯示名稱。
+- 主來源為 [Wowhead Forever koKR](https://www.wowhead.com/forever/ko) 及[本機 QuestieDB Forever l10n 說明](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md)。方括號內的英文是 Wowhead 回退標記。原名同 enUS 時，若兩來源都有同一語系值，保留該名稱。
+
+| NPC ID | 專業／階段 | enUS | koKR | 來源 | 核對註記 |
+|---:|---|---|---|---|---|
+| 4611 | Alchemy / Expert | Doctor Herbert Halsey | 학자 허버트 핼시 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/4611?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 1386 | Alchemy / Artisan | Rogvar | 로그바 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/1386?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 259585 | Alchemy / Artisan | Master Mycologist Shurome | ? 【需遊戲實測】 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/259585?locale=koKR) | Wowhead 標示英文回退 `[Master Mycologist Shurome]`，QuestieDB 無該語系名稱。 |
+| 3355 | Blacksmithing / Expert | Saru Steelfury | 사루 스틸퓨리 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3355?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2836 | Blacksmithing / Artisan | Brikk Keencraft | 브리크 킨크래프트 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/2836?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11074 | Enchanting / Expert | Hgarth | 하가스 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/11074?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11073 | Enchanting / Artisan | Annora | 안노라 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/11073?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11017 | Engineering / Expert | Roxxik | 록시크 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/11017?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 8736 | Engineering / Artisan | Buzzek Bracketswing | 부젝 브라켓스윙 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/8736?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3007 | Leatherworking / Expert | Una | 우나 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3007?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 11098 | Leatherworking / Artisan | Hahrana Ironhide | 하라나 아이언하이드 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/11098?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 4576 | Tailoring / Expert | Josef Gregorian | 조셉 그레고리안 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/4576?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2399 | Tailoring / Artisan | Daryl Stack | 다릴 스택 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/2399?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3404 | Herbalism / Expert / Artisan | Jandi | 잔디 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3404?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 4614 | Herbalism / Expert / Artisan | Martha Alliestar | 마사 알리스타 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/4614?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3013 | Herbalism / Expert / Artisan | Komin Winterhoof | 코민 윈터후프 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3013?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2114 | Herbalism / Expert / Artisan | Faruza | 파루자 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/2114?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3185 | Herbalism / Expert / Artisan | Mishiki | 미시키 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3185?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3357 | Mining / Expert / Artisan | Makaru | 마카루 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3357?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 4598 | Mining / Expert / Artisan | Brom Killian | 브롬 킬리안 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/4598?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3001 | Mining / Expert / Artisan | Brek Stonehoof | 브렉 스톤후프 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3001?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3175 | Mining / Expert / Artisan | Krunn | 크룬 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3175?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 3555 | Mining / Expert / Artisan | Johan Focht | 요한 폭히트 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/3555?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 7088 | Skinning / Expert / Artisan | Thuwd | 투워드 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/7088?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 7087 | Skinning / Expert / Artisan | Killian Hagey | 킬리안 헤이지 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/7087?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 7089 | Skinning / Expert / Artisan | Mooranta | 무란타 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/7089?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 6290 | Skinning / Expert / Artisan | Yonn Deepcut | 욘 디프컷 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/6290?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 8144 | Skinning / Expert / Artisan | Kulleg Stonehorn | 쿨레그 스톤혼 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/8144?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 12033 | Cooking / Expert | Wulan | 울란 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/12033?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 8125 | Cooking / Artisan | Dirge Quikcleave | 더지 퀵클레이브 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/8125?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 13476 | First Aid / Expert | Balai Lok'Wein | 발라이 로크웨인 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/13476?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 12920 | First Aid / Artisan | Doctor Gregory Victor | 의사 그레고리 빅터 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/12920?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 2626 | Fishing / Expert | Old Man Heming | 노인 헤밍 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/2626?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
+| 12919 | Fishing / Artisan | Nat Pagle | 내트 페이글 | [Forever koKR 名稱](https://nether.wowhead.com/forever/tooltip/npc/12919?locale=koKR) · [QuestieDB l10n](https://github.com/Questie/QuestieDB/blob/master/docs/forever.md) | 兩來源一致 |
