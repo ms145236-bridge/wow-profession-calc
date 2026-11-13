@@ -182,7 +182,7 @@ update = function()
   btn.sub:SetText(L["左鍵開啟　右鍵 10 分鐘內不提醒　Shift 拖曳移動"])
   btn.text:SetText(other and string.format(L["|cffffd100目前追蹤：%s|r　點這裡改成%s"], other, name)
     or string.format(L["|cffffd100還沒開啟%s|r　點這裡開啟"], name))
-  btn:SetWidth(math.max(270, 54 + math.max(btn.text:GetStringWidth(), btn.sub:GetStringWidth()) + 14))
+  btn:SetWidth(math.max(270, 54 + math.max(NS.measure(btn.text), NS.measure(btn.sub)) + 14))
   btn:Show()
 end
 

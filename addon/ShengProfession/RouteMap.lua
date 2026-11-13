@@ -232,7 +232,7 @@ local function build(g)
   return u
 end
 
--- 從 y（相對採集分頁頂端）往下排，回傳排完後的 y
+-- 從 y（相對採集分頁頂端）往下排，回傳排完後的 y 和這個區塊需要的視窗寬（標題列、區域名＋至少 60 的路線名＋範圍）
 function NS.routeLayout(g, fw, y, all)
   local u = g.routeUI or build(g)
   local db = DB()
@@ -247,7 +247,8 @@ function NS.routeLayout(g, fw, y, all)
     local on = b.kind == kind
     b:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
-  u.show:SetText(db.routeShow == false and L["顯示：關"] or L["顯示：開"]); NS.fitButton(u.show, 60)
+  NS.setLabel(u.show, db.routeShow == false and L["顯示：關"] or L["顯示：開"], 60)
+  local need = 14 + NS.measure(u.title) + NS.rowEnd({ { u.kinds[1], 8 }, { u.kinds[2], 2 }, { u.kinds[3], 2 }, { u.show, 16 }, { u.go, 6 } }) + 14
   u.go:SetEnabled(BY_ID[db.route] ~= nil)
   y = y - 28
   -- 目前技能符合的排前面（第一條是推薦），其他照技能區間
@@ -282,6 +283,7 @@ function NS.routeLayout(g, fw, y, all)
     row.zone:SetText(zoneName(r)); row.range:SetText(rangeText(r))
     zoneW = math.max(zoneW, NS.measure(row.zone)); rangeW = math.max(rangeW, NS.measure(row.range))
   end
+  need = math.ceil(math.max(need, 14 + 6 + zoneW + 12 + 60 + 12 + rangeW + 6 + 14))
   for i, row in ipairs(u.rows) do
     local r = list[i]
     if r then
@@ -297,6 +299,6 @@ function NS.routeLayout(g, fw, y, all)
       row:Hide()
     end
   end
-  return y
+  return y, need
 end
 

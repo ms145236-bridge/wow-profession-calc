@@ -118,11 +118,13 @@ NS.locales.enUS = {
 
   -- 狀態列、總計
   ["價格：Auctionator　從 %d 條路線選出最省的"] = "Prices: Auctionator  cheapest of %d routes",
+  ["價格：Auctionator"] = "Prices: Auctionator",
+  ["沒有 Auctionator"] = "No Auctionator",
   ["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] = "Auctionator not found: only vendor items have prices (default route)",
   ["製作佇列 %d 項（共 %d 次）　材料花費 %s"] = "Queued: %d (crafts: %d)  Materials %s",
   ["%d 項沒有價格"] = "No price: %d",
   ["%d 項還不知道材料（打開那個專業視窗一次）"] = "Unknown materials: %d (open that profession once)",
-  ["%s 已記下 %d 個配方　點一下加入佇列（Shift 加 5、右鍵減 1）"] = "%s recipes known: %d  Click to queue (Shift +5, right-click -1)",
+  ["%s 已記下 %d 個配方"] = "%s recipes known: %d",
   ["打開%s的專業視窗一次，插件就會記下你學會的配方"] = "Open your %s window once to record the recipes you know",
   ["%s %d–%d　花費 %s"] = "%s %d–%d  Cost %s",
   ["　|cff9fd18b回本 %s|r　淨花費 %s"] = "  |cff9fd18bResale %s|r  Net %s",
@@ -145,9 +147,9 @@ NS.locales.enUS = {
   ["自製 %s"] = "Craft %s",
   ["省 %s"] = "Save %s",
   ["佇列是空的：從「利潤」或「衝級」加入"] = "The queue is empty: add from Profit or Leveling",
-  ["還沒有記下配方"] = "No recipes recorded yet",
   ["這個範圍不需要製作任何東西"] = "Nothing to craft in this range",
   ["共 %d 列，用滾輪捲動"] = "Rows: %d, scroll with the mouse wheel",
+  ["共 %d 列"] = "Rows: %d",
 
   -- 滑鼠提示
   ["背包 %d"] = "Bags %d",
@@ -204,7 +206,7 @@ NS.locales.enUS = {
   ["視窗縮放："] = "Window scale: ",
   ["用法：/sprof scale 1.2（0.5～2，目前 %s）"] = "Usage: /sprof scale 1.2 (0.5 to 2, now %s)",
   ["介面語言：%s（/reload 後生效）"] = "Interface language: %s (takes effect after /reload)",
-  ["用法：/sprof lang en/zh/auto（目前 %s）"] = "Usage: /sprof lang en/zh/auto (now %s)",
+  ["用法：/sprof lang en/zh/stress/auto（目前 %s）"] = "Usage: /sprof lang en/zh/stress/auto (now %s)",
   ["版本 0.7.1　已學專業："] = "Professions: ",
   ["Auctionator："] = "Auctionator: ",
   ["沒偵測到"] = "none detected",
@@ -213,8 +215,8 @@ NS.locales.enUS = {
   ["第一個配方 %d：%s　產物 %s　材料欄 %d　可做 %s"] = "First recipe %d: %s  output %s  reagent slots %d  can make %s",
   ["專業視窗 API：舊版　配方列 %s 列"] = "Profession API: legacy  %s rows",
   ["專業視窗 API：沒有"] = "Profession API: none",
-  ["/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果　/sprof lang en/zh/auto 介面語言"] =
-    "/sprof toggle window  /sprof scale 1.2 window size  /sprof dock open with the profession window  /sprof minimap hide minimap button  /sprof track tracking reminder  /sprof train where to train next  /sprof guild who can craft (on/off sharing)  /sprof debug detection info  /sprof lang en/zh/auto interface language",
+  ["/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學　/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果　/sprof lang en/zh/auto 介面語言（stress＝版面壓力測試，英文加長 35%）"] =
+    "/sprof toggle window  /sprof scale 1.2 window size  /sprof dock open with the profession window  /sprof minimap hide minimap button  /sprof track tracking reminder  /sprof train where to train next  /sprof guild who can craft (on/off sharing)  /sprof debug detection info  /sprof lang en/zh/auto interface language (stress = layout stress test, English padded 35%)",
 
   -- 採集分頁
   ["沒有學採集或副專業"] = "No gathering or secondary professions learned",

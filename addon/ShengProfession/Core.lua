@@ -750,22 +750,109 @@ local function measure(fs)
   return type(w) == "number" and w or 0
 end
 
--- 放得下就用完整文字，不然換短版，再不行就截斷加「…」
+-- ── 文字適配（所有語言共用的規則）──────────────────────────────────────────
+-- 單行文字只有兩種：寬度算進視窗下限（會撐寬），或 fitTextTip（限寬＋滑鼠提示看全文）；不准引擎自己截斷、不准放不下就隱藏。
+
+-- 放得下就用完整文字，不然換短版，再不行就截斷加「…」；回傳有沒有縮短（呼叫的地方要有提示框顯示完整文字）
+-- 截斷：色碼、材質、連結當成零寬度整段保留（截完補 |r）；中日韓逐字，拉丁／西里爾文字退到空白；連「…」都放不下才隱藏
 local function fitText(fs, maxW, full, short)
-  fs:SetText(full)
-  if measure(fs) <= maxW then return end
+  fs:Show(); fs:SetText(full)
+  if measure(fs) <= maxW then return false end
   local t = short or full
   fs:SetText(t)
-  if measure(fs) <= maxW then return end
-  local ch = {}
-  for c in t:gmatch("[%z\1-\127\194-\244][\128-\191]*") do ch[#ch + 1] = c end
-  local lo, hi = 0, #ch
+  if measure(fs) <= maxW then return true end
+  local tk, vis = {}, {} -- tk：每一段文字；vis：可見字在 tk 裡的位置
+  local i = 1
+  while i <= #t do
+    local esc = t:match("^|c%x%x%x%x%x%x%x%x", i) or t:match("^|r", i) or t:match("^|T.-|t", i) or t:match("^|H.-|h", i) or t:match("^|h", i)
+    local c = esc or t:match("^[%z\1-\127\194-\244][\128-\191]*", i) or t:sub(i, i)
+    tk[#tk + 1] = c
+    if not esc then vis[#vis + 1] = #tk end
+    i = i + #c
+  end
+  local function cut(n) -- 前 n 個可見字（含中間的色碼）＋「…」
+    local s = table.concat(tk, "", 1, n > 0 and vis[n] or 0)
+    local open = false
+    for code in s:gmatch("|[cr]") do open = code == "|c" end
+    return s .. (open and "|r" or "") .. L["…"]
+  end
+  local lo, hi = 0, #vis
   while lo < hi do
     local mid = math.ceil((lo + hi) / 2)
-    fs:SetText(table.concat(ch, "", 1, mid) .. L["…"])
+    fs:SetText(cut(mid))
     if measure(fs) <= maxW then lo = mid else hi = mid - 1 end
   end
-  fs:SetText(table.concat(ch, "", 1, lo) .. L["…"])
+  -- 斷在字中間（前後都是字母）：退到前一個空白
+  local function word(n) return n >= 1 and n <= #vis and tk[vis[n]]:find("^[%w'\195-\213]") ~= nil end
+  if word(lo) and word(lo + 1) then
+    for n = lo - 1, 1, -1 do if tk[vis[n]] == " " then lo = n - 1; break end end
+  end
+  fs:SetText(cut(lo))
+  if lo == 0 and measure(fs) > maxW then fs:SetText(""); fs:Hide() end
+  return true
+end
+
+-- 給文字掛一塊滑鼠範圍：fitTextTip 有縮短時才出現，移上去顯示完整文字
+local function tipArea(fs, parent)
+  local h = CreateFrame("Frame", nil, parent); h:SetAllPoints(fs); h:EnableMouse(true); h:Hide()
+  h:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(self.full, 1, 1, 1, true); GameTooltip:Show()
+  end)
+  h:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  fs.tip = h
+end
+local function fitTextTip(fs, maxW, full, short)
+  local cut = fitText(fs, maxW, full, short)
+  fs.tip.full = full; fs.tip:SetShown(cut)
+  return cut
+end
+
+-- 按鈕寬度配合文字（字型較大時不會超出按鈕）；換字一律走 setLabel
+local function fitButton(b, minW)
+  local fs = b:GetFontString()
+  local w = fs and measure(fs) or 0
+  if w > 0 then b:SetWidth(math.max(minW or 0, w + 24)) end
+end
+local function setLabel(b, text, minW) b:SetText(text); fitButton(b, minW) end
+
+local function button(parent, w, label, onClick)
+  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  b:SetSize(w + 16, 26); b:SetScript("OnClick", onClick)
+  setLabel(b, label, w + 16)
+  return b
+end
+
+-- 一排從左到右串接的元件要多寬：{ 元件, 左邊間距, 寬度（文字傳 measure 的結果，按鈕省略）}；隱藏的不算
+local function rowEnd(list)
+  local x = 0
+  for _, t in ipairs(list) do if t[1]:IsShown() then x = x + t[2] + (t[3] or t[1]:GetWidth()) end end
+  return x
+end
+
+-- 視窗內容最多多寬、表格最多幾列：照螢幕大小（換算成視窗自己的縮放），不小於設計值
+local function maxContentW()
+  return math.max(W, math.floor(UIParent:GetWidth() / frame:GetScale()) - 68)
+end
+-- 視窗位置一律用左上角（存成 UIParent 的座標）：切分頁改大小時標題和分頁列不動，只有右緣、下緣變
+local function saveTopLeft()
+  local l, t, s = frame:GetLeft(), frame:GetTop(), frame:GetScale()
+  if not (l and t) then return end
+  frame:ClearAllPoints(); frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", l, t)
+  db.pos = { l * s, t * s }
+end
+local function placeTopLeft()
+  if not db.pos then return end
+  local s = frame:GetScale()
+  frame:ClearAllPoints(); frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.pos[1] / s, db.pos[2] / s)
+end
+-- 視窗寬只增不減（這次登入看過的最大值），切分頁時右緣不會跳；縮放改了才重算
+local function setFrameWidth(w)
+  w = math.max(w, frame.stableW or 0)
+  frame.stableW = w; frame:SetWidth(w)
+  return w
+end
+local function visibleRows()
+  return math.max(5, math.min(MAXLINES, math.floor((UIParent:GetHeight() / frame:GetScale() - TOP - 44 - 40) / ROW_H)))
 end
 
 -- 採集分頁列出的技能：採礦、草藥、剝皮、釣魚（烹飪、急救不是採集，下一階提示在專業切換的狀態列）
@@ -778,19 +865,39 @@ local function profList(learned)
   return list
 end
 
+-- 欄寬照表頭和每列的文字量；回傳表格要多寬。超過螢幕放得下的寬度時先縮名稱欄（截斷的名稱，列的滑鼠提示有完整物品）
 local function autoFit(cols)
+  local ws, nameC, total = {}, nil, -GAP
+  for c = 1, NCOL do
+    local col = cols[c]
+    if col then
+      local w = math.max(col[2], measure(frame.headFs[c]) + 4)
+      for i = 1, MAXLINES do
+        local l = frame.lines[i]
+        if l.used then w = math.max(w, measure(l.c[c]) + 4 + (col[4] and 26 or 0)) end
+      end
+      ws[c] = math.ceil(w)
+      total = total + ws[c] + GAP
+      if col[4] then nameC = c end
+    end
+  end
+  local cap = maxContentW()
+  if nameC and total > cap then
+    local w = math.max(cols[nameC][2], ws[nameC] - (total - cap))
+    total = total - ws[nameC] + w
+    ws[nameC] = w
+    for i = 1, MAXLINES do
+      local l = frame.lines[i]
+      if l.used then fitText(l.c[nameC], w - 26 - 4, l.c[nameC]:GetText()) end
+    end
+  end
   local x = 0
   for c = 1, NCOL do
     local col = cols[c]
     local hf = frame.headFs[c]
     if col then
       local iconW = col[4] and 26 or 0
-      local w = math.max(col[2], measure(hf) + 4)
-      for i = 1, MAXLINES do
-        local l = frame.lines[i]
-        if l.used then w = math.max(w, measure(l.c[c]) + 4 + iconW) end
-      end
-      w = math.ceil(w)
+      local w = ws[c]
       hf:ClearAllPoints(); hf:SetPoint("LEFT", frame.head, "LEFT", x, 0); hf:SetWidth(w); hf:SetJustifyH(col[3]); hf:Show()
       local hb = frame.headBtns[c]
       hb:ClearAllPoints(); hb:SetPoint("LEFT", frame.head, "LEFT", x, 0); hb:SetSize(w, 22); hb:SetShown(col[5] ~= nil)
@@ -805,10 +912,7 @@ local function autoFit(cols)
       for i = 1, MAXLINES do frame.lines[i].c[c]:Hide() end
     end
   end
-  local total = math.max(x - GAP, W)
-  frame.head:SetWidth(total)
-  for i = 1, MAXLINES do frame.lines[i]:SetWidth(total) end
-  frame:SetWidth(total + 28)
+  return math.max(total, W)
 end
 
 -- 右下角的調整把手：拖曳放大縮小整個視窗（左上角固定），大小記在設定裡
@@ -833,22 +937,10 @@ local function addResizeGrip(f)
       f:ClearAllPoints(); f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", leftPx / eff, topPx / eff)
     end)
   end)
-  g:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+  g:SetScript("OnMouseUp", function(self) -- 縮放變了，螢幕放得下的寬度和列數跟著變
+    self:SetScript("OnUpdate", nil); saveTopLeft(); f.stableW = nil; ProfLevel_Refresh()
+  end)
   g:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
-end
-
--- 按鈕寬度配合文字（字型較大時不會超出按鈕）
-local function fitButton(b, minW)
-  local fs = b:GetFontString()
-  local w = fs and fs.GetStringWidth and fs:GetStringWidth()
-  if type(w) == "number" and w > 0 then b:SetWidth(math.max(minW or 0, w + 24)) end
-end
-
-local function button(parent, w, label, onClick)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w + 16, 26); b:SetText(label); b:SetScript("OnClick", onClick)
-  fitButton(b, w + 16)
-  return b
 end
 
 
@@ -861,19 +953,12 @@ local function refreshImpl()
     t[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
   -- 分頁列（含右邊的開關）有多寬：視窗至少要這麼寬
-  local function rowEnd(list)
-    local x = 0
-    for _, t in ipairs(list) do if t[1]:IsShown() then x = x + t[2] + t[1]:GetWidth() end end
-    return x
-  end
   local tabs = { { frame.profitBtn, 12 }, { frame.queueBtn, 2 }, { frame.levelBtn, 2 }, { frame.gatherBtn, 2 } }
   frame.main:SetShown(db.tab ~= "gather"); frame.gather:SetShown(db.tab == "gather")
   if db.tab == "gather" then
     -- 採集分頁：每個採集／副專業一行（名稱、點數、下一階、去），下面是採集相關設定
     local g, all = frame.gather, learnedProfs(true)
-    g.trackBtn:SetText(NS.trackLabel()); fitButton(g.trackBtn, 60)
-    local fw = math.max(W + 28, rowEnd(tabs) + 14, rowEnd({ { g.trackBtn, 12 } }) + 14)
-    frame:SetWidth(fw)
+    setLabel(g.trackBtn, NS.trackLabel(), 60)
     local shown, nameW = {}, 0
     for _, p in ipairs(GATHER) do
       local sk = all[p.key]
@@ -902,6 +987,10 @@ local function refreshImpl()
         shown[i] = r
       end
     end
+    -- 寬度下限：分頁列、追蹤按鈕、技能名稱＋至少 80 的下一階提示＋去、採集路線（上次排版量到的）；上限是螢幕
+    local fw = math.min(maxContentW() + 28, math.max(W + 28, rowEnd(tabs) + 14, rowEnd({ { g.trackBtn, 12 } }) + 14,
+      math.ceil(nameW) + 14 + 80 + 32 + 28, frame.routeNeed or 0))
+    fw = setFrameWidth(fw)
     local y = -66
     for _, r in ipairs(shown) do
       r:ClearAllPoints(); r:SetPoint("TOPLEFT", 14, y); r:Show()
@@ -917,7 +1006,12 @@ local function refreshImpl()
     g.sep:ClearAllPoints(); g.sep:SetPoint("TOPLEFT", 14, y - 6); g.sep:SetWidth(fw - 28)
     y = y - 14
     g.trackBtn:ClearAllPoints(); g.trackBtn:SetPoint("TOPLEFT", 12, y)
-    local ry = NS.routeLayout and NS.quiet("採集路線", NS.routeLayout, g, fw, y - 34, all) -- 採集路線（RouteMap.lua）
+    local ry, need = nil, nil
+    if NS.routeLayout then ry, need = NS.quiet("採集路線", NS.routeLayout, g, fw, y - 34, all) end -- 採集路線（RouteMap.lua）
+    -- 路線標題列、區域名＋範圍比現在的視窗寬：記下來，馬上用新寬度重排一次（第二次一定放得下，不會一直重排）
+    local grow = need and need > fw and need ~= frame.routeNeed
+    frame.routeNeed = need
+    if grow then return refreshImpl() end
     frame:SetHeight(ry and (-ry + 14) or (-y + 26 + 16))
     return
   end
@@ -930,7 +1024,17 @@ local function refreshImpl()
   local T = tonumber(db.to[p.key]) or 300
   S = math.max(1, math.min(299, math.floor(S)))
   T = math.max(S + 1, math.min(300, math.floor(T)))
-  frame.profBtn:SetText(p.name .. (sk and string.format(L["（%d）"], sk.cur) or L["（沒學）"])); fitButton(frame.profBtn, 146)
+  -- 專業按鈕固定用最長的專業名稱量一次，切專業時後面的元件不會左右跳
+  if not frame.profW then
+    local w = 0
+    for _, q in ipairs(PROFS) do
+      for _, s in ipairs({ q.name .. L["（沒學）"], q.name .. string.format(L["（%d）"], 300) }) do
+        frame.profBtn:SetText(s); w = math.max(w, measure(frame.profBtn:GetFontString()))
+      end
+    end
+    frame.profW = math.max(146, math.ceil(w) + 24)
+  end
+  setLabel(frame.profBtn, p.name .. (sk and string.format(L["（%d）"], sk.cur) or L["（沒學）"]), frame.profW)
   if not frame.fromBox:HasFocus() then frame.fromBox:SetText(tostring(S)) end
   if not frame.toBox:HasFocus() then frame.toBox:SetText(tostring(T)) end
   local route, r, nVar = pickRoute(p.key, S, T)
@@ -939,30 +1043,38 @@ local function refreshImpl()
   local pbTotal, stepVal = payback(route, r)
   local qr
   if db.tab == "queue" then qr = queueNeeds(learned); current.r = qr; current.queue = true end
+  -- 價格來源那行（status）：說明文字，放不下用短版＋提示框；總計那行（total）只放數字結論，寬度算進視窗下限；
+  -- 警告（沒有 Auctionator、沒有價格、不知道材料）不跟數字搶位置：放進總計後面的黃色標記，滑鼠移上去看
   local api = auctionator()
-  frame.status:SetText(api and string.format(L["價格：Auctionator　從 %d 條路線選出最省的"], nVar)
-    or ("|cffff9d5c" .. L["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] .. "|r"))
+  local statusFull = api and string.format(L["價格：Auctionator　從 %d 條路線選出最省的"], nVar)
+    or ("|cffff9d5c" .. L["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] .. "|r")
+  local statusShort = api and L["價格：Auctionator"] or ("|cffff9d5c" .. L["沒有 Auctionator"] .. "|r")
+  local warns = {}
+  if not api then warns[1] = L["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] end
+  local totalFull, totalShort, emptyTxt
   if db.tab == "queue" then
     local nq = 0
     for _, q in ipairs(db.queue) do nq = nq + q.count end
-    frame.total:SetText(string.format(L["製作佇列 %d 項（共 %d 次）　材料花費 %s"], #db.queue, nq, money(qr.total))
-      .. (qr.missing > 0 and (L["　"] .. "|cffff9d5c" .. string.format(L["%d 項沒有價格"], qr.missing) .. "|r") or "")
-      .. (qr.unknown > 0 and (L["　"] .. "|cffff9d5c" .. string.format(L["%d 項還不知道材料（打開那個專業視窗一次）"], qr.unknown) .. "|r") or ""))
+    totalFull = string.format(L["製作佇列 %d 項（共 %d 次）　材料花費 %s"], #db.queue, nq, money(qr.total))
+    if qr.missing > 0 then warns[#warns + 1] = string.format(L["%d 項沒有價格"], qr.missing) end
+    if qr.unknown > 0 then warns[#warns + 1] = string.format(L["%d 項還不知道材料（打開那個專業視窗一次）"], qr.unknown) end
+    emptyTxt = L["佇列是空的：從「利潤」或「衝級」加入"]
   elseif db.tab == "profit" then
     local book, nr = db.recipes[p.key], 0
     if book then for _ in pairs(book) do nr = nr + 1 end end
-    frame.total:SetText(nr > 0 and string.format(L["%s 已記下 %d 個配方　點一下加入佇列（Shift 加 5、右鍵減 1）"], p.name, nr)
-      or ("|cffff9d5c" .. string.format(L["打開%s的專業視窗一次，插件就會記下你學會的配方"], p.name) .. "|r"))
+    totalFull = string.format(L["%s 已記下 %d 個配方"], p.name, nr) -- 怎麼加入佇列寫在列的滑鼠提示
+    emptyTxt = string.format(L["打開%s的專業視窗一次，插件就會記下你學會的配方"], p.name)
   else
-    frame.total:SetText(string.format(L["%s %d–%d　花費 %s"], p.name, S, T, money(r.total))
-      .. (pbTotal > 0.5 and string.format(L["　|cff9fd18b回本 %s|r　淨花費 %s"], money(pbTotal), money(math.max(0, r.total - pbTotal))) or ""))
-    -- 次要資訊放在價格來源那行，避免花費這行太長被截斷
-    frame.status:SetText((frame.status:GetText() or "") .. ((r.saved and r.saved > 0.5) and (L["　"] .. "|cff9fd18b" .. string.format(L["自製中間材料省 %s"], money(r.saved)) .. "|r") or "")
-      .. (r.missing > 0 and (L["　"] .. "|cffff9d5c" .. string.format(L["%d 項沒有價格"], r.missing) .. "|r") or ""))
+    totalShort = string.format(L["%s %d–%d　花費 %s"], p.name, S, T, money(r.total))
+    totalFull = totalShort .. (pbTotal > 0.5 and string.format(L["　|cff9fd18b回本 %s|r　淨花費 %s"], money(pbTotal), money(math.max(0, r.total - pbTotal))) or "")
+    if r.saved and r.saved > 0.5 then statusFull = statusFull .. L["　"] .. "|cff9fd18b" .. string.format(L["自製中間材料省 %s"], money(r.saved)) .. "|r" end
+    if r.missing > 0 then warns[#warns + 1] = string.format(L["%d 項沒有價格"], r.missing) end
+    emptyTxt = L["這個範圍不需要製作任何東西"]
   end
-  frame.decBtn:SetText(db.decompose and L["拆中間材料：開"] or L["拆中間材料：關"]); fitButton(frame.decBtn, 120)
-  frame.bagBtn:SetText(db.useBag and L["扣背包：開"] or L["扣背包：關"]); fitButton(frame.bagBtn, 90)
-  frame.bankBtn:SetText(db.useBank and L["扣銀行：開"] or L["扣銀行：關"]); fitButton(frame.bankBtn, 90)
+  frame.warn.lines = warns; frame.warn:SetShown(#warns > 0)
+  setLabel(frame.decBtn, db.decompose and L["拆中間材料：開"] or L["拆中間材料：關"], 120)
+  setLabel(frame.bagBtn, db.useBag and L["扣背包：開"] or L["扣背包：關"], 90)
+  setLabel(frame.bankBtn, db.useBank and L["扣銀行：開"] or L["扣銀行：關"], 90)
   frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
   frame.decBtn:ClearAllPoints()
@@ -1010,11 +1122,13 @@ local function refreshImpl()
   else
     for _, it in ipairs(current.r.list) do table.insert(rows, { item = it }) end
   end
-  local maxOff = math.max(0, #rows - MAXLINES)
+  -- 表格最多幾列照螢幕高度（20 列 × 1.25 倍在 768 高的介面會超出），多的用滾輪捲動
+  local vis = visibleRows()
+  local maxOff = math.max(0, #rows - vis)
   if offset > maxOff then offset = maxOff end
   local shown = 0
   for i = 1, MAXLINES do
-    local l, e = frame.lines[i], rows[i + offset]
+    local l, e = frame.lines[i], i <= vis and rows[i + offset] or nil
     l.e = e
     l.used = e ~= nil
     if e then
@@ -1079,52 +1193,71 @@ local function refreshImpl()
       l:Hide()
     end
   end
-  local emptyTxt = db.tab == "queue" and L["佇列是空的：從「利潤」或「衝級」加入"]
-    or (db.tab == "profit" and L["還沒有記下配方"] or L["這個範圍不需要製作任何東西"])
-  frame.foot:SetText(#rows == 0 and emptyTxt or (#rows > MAXLINES and string.format(L["共 %d 列，用滾輪捲動"], #rows) or ""))
+  -- 視窗寬：表格、每一排橫向串接的元件（分頁列、第二列）、總計那行（數字不截，最多撐到螢幕寬）取最大
+  local row2 = { { frame.prevBtn, 12 }, { frame.profBtn, 2 }, { frame.nextBtn, 2 }, { frame.fromLbl, 12, measure(frame.fromLbl) }, { frame.fromBox, 8 },
+    { frame.toLbl, 8, measure(frame.toLbl) }, { frame.toBox, 8 }, { frame.nowBtn, 6 } }
+  local warnW = frame.warn:IsShown() and frame.warn:GetWidth() + 6 or 0
+  frame.total:SetText(totalFull)
+  local cap = maxContentW()
+  local fw = math.max(autoFit(cols) + 28, rowEnd(tabs) + 14, rowEnd(row2) + 14, math.min(math.ceil(measure(frame.total)) + warnW, cap) + 28)
+  fw = setFrameWidth(fw)
+  local avail = fw - 28
+  frame.head:SetWidth(avail)
+  for i = 1, MAXLINES do frame.lines[i]:SetWidth(avail) end
+  fitTextTip(frame.total, avail - warnW, totalFull, totalShort)
+  frame.total:SetWidth(math.min(avail - warnW, math.ceil(measure(frame.total)) + 2)) -- 警告標記緊接在數字後面
+  -- 空的時候：說明放在表格的位置（可換行，不會因為按鈕太寬就看不到）
+  local emptyH = 0
+  frame.empty:SetShown(#rows == 0)
+  if #rows == 0 then
+    frame.empty:SetWidth(avail); frame.empty:SetText(emptyTxt)
+    local h = frame.empty:GetStringHeight()
+    emptyH = math.ceil(type(h) == "number" and h > 0 and h or 14) + 12
+  end
   -- 底部動作按鈕（依分頁）
-  local y = -(TOP + shown * ROW_H + 8)
+  local y = -(TOP + shown * ROW_H + emptyH + 8)
   frame.atrBtn:ClearAllPoints(); frame.atrBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, y)
-  frame.foot:ClearAllPoints()
-  if frame.atrBtn:IsShown() then frame.foot:SetPoint("LEFT", frame.atrBtn, "RIGHT", 10, 0) else frame.foot:SetPoint("TOPLEFT", 14, y - 5) end
   frame.act1:Hide(); frame.act2:Hide()
   if db.tab == "steps" then
-    frame.act1:SetText(L["全部加入製作佇列"]); fitButton(frame.act1, 140); frame.act1.fn = queueRoute; frame.act1:Show()
+    setLabel(frame.act1, L["全部加入製作佇列"], 140); frame.act1.fn = queueRoute; frame.act1:Show()
   elseif db.tab == "queue" then
-    frame.act1:SetText(L["製作下一個"]); fitButton(frame.act1, 120); frame.act1.fn = craftNext; frame.act1:Show()
-    frame.act2:SetText(L["清空佇列"]); fitButton(frame.act2, 90); frame.act2.fn = function() wipe(db.queue) end; frame.act2:Show()
+    setLabel(frame.act1, L["製作下一個"], 120); frame.act1.fn = craftNext; frame.act1:Show()
+    setLabel(frame.act2, L["清空佇列"], 90); frame.act2.fn = function() wipe(db.queue) end; frame.act2:Show()
   end
   frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
   frame.act2:ClearAllPoints(); frame.act2:SetPoint("RIGHT", frame.act1, "LEFT", -6, 0)
-  -- 底部說明不壓到右邊按鈕
-  local right = frame.act2:IsShown() and frame.act2 or (frame.act1:IsShown() and frame.act1)
-  frame.foot:SetWordWrap(false)
-  if right then frame.foot:SetPoint("RIGHT", right, "LEFT", -8, 0) end
-  -- 放不下就整句不顯示（版面排好後才知道會不會被截斷）
-  frame.foot:SetAlpha(0)
-  C_Timer.After(0, function() frame.foot:SetAlpha(frame.foot:IsTruncated() and 0 or 1) end)
+  -- 底部「共 N 列」：夾在左右按鈕中間，放不下用短版，再不行截斷＋提示框（不會整句消失）
   local hasAct = frame.act1:IsShown() or frame.atrBtn:IsShown()
-  frame:SetHeight(TOP + shown * ROW_H + ((hasAct or frame.foot:GetText() ~= "") and 44 or 18))
-  autoFit(cols)
-  if frame:GetWidth() < rowEnd(tabs) + 14 then frame:SetWidth(rowEnd(tabs) + 14) end
-  -- 升階提示（點數到上限前 10 點或已夠升階時才出現）：放不下先拿掉括號條件，再截斷；價格來源排在後面，剩下的寬度才給它
+  frame.foot:ClearAllPoints()
+  if #rows > vis then
+    local left = frame.atrBtn:IsShown() and frame.atrBtn:GetWidth() + 10 + 12 or 14
+    frame.foot:SetPoint("LEFT", frame, "TOPLEFT", left, y - 13)
+    local footW = fw - left - rowEnd({ { frame.act1, 14 }, { frame.act2, 6 } }) - 8
+    frame.foot:SetWidth(math.max(1, footW))
+    fitTextTip(frame.foot, footW, string.format(L["共 %d 列，用滾輪捲動"], #rows), string.format(L["共 %d 列"], #rows))
+  else
+    frame.foot:SetText(""); frame.foot:Hide(); frame.foot.tip:Hide()
+  end
+  frame:SetHeight(TOP + shown * ROW_H + emptyH + ((hasAct or frame.foot:IsShown()) and 44 or 18))
+  -- 升階提示（點數到上限前 10 點或已夠升階時才出現）：放不下先拿掉括號條件，再截斷（滑鼠移上去看全文和訓練師位置）；
+  -- 價格來源接在後面，至少留 60 寬，放不下用短版＋提示框
   local tr, low, R, short = rankText(p.key, sk)
   if tr and sk.cur < math.min(sk.max - 10, R.skill) then tr = nil end
-  local avail = frame:GetWidth() - 28
-  frame.total:SetWidth(avail)
   frame.status:ClearAllPoints()
   if tr then
     frame.goBtn.R, frame.goBtn.full, frame.trainHit.full = R, tr, tr
     frame.goBtn:SetShown(R.at[1].map ~= nil)
     local goW = frame.goBtn:IsShown() and frame.goBtn:GetWidth() + 6 or 0
-    fitText(frame.train, avail - goW, tr, short); frame.train:Show(); frame.trainHit:Show()
+    fitText(frame.train, avail - goW - 70, tr, short); frame.trainHit:Show()
     if low then frame.train:SetTextColor(.5, .5, .5) else frame.train:SetTextColor(1, .82, 0) end
     local rest = avail - math.ceil(measure(frame.train)) - goW - 10
     frame.status:SetPoint("LEFT", frame.goBtn:IsShown() and frame.goBtn or frame.train, "RIGHT", 10, 0)
-    frame.status:SetWidth(math.max(1, rest)); frame.status:SetShown(rest >= 60)
+    frame.status:SetWidth(rest)
+    fitTextTip(frame.status, rest, statusFull, statusShort)
   else
     frame.train:Hide(); frame.trainHit:Hide(); frame.goBtn:Hide(); frame.goBtn.R = nil
-    frame.status:SetPoint("TOPLEFT", 14, -96); frame.status:SetWidth(avail); frame.status:Show()
+    frame.status:SetPoint("TOPLEFT", 14, -96); frame.status:SetWidth(avail)
+    fitTextTip(frame.status, avail, statusFull, statusShort)
   end
 end
 
@@ -1167,14 +1300,15 @@ end
 
 local function buildFrame()
   frame = CreateFrame("Frame", "ProfLevelFrame", UIParent, "BasicFrameTemplateWithInset")
-  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1)
+  frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1); placeTopLeft()
+  frame:SetClampedToScreen(true) -- 撐寬或貼在專業視窗右邊時不跑出螢幕
   addResizeGrip(frame)
   -- 右上角的關閉鈕：範本預設走 HideUIPanel，戰鬥中可能被擋而關不掉；改成直接隱藏（一般視窗隨時都能關）
   local close = frame.CloseButton or _G[frame:GetName() .. "CloseButton"]
   if close then close:SetScript("OnClick", function() frame:Hide() end) end
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
-  frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+  frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); saveTopLeft() end)
   frame:SetFrameStrata("DIALOG")
   tinsert(UISpecialFrames, "ProfLevelFrame")
   if not frame.TitleText then
@@ -1239,6 +1373,7 @@ local function buildFrame()
   -- 第三、四列：價格來源、總花費
   frame.status = main:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   frame.status:SetPoint("TOPLEFT", 14, -96); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
+  tipArea(frame.status, main)
   -- 升階提示：快到上限時佔掉價格來源那行的開頭，「去」設航點；放不下時縮短，滑鼠移上去看完整文字
   frame.train = main:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   frame.train:SetPoint("TOPLEFT", 14, -96); frame.train:SetJustifyH("LEFT"); frame.train:SetWordWrap(false); frame.train:Hide()
@@ -1251,6 +1386,20 @@ local function buildFrame()
   frame.goBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.total = main:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   frame.total:SetPoint("TOPLEFT", 14, -116); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
+  tipArea(frame.total, main)
+  -- 警告標記：接在總計後面，滑鼠移上去看沒有價格、不知道材料等提醒
+  frame.warn = CreateFrame("Frame", nil, main); frame.warn:SetSize(18, 18); frame.warn:EnableMouse(true); frame.warn:Hide()
+  frame.warn:SetPoint("LEFT", frame.total, "RIGHT", 6, 0)
+  local warnIcon = frame.warn:CreateTexture(nil, "OVERLAY"); warnIcon:SetAllPoints(); warnIcon:SetTexture("Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew")
+  frame.warn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    for _, w in ipairs(self.lines or {}) do GameTooltip:AddLine(w, 1, .62, .36, true) end
+    GameTooltip:Show()
+  end)
+  frame.warn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- 表格是空的時候的說明（佔表格第一列的位置，可換行）
+  frame.empty = main:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+  frame.empty:SetPoint("TOPLEFT", 14, -(TOP + 6)); frame.empty:SetJustifyH("LEFT"); frame.empty:SetWordWrap(true); frame.empty:Hide()
   -- 衝級子分頁與購物清單按鈕
   frame.stepsBtn = button(main, 50, L["步驟"], function() db.tab = "steps"; db.lvTab = "steps"; offset = 0; ProfLevel_Refresh() end)
   frame.shopBtn = button(main, 50, L["材料"], function() db.tab = "shop"; db.lvTab = "shop"; offset = 0; ProfLevel_Refresh() end)
@@ -1394,7 +1543,12 @@ local function buildFrame()
   frame:EnableMouseWheel(true)
   frame:SetScript("OnMouseWheel", function(_, delta) offset = math.max(0, offset - delta * 3); ProfLevel_Refresh() end)
   frame.foot = main:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-  frame:SetScript("OnShow", function() safe("比較表", refreshImpl) end)
+  frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(false); tipArea(frame.foot, main)
+  frame:SetScript("OnShow", function()
+    -- 舊版存的是置中或其他錨點：第一次打開時照目前看到的位置換成左上角（貼在專業視窗旁邊時本來就是左上角，不動）
+    if frame:GetPoint() ~= "TOPLEFT" then saveTopLeft() end
+    safe("比較表", refreshImpl)
+  end)
   frame:Hide()
 end
 
@@ -1418,12 +1572,12 @@ end
 local function updateProfUI()
   if not profUI or not profUI:IsVisible() then return end
   local open = frame and frame:IsShown() and true or false
-  profUI.text:SetShown(open); profUI.addBtn:SetShown(open)
-  profUI.openBtn:SetText(open and L["關閉幫手"] or L["專業幫手"]); fitButton(profUI.openBtn, 110)
+  profUI.text:SetShown(open); profUI.addBtn:SetShown(open); profUI.text.tip:Hide()
+  setLabel(profUI.openBtn, open and L["關閉幫手"] or L["專業幫手"], 110)
   if not open then return end
   local p, id = openProf(), selectedRecipe()
   profUI.id, profUI.prof, profUI.rec = id, p and p.key, nil
-  if not p or not id then profUI.text:SetText(""); return end
+  if not p or not id then profUI.text:SetText(""); profUI.text.tip:Hide(); return end
   priceCache = {}
   local rec = db.recipes[p.key] and db.recipes[p.key][id]
   profUI.rec = rec
@@ -1437,7 +1591,8 @@ local function updateProfUI()
         cost > 0 and math.floor(profit / cost * 100 + 0.5) or 0)
     elseif cost then txt = string.format(L["成本 %s（沒有售價）"], money(cost)) end
   end
-  profUI.text:SetText(txt .. (qn > 0 and (L["　"] .. "|cffffd100" .. string.format(L["佇列 ×%d"], qn) .. "|r") or ""))
+  -- 面板 360 寬：放不下就截斷，滑鼠移上去看全文
+  fitTextTip(profUI.text, 356, txt .. (qn > 0 and (L["　"] .. "|cffffd100" .. string.format(L["佇列 ×%d"], qn) .. "|r") or ""))
 end
 local function dockOpen(force)
   if (not force and not db.dock) or not ProfessionsFrame then return end
@@ -1465,9 +1620,10 @@ local function setupProfUI()
   local anchor = _G.AuctionatorCraftingInfoProfessionsFrame
   if anchor then profUI:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -40) else profUI:SetPoint("BOTTOMLEFT", sf, "BOTTOMLEFT", 24, 70) end
   profUI.text = profUI:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  profUI.text:SetPoint("TOPLEFT", 2, 0); profUI.text:SetJustifyH("LEFT")
+  profUI.text:SetPoint("TOPLEFT", 2, 0); profUI.text:SetJustifyH("LEFT"); profUI.text:SetWordWrap(false)
+  tipArea(profUI.text, profUI)
   local b = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  b:SetSize(110, 24); b:SetText(L["加入佇列"]); profUI.addBtn = b
+  b:SetSize(110, 24); profUI.addBtn = b
   b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b:SetScript("OnClick", function(_, btn)
     if not profUI.id then return end
@@ -1483,13 +1639,13 @@ local function setupProfUI()
     GameTooltip:AddLine(L["左鍵 +1、Shift+左鍵 +5、右鍵 −1"], 1, 1, 1); GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  fitButton(b, 110)
+  setLabel(b, L["加入佇列"], 110)
   local o = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  o:SetSize(110, 24); o:SetText(L["專業幫手"]); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
+  o:SetSize(110, 24); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
   b:SetPoint("LEFT", o, "RIGHT", 6, 0)
   -- 點了才打開（不會改「自動開啟」的設定）
   o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else dockOpen(true) end end)
-  fitButton(o, 110)
+  setLabel(o, L["專業幫手"], 110)
   if sf.Init then hooksecurefunc(sf, "Init", function() C_Timer.After(0, function() safe("專業視窗", updateProfUI) end) end) end
   profUI:SetScript("OnShow", function() safe("專業視窗", updateProfUI) end)
   ProfessionsFrame:HookScript("OnShow", function() safe("專業視窗", dockOpen) end)
@@ -1557,7 +1713,7 @@ SlashCmdList.PROFLEVEL = function(input)
     msg(L["打開專業視窗時自動顯示專業助手："] .. (db.dock and L["開"] or L["關"]))
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
-    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg(L["視窗縮放："] .. v)
+    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v); if not docked then placeTopLeft() end; frame.stableW = nil end; msg(L["視窗縮放："] .. v)
     else msg(string.format(L["用法：/sprof scale 1.2（0.5～2，目前 %s）"], tostring(db.scale or 1))) end
   elseif cmd == "guild" then
     NS.guildSlash((input or ""):match("^%s*%S+%s+(.-)%s*$"))
@@ -1583,10 +1739,11 @@ SlashCmdList.PROFLEVEL = function(input)
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
   elseif cmd == "lang" then -- 測試用：中文客戶端也能預覽其他語言的介面（偵測專業、讀遊戲文字仍照客戶端語言）
     local v = (input or ""):lower():match("lang%s+(%a+)")
-    if v == "en" or (v == "zh" and NS.clientZh) or v == "auto" then -- 非中文客戶端的字型沒有中文字，不給切中文
+    -- stress：英文字串加長約 35%，加新語言前先用它檢查每個分頁的版面
+    if v == "en" or v == "stress" or (v == "zh" and NS.clientZh) or v == "auto" then -- 非中文客戶端的字型沒有中文字，不給切中文
       db.lang = v ~= "auto" and v or nil
       msg(string.format(L["介面語言：%s（/reload 後生效）"], v))
-    else msg(string.format(L["用法：/sprof lang en/zh/auto（目前 %s）"], db.lang or "auto")) end
+    else msg(string.format(L["用法：/sprof lang en/zh/stress/auto（目前 %s）"], db.lang or "auto")) end
   elseif cmd == "debug" then
     local learned = learnedProfs()
     local t = {}
@@ -1618,12 +1775,12 @@ SlashCmdList.PROFLEVEL = function(input)
       msg(L["專業視窗 API：沒有"])
     end
   else
-    msg(L["/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果　/sprof lang en/zh/auto 介面語言"])
+    msg(L["/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學　/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果　/sprof lang en/zh/auto 介面語言（stress＝版面壓力測試，英文加長 35%）"])
   end
 end
 
 NS.ensureDB, NS.msg, NS.learnedProfs, NS.recipes = ensureDB, msg, learnedProfs, recipes
-NS.goTo, NS.button, NS.fitButton, NS.fitText, NS.measure = goTo, button, fitButton, fitText, measure -- 採集路線區塊共用
+NS.goTo, NS.button, NS.fitButton, NS.setLabel, NS.fitText, NS.measure, NS.rowEnd = goTo, button, fitButton, setLabel, fitText, measure, rowEnd -- 採集路線、追蹤提醒共用
 function NS.quiet(where, fn, ...) -- 跟 safe 一樣記錯誤，但不在聊天視窗顯示（公會同步要完全安靜）
   local r = { pcall(fn, ...) }
   if not r[1] then logError(where, tostring(r[2])); return nil end
