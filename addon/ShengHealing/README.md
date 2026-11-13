@@ -102,3 +102,15 @@ HPS＝治療量 ÷ 占用時間（施法時間或公共冷卻）。有冷卻的�
 ```
 node tools/addon-data.mjs
 ```
+
+## English
+
+Sheng Healing compares HPS (healing per second) and HPM (healing per mana) for every healing spell and rank in WoW Forever, and simulates fights to find the most mana-efficient way to keep the tank alive. The interface follows the client language: Traditional Chinese on zhTW/zhCN clients, English everywhere else.
+
+- Spell tooltips get an HPS / HPM line; the best HPS and best HPM rank in the same category are starred.
+- `/shps` opens the comparison table (Single, Group, Cooldown and Analysis tabs). Click Heal, HPS or HPM to sort. An orange % after a spell name is the downrank penalty.
+- Analysis tab (out of combat): simulates a fight with your real mana, mana regen (5-second rule) and crit chance. Tank mode compares single heals, efficient + emergency combos and HoT rotations; Group mode compares each class's group-healing rotations.
+- Healing amounts are read from the spell descriptions (English and Chinese wording); spell coefficients come from `Data.lua`.
+- Commands: `/shps` toggle the window, `/shps tip` tooltips, `/shps targets 2-10` group size, `/shps pct <n>|auto` healing bonus, `/shps minimap` minimap button, `/shps downrank` downrank penalty, `/shps desc incl|base|auto` description values, `/shps lang en|zh|auto` interface language (after `/reload`), `/shps debug` show what the addon read, `/shps reset` reset settings.
+
+Translations live in `Locales\`: one file per language registers `HealHPS_Locales[code]` with `ui` (interface text keyed by the Chinese original) and `game` (description patterns and spell names for that client language). To add a language, add a file and list it in the toc before `Core.lua`.

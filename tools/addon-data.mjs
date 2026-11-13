@@ -26,18 +26,18 @@ const GAME = {
   poh:   { ids: [596],   names: ['治療禱言'],             parse: 'range' },
   bh:    { ids: [32546], names: ['束縛治療'],             parse: 'range' },
   pen:   { ids: [402174, 47540], names: ['懺悟', '苦修'],         parse: null },
-  pom:   { ids: [33076], names: ['癒合禱言', '愈合禱言'], parse: 'single' },
+  pom:   { ids: [401859, 33076], names: ['癒合禱言', '愈合禱言'], parse: 'single' },
   hn:    { ids: [15237], names: ['神聖新星'],             parse: 'range' },
   ht:    { ids: [5185],  names: ['治療之觸'],             parse: 'range' },
   rejuv: { ids: [774],   names: ['回春術'],               parse: 'hot' },
   rg:    { ids: [8936],  names: ['癒合', '愈合'],         parse: 'range' },
   rgh:   { ids: [8936],  names: ['癒合', '愈合'],         parse: 'regrowth', fallback: 'rg' },
   tranq: { ids: [740],   names: ['寧靜'],                 parse: 'tick' },
-  wg:    { ids: [48438], names: ['野性痊癒', '野性成長'], parse: null },
+  wg:    { ids: [408120, 48438], names: ['野性痊癒', '野性成長'], parse: null },
   hw:    { ids: [331],   names: ['治療波'],               parse: 'range' },
   lhw:   { ids: [8004],  names: ['次級治療波'],           parse: 'range' },
   ch:    { ids: [1064],  names: ['治療鍊', '治療鏈'],     parse: 'range' },
-  ript:  { ids: [61295], names: ['激流'],                 parse: null },
+  ript:  { ids: [408521, 61295], names: ['激流'],                 parse: null },
 };
 const CLASS = { paladin_holy: 'PALADIN', priest_holy: 'PRIEST', priest_disc: 'PRIEST', druid_resto: 'DRUID', shaman_resto: 'SHAMAN' };
 const LABEL = { rg: '癒合（不含HoT）', rgh: '癒合', vigil: '聖光戒備→震擊', hn: '神聖新星（治療）', pen: '懺悟', pom: '癒合禱言', wg: '野性痊癒', ch: '治療鍊' };

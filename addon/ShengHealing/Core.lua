@@ -4,10 +4,25 @@
 
 local ADDON = ...
 local D = HealHPS_Data
+-- ── 語言 ─────────────────────────────────────────────────────────────────────
+-- 每個語言一個檔（Locales\*.lua），登記在 HealHPS_Locales[語言代碼]：
+--   ui＝介面文字（鍵是中文原文）；game＝解析遊戲文字用的樣式與技能名稱
+-- 解析技能說明一律照客戶端語言；介面文字可用 /shps lang 另外指定（/reload 後生效）
+local LOCALES = HealHPS_Locales or {}
+local GAME_LOCALE = GetLocale and GetLocale() or "enUS"
+-- 有該語言的檔就用；中文客戶端沒有專屬檔時用繁中；其他沒有檔的語言用英文
+local function localeOf(code) return LOCALES[code] or (code:find("^zh") and LOCALES.zhTW) or LOCALES.enUS end
+local GAME = localeOf(GAME_LOCALE).game
+-- 介面文字：查不到就回傳原文（中文）
+local L = setmetatable({}, { __index = function(_, k) return k end })
+local function applyLang(lang)
+  local ui = localeOf(lang == "en" and "enUS" or lang == "zh" and "zhTW" or GAME_LOCALE).ui
+  for k, v in pairs(ui or {}) do L[k] = v end
+end
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
   -- 團刷分析：人數、成員／坦克生命、坦克每次傷害與間隔、範圍每次傷害與間隔、範圍命中（0＝全員）、戰鬥長度
-  anaGroup = false, gN = 5, gHp = 3200, gTankHp = 5500, gTankHit = 400, gTankGap = 2, gAoe = 150, gAoeGap = 3, gAoeK = 0, gFight = 45 }
+  anaGroup = false, gN = 5, gHp = 3200, gTankHp = 5500, gTankHit = 400, gTankGap = 2, gAoe = 150, gAoeGap = 3, gAoeK = 0, gFight = 45, lang = "auto" }
 local LOGO = "Interface\\AddOns\\ShengHealing\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
@@ -36,12 +51,13 @@ local function ensureDB()
   HealHPSCharDB = HealHPSCharDB or {}
   for k, v in pairs(DEFAULTS) do if HealHPSCharDB[k] == nil then HealHPSCharDB[k] = v end end
   db = HealHPSCharDB
+  applyLang(db.lang)
   if type(db.targets) ~= "number" or db.targets < 2 then db.targets = 2 elseif db.targets > 10 then db.targets = 10 end -- 群補至少 2 人
   if type(db.expanded) ~= "table" then db.expanded = {} end -- 展開了哪些技能
   return db
 end
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7阿聖|r|cffd9b25f治療幫手|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage(L["|cff4fc3f7阿聖|r|cffd9b25f治療幫手|r "] .. s) end
 
 -- ── 遊戲 API 相容層：永恆用新版引擎（C_Spell／C_SpellBook），經典版用舊的全域函式 ─────
 local API = {}
@@ -127,7 +143,7 @@ local function safe(where, fn, ...)
       log[key] = { n = 1, t = date("%m/%d %H:%M") }
     end
   end
-    if not reported[err] then reported[err] = true; msg("|cffff7b7b" .. where .. "出錯：|r" .. err .. "　請把這行回報給開發者") end
+    if not reported[err] then reported[err] = true; msg(string.format(L["|cffff7b7b%s出錯：|r%s　請把這行回報給開發者"], L[where], err)) end
   end
   return ok
 end
@@ -135,7 +151,7 @@ local function fmt1(n) return n and string.format("%.1f", n) or "—" end
 local function fmt2(n) return n and string.format("%.2f", n) or "—" end
 local function fint(n) n = math.floor((n or 0) + 0.5); return BreakUpLargeNumbers and BreakUpLargeNumbers(n) or tostring(n) end
 
--- ── 天賦：名稱用法術 ID 向遊戲查（不受語言影響），查不到用繁中名稱 ─────────────
+-- ── 天賦：名稱用法術 ID 向遊戲查（不受語言影響），查不到用繁中名稱（及客戶端語言檔裡的對應名稱） ─────
 local TALENTS = {
   PALADIN = { { ids = { 20237 }, names = { "治療之光" }, per = 4, what = "heal" } },
   PRIEST  = { { ids = { 14898 }, names = { "精神治療" }, per = 2, what = "heal" },
@@ -147,7 +163,10 @@ local TALENTS = {
 local function nameSet(ids, names)
   local set = {}
   for _, id in ipairs(ids) do local n = API.SpellInfo(id); if n then set[n] = true end end
-  for _, n in ipairs(names) do set[n] = true end
+  for _, n in ipairs(names) do
+    set[n] = true
+    if GAME.spells and GAME.spells[n] then set[GAME.spells[n]] = true end
+  end
   return set
 end
 
@@ -193,11 +212,11 @@ end
 local SIT = {
   PALADIN = { label = "聖光誓約", tip = "誓約目標",
     help = "對誓約目標施放聖光術、聖光閃現、神聖震擊時的固定加成。計入：比較表改用誓約目標的數值。" },
-  PRIEST = { label = "聖光束縛", tip = "對他人施放（含自療）", names = { "聖光束縛", "神聖束縛" },
+  PRIEST = { label = "聖光束縛", tip = "對他人施放（含自療）", ids = { 1328569 }, names = { "聖光束縛", "神聖束縛" },
     help = "快速治療施放在別人身上時，自己也回復同等治療量的 50%。計入：比較表把自療算進快速治療。" },
   SHAMAN = { label = "激流加成", tip = "目標有激流",
     help = "目標身上有你的激流時，直接對他施放的治療鍊效果 +25%（只算第一跳）。計入：比較表改用這個數值。" },
-  DRUID = { label = "綻放", tip = "含綻放", names = { "綻放", "盛放", "花開" },
+  DRUID = { label = "綻放", tip = "含綻放", ids = { 1328621 }, names = { "綻放", "盛放", "花開" },
     help = "回春術、癒合的 HoT 自然結束時，目標再回復你精神 100% 的生命（被驅散只有 50%）。計入：比較表把它算進回春術和癒合（含HoT）。" },
 }
 local OATH = { ids = { 1328548 }, names = { "聖光誓約", "聖光誓言" } }
@@ -224,13 +243,13 @@ local function parseOath(desc)
 end
 
 local function scanTalents(class)
-  local res = { heal = 0, absorb = 0, found = {}, source = "讀不到" }
+  local res = { heal = 0, absorb = 0, found = {}, source = L["讀不到"] }
   local defs = TALENTS[class] or {}
   for _, def in ipairs(defs) do def.set = def.set or nameSet(def.ids, def.names) end
   OATH.set = OATH.set or nameSet(OATH.ids, OATH.names)
   local oathRank, oathSid = 0, nil
   local sit = SIT[class]
-  if sit and sit.names and not sit.set then sit.set = {}; for _, n in ipairs(sit.names) do sit.set[n] = true end end
+  if sit and sit.names and not sit.set then sit.set = nameSet(sit.ids or {}, sit.names) end
   res.learned = {}
   local function seen(name, rank)
     if name and (rank or 0) > 0 then
@@ -241,7 +260,7 @@ local function scanTalents(class)
   local function add(def, name, rank, maxRank)
     if rank and rank > 0 then
       res[def.what] = res[def.what] + rank * def.per
-      table.insert(res.found, string.format("%s %d/%d（+%d%%）", name, rank, maxRank or 0, rank * def.per))
+      table.insert(res.found, string.format(L["%s %d/%d（+%d%%）"], name, rank, maxRank or 0, rank * def.per))
     end
   end
   local tr = traitRanks()
@@ -283,14 +302,16 @@ local function getDesc(id)
   return (d:gsub("(%d),(%d)", "%1%2"))
 end
 
-local RANGE_SEPS = { "至", "到", "to" }
+-- 解析樣式在語言檔的 game 欄（rangeSeps、damageBefore／damageAfter、hot、absorb、single、tick、tickDur、extra、dur）
 local function parseRange(d)
   local best
-  for _, sep in ipairs(RANGE_SEPS) do
-    for pos, a, b in d:gmatch("()(%d+)%s*" .. sep .. "%s*(%d+)") do
+  for _, sep in ipairs(GAME.rangeSeps) do
+    for pos, a, b, e in d:gmatch("()(%d+)%s*" .. sep .. "%s*(%d+)()") do
       local pre = d:sub(math.max(1, pos - 18), pos - 1)
-      -- 「造成 A 至 B 點傷害」是傷害，不是治療（神聖新星、神聖震擊）
-      if not pre:find("造成", 1, true) and (not best or pos < best[1]) then best = { pos, tonumber(a), tonumber(b) } end
+      -- 「造成 A 至 B 點傷害」「A to B Holy damage」是傷害，不是治療（神聖新星、神聖震擊）
+      local hurt = (GAME.damageBefore and pre:find(GAME.damageBefore, 1, true))
+        or (GAME.damageAfter and d:sub(e, e + 16):find(GAME.damageAfter))
+      if not hurt and (not best or pos < best[1]) then best = { pos, tonumber(a), tonumber(b) } end
     end
   end
   if best then return best[2], best[3] end
@@ -300,16 +321,17 @@ end
 local function parseDesc(mode, d)
   if not d or not mode then return nil end
   if mode == "range" then return parseRange(d)
-  elseif mode == "hot" then local n = tonumber(d:match("總計%s*(%d+)")); return n, n
-  elseif mode == "absorb" then local n = tonumber(d:match("吸收%s*(%d+)")); return n, n
-  elseif mode == "single" then local n = tonumber(d:match("治療%s*(%d+)%s*點")); return n, n
+  elseif mode == "hot" then local n = tonumber(d:match(GAME.hot)); return n, n
+  elseif mode == "absorb" then local n = tonumber(d:match(GAME.absorb)); return n, n
+  elseif mode == "single" then local n = tonumber(d:match(GAME.single)); return n, n
   elseif mode == "tick" then
-    local iv, amt = d:match("每%s*(%d+)%s*秒恢復%s*(%d+)")
-    local dur = d:match("持續%s*(%d+)%s*秒")
+    local iv, amt = d:match(GAME.tick)
+    if GAME.tickAmountFirst then iv, amt = amt, iv end
+    local dur = d:match(GAME.tickDur)
     if iv and amt and dur then local n = tonumber(amt) * tonumber(dur) / tonumber(iv); return n, n end
   elseif mode == "regrowth" then
     local a, b = parseRange(d)
-    local hot = tonumber(d:match("額外的?%s*(%d+)%s*點"))
+    local hot = tonumber(d:match(GAME.extra))
     return a, b, hot
   end
 end
@@ -382,7 +404,7 @@ local function readRank(st, r, id, ctx)
   local f = st.f
   local d = f.ranks[r] or (f.fallback and scan.families[f.fallback] and scan.families[f.fallback].f.ranks[r])
   local src = { }
-  local row = { key = f.key, label = f.label, rank = r, id = id or nil, f = f, src = src }
+  local row = { key = f.key, label = L[f.label], rank = r, id = id or nil, f = f, src = src }
   -- 學習等級
   local learn = API.LevelLearned(id)
   if learn and learn > 0 then row.learn = learn; src.learn = "遊戲" elseif d then row.learn = d.learn; src.learn = "資料" else return nil end
@@ -414,7 +436,7 @@ local function readRank(st, r, id, ctx)
   local desc = getDesc(id)
   if id and not desc then scan.missingDesc = true end
   local gmin, gmax, ghot = parseDesc(f.parse, desc)
-  local gdur = desc and tonumber(desc:match("(%d+)%s*秒內"))
+  local gdur = desc and tonumber(desc:match(GAME.dur))
   if gmin and gmax then
     -- 若說明已經把治療效果加進去，扣回來
     if d and ctx.bonus > 0 and not ctx.descIncl then
@@ -631,13 +653,13 @@ end
 local DT = 0.1
 -- 單坦、團刷共用：戰鬥中或讀不到回藍（屬性被鎖住）時回傳錯誤文字
 local function anaEnv()
-  if InCombatLockdown and InCombatLockdown() then return nil, "戰鬥中不分析" end
+  if InCombatLockdown and InCombatLockdown() then return nil, L["戰鬥中不分析"] end
   local secret = issecretvalue or function() return false end
   local okR, regenI, regenA = pcall(GetManaRegen)
   local okM, maxMana = pcall(UnitPowerMax, "player", 0)
   if not okR or not okM or secret(regenI) or secret(regenA) or secret(maxMana)
     or type(regenI) ~= "number" or type(regenA) ~= "number" or type(maxMana) ~= "number" or maxMana <= 0 then
-    return nil, "讀不到回藍"
+    return nil, L["讀不到回藍"]
   end
   local okC, crit = pcall(GetSpellCritChance, 2) -- 2＝神聖系；回傳百分比
   crit = (okC and not secret(crit) and type(crit) == "number") and crit / 100 or 0
@@ -764,15 +786,15 @@ local function analyze()
     local name, long
     if #keep > 0 then
       local a, b = {}, {}
-      for i, k in ipairs(keep) do a[i], b[i] = nm(k, " "), nm(k, " 等級") end
-      name = "保持" .. table.concat(a, "、") .. "＋" .. nm(main, " ")
-      long = "保持" .. table.concat(b, "、") .. "＋" .. nm(main, " 等級") .. (emerg ~= main and ("，救命 " .. nm(emerg, " 等級")) or "")
+      for i, k in ipairs(keep) do a[i], b[i] = nm(k, " "), nm(k, L[" 等級"]) end
+      name = L["保持"] .. table.concat(a, L["、"]) .. L["＋"] .. nm(main, " ")
+      long = L["保持"] .. table.concat(b, L["、"]) .. L["＋"] .. nm(main, L[" 等級"]) .. (emerg ~= main and (L["，救命 "] .. nm(emerg, L[" 等級"])) or "")
     else
-      local tag = pause and string.format("（停到 %d%%）", math.floor(pause * 100 + 0.5)) or ""
+      local tag = pause and string.format(L["（停到 %d%%）"], math.floor(pause * 100 + 0.5)) or ""
       -- 主力＋救命：「聖光閃現 1（救命 3）」；救命是別招就寫全名
-      local save = emerg ~= main and ("（救命 " .. (emerg.r.label == main.r.label and tostring(emerg.r.rank) or nm(emerg, " ")) .. "）") or ""
+      local save = emerg ~= main and string.format(L["（救命 %s）"], emerg.r.label == main.r.label and tostring(emerg.r.rank) or nm(emerg, " ")) or ""
       name = nm(main, " ") .. save .. tag
-      long = nm(main, " 等級") .. (emerg ~= main and ("，坦克快倒時改放 " .. nm(emerg, " 等級")) or "") .. tag
+      long = nm(main, L[" 等級"]) .. (emerg ~= main and string.format(L["，坦克快倒時改放 %s"], nm(emerg, L[" 等級"])) or "") .. tag
     end
     local allApplied = true
     for _, k in ipairs(keep) do if not applied[k.key] then allApplied = false end end
@@ -1300,16 +1322,16 @@ local function analyzeGroup()
     for _, g in ipairs(two("poh")) do
       local G = mk(g, "poh")
       add(nm(g), { group = G })
-      if rn then add("鋪" .. nm(rn) .. "＋" .. nm(g), { group = G, hot = mk(rn, "hot") }, "hot") end
-      if pm then add(nm(pm) .. "＋" .. nm(g), { group = G, pom = mk(pm, "pom") }, "pom") end
+      if rn then add(L["鋪"] .. nm(rn) .. L["＋"] .. nm(g), { group = G, hot = mk(rn, "hot") }, "hot") end
+      if pm then add(nm(pm) .. L["＋"] .. nm(g), { group = G, pom = mk(pm, "pom") }, "pom") end
     end
   elseif cls == "DRUID" then
-    for _, h in ipairs(two("rejuv")) do add("鋪" .. nm(h), { hot = mk(h, "hot") }, "hot") end
+    for _, h in ipairs(two("rejuv")) do add(L["鋪"] .. nm(h), { hot = mk(h, "hot") }, "hot") end
     local rj, tq = hiOf("rejuv"), hiOf("tranq")
     if rj then
       for _, w in ipairs(two("wg")) do
-        add(nm(w) .. "＋" .. nm(rj), { wg = mk(w, "wg"), hot = mk(rj, "hot") }, "wg")
-        if tq then add(nm(w) .. "＋" .. nm(rj) .. "＋" .. nm(tq), { wg = mk(w, "wg"), hot = mk(rj, "hot"), tranq = mk(tq, "tranq") }, "tranq") end
+        add(nm(w) .. L["＋"] .. nm(rj), { wg = mk(w, "wg"), hot = mk(rj, "hot") }, "wg")
+        if tq then add(nm(w) .. L["＋"] .. nm(rj) .. L["＋"] .. nm(tq), { wg = mk(w, "wg"), hot = mk(rj, "hot"), tranq = mk(tq, "tranq") }, "tranq") end
       end
     end
   elseif cls == "SHAMAN" then
@@ -1317,13 +1339,13 @@ local function analyzeGroup()
     for _, c in ipairs(two("ch")) do
       local G = mk(c, "ch")
       add(nm(c), { group = G })
-      if rp then add("保持" .. nm(rp) .. "＋" .. nm(c), { group = G, hot = mk(rp, "hot"), hotTank = true }, "hot") end
+      if rp then add(L["保持"] .. nm(rp) .. L["＋"] .. nm(c), { group = G, hot = mk(rp, "hot"), hotTank = true }, "hot") end
     end
   elseif cls == "PALADIN" and HS then
     for _, v in ipairs(two("vigil")) do add(nm(v), { group = mk(v, "mark") }) end
   end
   if cls == "SHAMAN" or cls == "PALADIN" or #rots == 0 then -- 只單補（對照組）：填充招試最省藍和最快的那招
-    add(nm(M.r) .. (E ~= M and ("（救命 " .. (E.r.label == M.r.label and tostring(E.r.rank) or nm(E.r)) .. "）") or ""), {})
+    add(nm(M.r) .. (E ~= M and string.format(L["（救命 %s）"], E.r.label == M.r.label and tostring(E.r.rank) or nm(E.r)) or ""), {})
     if E ~= M then add(nm(E.r), { main = E }) end
   end
 
@@ -1370,20 +1392,20 @@ local function breakdown(r)
   local busy = math.max(r.cast, r.f.gcd)
   local spread = r.spread and r.targets > 1 -- 群補模式輪流鋪：主數字已經是輪流的算法，不再列輪流那行
   if r.isCd then
-    return (r.f.kind == "hot" and (r.dur or 0) > 0) and string.format("%d 秒內補完；冷卻 %s 秒", r.dur, fmt1(r.cd))
-      or string.format("冷卻 %s 秒", fmt1(r.cd))
+    return (r.f.kind == "hot" and (r.dur or 0) > 0) and string.format(L["%d 秒內補完；冷卻 %s 秒"], r.dur, fmt1(r.cd))
+      or string.format(L["冷卻 %s 秒"], fmt1(r.cd))
   elseif r.hotPart and spread then
-    return string.format("直接 %s（每秒 %s）＋ %d 秒 %s，輪流 %d 人時每發只跑到 %d%%", fint(r.directPart), fmt1(r.directPart / busy),
+    return string.format(L["直接 %s（每秒 %s）＋ %d 秒 %s，輪流 %d 人時每發只跑到 %d%%"], fint(r.directPart), fmt1(r.directPart / busy),
       r.dur, fint(r.hotPart), r.targets, math.floor(math.min(1, r.targets * busy / r.dur) * 100 + .5))
   elseif r.hotPart then
-    return string.format("直接 %s（每秒 %s）＋ %d 秒 %s（每秒 %s）\n輪流補不同目標時每秒 %s", fint(r.directPart), fmt1(r.directPart / busy),
+    return string.format(L["直接 %s（每秒 %s）＋ %d 秒 %s（每秒 %s）\n輪流補不同目標時每秒 %s"], fint(r.directPart), fmt1(r.directPart / busy),
       r.dur, fint(r.hotPart), fmt1(r.hotPart / r.dur), fmt1((r.directPart + r.hotPart) / busy))
   elseif r.f.kind == "hot" and spread then
-    return string.format("%d 秒內補完；鋪 %d 人", r.dur, r.targets)
+    return string.format(L["%d 秒內補完；鋪 %d 人"], r.dur, r.targets)
   elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
-    return string.format("%d 秒內補完；輪流掛不同目標時每秒 %s", r.dur, fmt1(r.perHeal / busy))
+    return string.format(L["%d 秒內補完；輪流掛不同目標時每秒 %s"], r.dur, fmt1(r.perHeal / busy))
   elseif r.f.kind == "absorb" then
-    return string.format("同一目標 15 秒一次；輪流上不同目標時每秒 %s", fmt1(r.perHeal / busy))
+    return string.format(L["同一目標 15 秒一次；輪流上不同目標時每秒 %s"], fmt1(r.perHeal / busy))
   end
 end
 
@@ -1403,25 +1425,25 @@ local function addTooltip(tt, id)
       if not bm or r.hpmT > bm.hpmT then bm = r end
     end
   end
-  local catName = ({ single = "單補", group = "群補", cd = "冷卻" })[cat]
+  local catName = ({ single = L["單補"], group = L["群補"], cd = L["冷卻"] })[cat]
   local firstLine = (tt.NumLines and tt:NumLines() or 0) + 1
   for _, r in ipairs(rows) do
-    local tag = r.f.kind == "absorb" and "（吸收）" or ((r.f.group or r.f.key == "bh" or r.targets > 1) and string.format("（%d人）", r.targets) or "")
+    local tag = r.f.kind == "absorb" and L["（吸收）"] or ((r.f.group or r.f.key == "bh" or r.targets > 1) and string.format(L["（%d人）"], r.targets) or "")
     local sit = SIT[playerClass()]
-    if r.withOath and sit then tag = "（" .. sit.tip .. "）" end
+    if r.withOath and sit then tag = L["（"] .. L[sit.tip] .. L["）"] end
     -- 左欄標籤、右欄數字，兩排數字靠右對齊
-    tt:AddDoubleLine("|cffd9b25fHPS ／ HPM|r" .. tag, fmt1(r.hpsT) .. " ／ " .. fmt2(r.hpmT), 1, 1, 1, 1, 1, 1)
+    tt:AddDoubleLine(L["|cffd9b25fHPS ／ HPM|r"] .. tag, fmt1(r.hpsT) .. L[" ／ "] .. fmt2(r.hpmT), 1, 1, 1, 1, 1, 1)
     local detail = breakdown(r)
     if detail and db.tipLevel >= 2 then tt:AddLine(detail, .8, .8, .8) end
     if r.oathAdd > 0 and not r.withOath and sit and db.tipLevel >= 2 then
       local h = r.totalHeal + r.oathAdd
-      tt:AddDoubleLine("|cffd9b25f" .. sit.tip .. "|r", fmt1(r.time > 0 and h / r.time or 0) .. " ／ " .. fmt2(r.manaEff > 0 and h / r.manaEff or 0), 1, 1, 1, 1, 1, 1)
+      tt:AddDoubleLine("|cffd9b25f" .. L[sit.tip] .. "|r", fmt1(r.time > 0 and h / r.time or 0) .. L[" ／ "] .. fmt2(r.manaEff > 0 and h / r.manaEff or 0), 1, 1, 1, 1, 1, 1)
     end
     if db.tipLevel >= 3 then
-      if r.down < 0.9995 then tt:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
+      if r.down < 0.9995 then tt:AddDoubleLine(L["降級"], string.format(L["治療效果只算 %d%%"], math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
     end
-    if sameRow(r, bh) then tt:AddLine("★ " .. catName .. " HPS最高", 1, .82, 0) end
-    if sameRow(r, bm) then tt:AddLine("★ " .. catName .. " HPM最高", .4, 1, .4) end
+    if sameRow(r, bh) then tt:AddLine(string.format(L["★ %s HPS最高"], catName), 1, .82, 0) end
+    if sameRow(r, bm) then tt:AddLine(string.format(L["★ %s HPM最高"], catName), .4, 1, .4) end
   end
   unifyFont(tt, firstLine)
   tt:Show()
@@ -1477,7 +1499,7 @@ local function addResizeGrip(f)
   g:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
   g:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
   g:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine("拖曳調整視窗大小"); GameTooltip:Show()
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine(L["拖曳調整視窗大小"]); GameTooltip:Show()
   end)
   g:SetScript("OnLeave", function() GameTooltip:Hide() end)
   g:SetScript("OnMouseDown", function(self)
@@ -1523,39 +1545,39 @@ local function refreshImpl()
   if not frame or not frame:IsShown() then return end
   local list, ctx = filtered()
   local tal = ctx.talents
-  frame.talTxt = db.pct and ("治療加成 " .. db.pct .. "%（手動）") or (#tal.found > 0 and table.concat(tal.found, "、") or "")
+  frame.talTxt = db.pct and (L["治療加成 "] .. db.pct .. L["%（手動）"]) or (#tal.found > 0 and table.concat(tal.found, L["、"]) or "")
   local o = tal.oath
   if o then
-    frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. (o.unknown and "聖光誓約：讀不到加成量（請執行 /shps debug 回報）"
-      or string.format("聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d", o.hl, o.fol, o.hs))
+    frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. (o.unknown and L["聖光誓約：讀不到加成量（請執行 /shps debug 回報）"]
+      or string.format(L["聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d"], o.hl, o.fol, o.hs))
   end
   local cls = playerClass()
   local sit = SIT[cls]
   local has = (cls == "PALADIN" and o ~= nil) or ((cls == "PRIEST" or cls == "DRUID") and tal.sitLearned) or (cls == "SHAMAN" and ctx.ripKnown)
-  if cls == "DRUID" and has then frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. "綻放：每次 HoT 結束 +" .. fint(ctx.spirit) end
-  if sit then frame.oathBtn:SetText(sit.label .. "：" .. (not has and "沒學" or (db.oath and "計入" or "不計入"))) end
+  if cls == "DRUID" and has then frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. L["綻放：每次 HoT 結束 +"] .. fint(ctx.spirit) end
+  if sit then frame.oathBtn:SetText(L[sit.label] .. L["："] .. (not has and L["沒學"] or (db.oath and L["計入"] or L["不計入"]))) end
   local isPal = sit ~= nil -- 有情境加成的職業才顯示這個按鈕（四個治療職業都有）
   frame.oathBtn:SetShown(isPal)
-  frame.sitHelp = sit and sit.help or ""
+  frame.sitHelp = sit and L[sit.help] or ""
   local th = frame.how.GetStringHeight and frame.how:GetStringHeight()
   th = (type(th) == "number" and th > 0) and th or 40
   frame.tgtBtn:ClearAllPoints(); frame.tgtBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(10 + th + 12))
   frame.opts:SetHeight(10 + th + 12 + (isPal and 3 or 2) * 30 + 8)
   -- 精神與回藍（每 5 秒，跟角色面板一樣）：停手 5 秒後／施法中；讀不到（秘密值）就不顯示
   local secret = issecretvalue or function() return false end
-  local info = string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus)
-  if type(ctx.spirit) == "number" and not secret(ctx.spirit) then info = info .. string.format(" · 精神 %d", ctx.spirit) end
+  local info = string.format(L["%d 級 · 治療效果 %d"], ctx.level, ctx.bonus)
+  if type(ctx.spirit) == "number" and not secret(ctx.spirit) then info = info .. string.format(L[" · 精神 %d"], ctx.spirit) end
   local okR, idle, active = pcall(GetManaRegen)
   if okR and type(idle) == "number" and type(active) == "number" and not secret(idle) and not secret(active) then
-    info = info .. string.format(" · 回藍 停手 %d／施法 %d（每 5 秒）", math.floor(idle * 5 + .5), math.floor(active * 5 + .5))
+    info = info .. string.format(L[" · 回藍 停手 %d／施法 %d（每 5 秒）"], math.floor(idle * 5 + .5), math.floor(active * 5 + .5))
   end
   frame.info:SetText(info)
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" }, { frame.cdModeBtn, "cd" }, { frame.anaBtn, "analysis" } }) do
     local on = db.mode == m[2]
     m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
-  frame.tipBtn:SetText("技能提示：" .. (not db.tip and "關" or ({ "精簡", "標準", "完整" })[db.tipLevel]))
-  frame.tgtLabel:SetText("群補人數 " .. (db.targets or 5))
+  frame.tipBtn:SetText(L["技能提示："] .. (not db.tip and L["關"] or ({ L["精簡"], L["標準"], L["完整"] })[db.tipLevel]))
+  frame.tgtLabel:SetText(L["群補人數 "] .. (db.targets or 5))
   if frame.tgtSlider:GetValue() ~= (db.targets or 5) then frame.tgtSlider:SetValue(db.targets or 5) end
   local ana = db.mode == "analysis"
   frame.ana:SetShown(ana); frame.head:SetShown(not ana); frame.foot:SetShown(not ana)
@@ -1622,18 +1644,18 @@ local function refreshImpl()
       frame.anaOff = off
       for i = off + 1, math.min(#list, off + #frame.anaLines) do table.insert(entries, { r = list[i], no = i }) end
     else
-      local groups = #alive > 0 and { { "最省藍", byMana }, { "最穩定", byMin } } or #list > 0 and { { "撐最久", list } } or {}
+      local groups = #alive > 0 and { { L["最省藍"], byMana }, { L["最穩定"], byMin } } or #list > 0 and { { L["撐最久"], list } } or {}
       for _, g in ipairs(groups) do
         table.insert(entries, { head = g[1] })
         for i = 1, math.min(2, #g[2]) do table.insert(entries, { r = g[2][i], no = i }) end
       end
     end
     local best = list[1]
-    local conc = inCombat and "戰鬥中不分析" or (res and res.err) or (res and not best and (g and "沒有可以補的技能" or "沒有可以單補的技能"))
-      or (byMana[1] and string.format("|cffffd100最省藍：|r%s；|cffffd100最穩定：|r%s", byMana[1].name, byMin[1].name))
-      or (best and best.group and string.format("|cffff6b6b都撐不住：|r最好 %s（%s）", best.name,
-        best.wiped and string.format("%d 秒滅團", math.floor(best.wiped + 0.5)) or string.format("倒 %d 人", best.deaths)))
-      or (best and string.format("|cffff6b6b都撐不住：|r最久 %s（撐 %d 秒）", best.long, math.floor(best.dead + 0.5))) or ""
+    local conc = inCombat and L["戰鬥中不分析"] or (res and res.err) or (res and not best and (g and L["沒有可以補的技能"] or L["沒有可以單補的技能"]))
+      or (byMana[1] and string.format(L["|cffffd100最省藍：|r%s；|cffffd100最穩定：|r%s"], byMana[1].name, byMin[1].name))
+      or (best and best.group and string.format(L["|cffff6b6b都撐不住：|r最好 %s（%s）"], best.name,
+        best.wiped and string.format(L["%d 秒滅團"], math.floor(best.wiped + 0.5)) or string.format(L["倒 %d 人"], best.deaths)))
+      or (best and string.format(L["|cffff6b6b都撐不住：|r最久 %s（撐 %d 秒）"], best.long, math.floor(best.dead + 0.5))) or ""
     frame.anaConc:SetText(conc)
     local cols, n = #frame.anaLines[1].c, 0
     for i, l in ipairs(frame.anaLines) do
@@ -1646,15 +1668,15 @@ local function refreshImpl()
         l.res = nil; l:Show()
       elseif r then
         n = i
-        local fate = not r.dead and "活" or not r.group and string.format("倒下 %d 秒", math.floor(r.dead + 0.5))
-          or r.wiped and string.format("滅團 %d 秒", math.floor(r.wiped + 0.5)) or string.format("倒 %d 人 %d 秒", r.deaths, math.floor(r.dead + 0.5))
+        local fate = not r.dead and L["活"] or not r.group and string.format(L["倒下 %d 秒"], math.floor(r.dead + 0.5))
+          or r.wiped and string.format(L["滅團 %d 秒"], math.floor(r.wiped + 0.5)) or string.format(L["倒 %d 人 %d 秒"], r.deaths, math.floor(r.dead + 0.5))
         local vals = { e.no .. ".", r.name, fate,
           -- 倒下且沒藍：寫幾秒沒藍；活下來但補滿坦克還不夠：寫差多少；其餘寫剩多少
-          (r.dead and r.oom) and string.format("沒藍 %d 秒", math.floor(r.oom + 0.5))
-            or r.mana < 0 and ("補滿差 " .. fint(-r.mana)) or ("剩藍 " .. fint(r.mana)),
-          string.format("最低 %d%%", math.floor(r.minPct + 0.5)),
-          r.every and ("每 " .. fmt1(r.every) .. " 秒一發") or "沒出手",
-          r.pulls and (r.pulls == math.huge and "不用喝水" or r.pulls < 1 and "打完要喝水" or string.format("可連打 %d 波", r.pulls)) or "" }
+          (r.dead and r.oom) and string.format(L["沒藍 %d 秒"], math.floor(r.oom + 0.5))
+            or r.mana < 0 and (L["補滿差 "] .. fint(-r.mana)) or (L["剩藍 "] .. fint(r.mana)),
+          string.format(L["最低 %d%%"], math.floor(r.minPct + 0.5)),
+          r.every and (L["每 "] .. fmt1(r.every) .. L[" 秒一發"]) or L["沒出手"],
+          r.pulls and (r.pulls == math.huge and L["不用喝水"] or r.pulls < 1 and L["打完要喝水"] or string.format(L["可連打 %d 波"], r.pulls)) or "" }
         for c = 1, cols do l.c[c]:SetText(vals[c]); l.c[c]:SetTextColor(1, 1, 1) end
         l.c[3]:SetTextColor(unpack(r.dead and { 1, .42, .42 } or GREEN))
         if r.dead then l.hl:SetColorTexture(1, .2, .2, .12); l.hl:Show()
@@ -1674,7 +1696,7 @@ local function refreshImpl()
       end
       x = x + w + GAP
     end
-    local total = math.ceil(math.max(x - GAP, inputs.w, presetW, measure(frame.anaConc) + 4, measure(frame.info) + 4, 360))
+    local total = math.ceil(math.max(x - GAP, inputs.w, presetW, measure(frame.anaConc) + 4, measure(frame.info) + 4, 360, frame.topW))
     for _, l in ipairs(frame.anaLines) do l:SetWidth(total) end
     frame.anaConc:SetWidth(total); frame.info:SetWidth(total); frame.ana:SetWidth(total)
     local top = frame.anaListTop
@@ -1703,7 +1725,7 @@ local function refreshImpl()
       elseif r.hotPart then amt = fint(r.directPart) .. "+" .. fint(r.hotPart)
       else amt = fint(r.perHeal) end
       local star = (isH and "|cffffd100★|r" or "") .. (isM and "|cff66ff66★|r" or "")
-      local name = (r.f.kind == "absorb" and ("|cff8cc4ff" .. r.label .. "（吸收）|r") or r.label)
+      local name = (r.f.kind == "absorb" and ("|cff8cc4ff" .. r.label .. L["（吸收）|r"]) or r.label)
         .. (r.down < 0.9995 and string.format(" |cffff9d5c%d%%|r", math.floor(r.down * 100 + .5)) or "")
       local vals = { star, name, r.rank, amt, fint(r.manaEff), fmt1(r.time), fmt1(r.hps), fmt2(r.hpm) }
       for c = 1, #COLS do l.c[c]:SetText(vals[c]) end
@@ -1717,11 +1739,11 @@ local function refreshImpl()
     else l:Hide(); l.row = nil end
   end
   local foot
-  if #list == 0 then foot = "這一頁沒有你學會的技能。"
+  if #list == 0 then foot = L["這一頁沒有你學會的技能。"]
   else
-    foot = (bh and bm) and string.format("|cffffd100★ HPS最高|r %s 等級%d　　|cff66ff66★ HPM最高|r %s 等級%d", bh.label, bh.rank, bm.label, bm.rank)
-      or "目前沒有可比較的治療技能（吸收盾不參加比較）"
-    if #list > MAXLINES then foot = foot .. "　|cff9a9282（滾輪看更多）|r" end
+    foot = (bh and bm) and string.format(L["|cffffd100★ HPS最高|r %s 等級%d　　|cff66ff66★ HPM最高|r %s 等級%d"], bh.label, bh.rank, bm.label, bm.rank)
+      or L["目前沒有可比較的治療技能（吸收盾不參加比較）"]
+    if #list > MAXLINES then foot = foot .. L["　|cff9a9282（滾輪看更多）|r"] end
   end
   frame.foot:SetText(foot)
   frame.foot:ClearAllPoints()
@@ -1749,7 +1771,7 @@ autoFit = function()
     for i = 1, MAXLINES do place(frame.lines[i].c[c], frame.lines[i]) end
     x = x + w + GAP
   end
-  local total = math.max(x - GAP, measure(frame.info) + 4, 360) -- 資訊列（精神、回藍）也要放得下
+  local total = math.max(x - GAP, measure(frame.info) + 4, 360, frame.topW) -- 資訊列（精神、回藍）、第一列按鈕也要放得下
   frame.head:SetWidth(total)
   for i = 1, MAXLINES do frame.lines[i]:SetWidth(total) end
   frame.info:SetWidth(total)
@@ -1821,27 +1843,30 @@ local function buildFrame()
     frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
-  frame.TitleText:SetText("阿聖治療幫手")
+  frame.TitleText:SetText(L["阿聖治療幫手"])
   local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(LOGO); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 第一列：單補／群補、設定
-  frame.singleBtn = button(frame, 52, "單補", function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
+  frame.singleBtn = button(frame, 52, L["單補"], function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
   frame.singleBtn:SetPoint("TOPLEFT", 12, -30)
-  frame.groupBtn = button(frame, 52, "群補", function() db.mode = "group"; offset = 0; HealHPS_Refresh() end)
+  frame.groupBtn = button(frame, 52, L["群補"], function() db.mode = "group"; offset = 0; HealHPS_Refresh() end)
   frame.groupBtn:SetPoint("LEFT", frame.singleBtn, "RIGHT", 2, 0)
-  frame.cdModeBtn = button(frame, 52, "冷卻", function() db.mode = "cd"; offset = 0; HealHPS_Refresh() end)
+  frame.cdModeBtn = button(frame, 52, L["冷卻"], function() db.mode = "cd"; offset = 0; HealHPS_Refresh() end)
   frame.cdModeBtn:SetPoint("LEFT", frame.groupBtn, "RIGHT", 2, 0)
-  frame.anaBtn = button(frame, 52, "分析", function() db.mode = "analysis"; frame.anaKey = nil; HealHPS_Refresh() end)
+  frame.anaBtn = button(frame, 52, L["分析"], function() db.mode = "analysis"; frame.anaKey = nil; HealHPS_Refresh() end)
   frame.anaBtn:SetPoint("LEFT", frame.cdModeBtn, "RIGHT", 2, 0)
-  frame.gearBtn = button(frame, 52, "設定", function() if frame.opts:IsShown() then frame.opts:Hide() else frame.opts:Show() end end)
+  frame.gearBtn = button(frame, 52, L["設定"], function() if frame.opts:IsShown() then frame.opts:Hide() else frame.opts:Show() end end)
   frame.gearBtn:SetPoint("TOPRIGHT", -12, -30)
+  -- 第一列按鈕的總寬（含間距）：內容寬度至少要這麼寬，按鈕才不會疊在一起（英文字比較寬）
+  frame.topW = frame.singleBtn:GetWidth() + frame.groupBtn:GetWidth() + frame.cdModeBtn:GetWidth() + frame.anaBtn:GetWidth()
+    + frame.gearBtn:GetWidth() + 14
   -- 資訊列：等級與治療效果；天賦加成滑鼠移上去才顯示
   frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   frame.info:SetPoint("TOPLEFT", 14, -66); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
   local infoHit = CreateFrame("Frame", nil, frame); infoHit:SetAllPoints(frame.info); infoHit:EnableMouse(true)
   infoHit:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:AddLine("天賦加成")
-    GameTooltip:AddLine(frame.talTxt ~= "" and frame.talTxt or "沒有偵測到治療加成天賦", 1, 1, 1, true)
+    GameTooltip:AddLine(L["天賦加成"])
+    GameTooltip:AddLine(frame.talTxt ~= "" and frame.talTxt or L["沒有偵測到治療加成天賦"], 1, 1, 1, true)
     GameTooltip:Show()
   end)
   infoHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1855,7 +1880,7 @@ local function buildFrame()
   end
   local how = frame.opts:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   how:SetPoint("TOPLEFT", 12, -10); how:SetWidth(266); how:SetJustifyH("LEFT"); how:SetSpacing(3)
-  how:SetText("HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r")
+  how:SetText(L["HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r"])
   frame.how = how
   -- 群補人數：滑桿 2–10（群補技能還受技能本身的人數上限；持續治療受持續時間與公共冷卻限制）
   frame.tgtBtn = CreateFrame("Frame", nil, frame.opts)
@@ -1874,7 +1899,7 @@ local function buildFrame()
   frame.oathBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     local sit = SIT[playerClass()]
-    GameTooltip:AddLine(sit and sit.label or "")
+    GameTooltip:AddLine(sit and L[sit.label] or "")
     GameTooltip:AddLine(frame.sitHelp or "", 1, 1, 1, true)
     GameTooltip:Show()
   end)
@@ -1887,14 +1912,14 @@ local function buildFrame()
   line:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", 0, -1); line:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, -1)
   frame.heads = {}
   for _, col in ipairs(COLS) do
-    local fs = cell(head, col); fs:SetText(col[1]); fs:SetTextColor(unpack(DIM))
+    local fs = cell(head, col); fs:SetText(L[col[1]]); fs:SetTextColor(unpack(DIM))
     frame.headFs[#frame.headFs + 1] = fs
     if col[5] then
       local b = CreateFrame("Button", nil, head)
       b:SetPoint("LEFT", head, "LEFT", col[2], 0); b:SetSize(col[3], 18)
       frame.headBtns[#frame.headFs] = b
       b:SetScript("OnClick", function() db.sort = col[5]; offset = 0; HealHPS_Refresh() end)
-      table.insert(frame.heads, { fs = fs, key = col[5], label = col[1] })
+      table.insert(frame.heads, { fs = fs, key = col[5], label = L[col[1]] })
     end
   end
   -- 內容列
@@ -1910,20 +1935,20 @@ local function buildFrame()
     l:SetScript("OnEnter", function(self)
       local r = self.row; if not r then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-      GameTooltip:AddLine(r.label .. " 等級" .. r.rank)
+      GameTooltip:AddLine(r.label .. L[" 等級"] .. r.rank)
       local detail = breakdown(r)
       if detail and db.tipLevel >= 2 then GameTooltip:AddLine(detail, .8, .8, .8, true) end
-      if r.f.kind == "absorb" and db.tipLevel >= 2 then GameTooltip:AddLine("吸收量不是治療量，不參加 HPS／HPM 最高的比較", .55, .75, 1, true) end
+      if r.f.kind == "absorb" and db.tipLevel >= 2 then GameTooltip:AddLine(L["吸收量不是治療量，不參加 HPS／HPM 最高的比較"], .55, .75, 1, true) end
       if db.tipLevel < 3 then GameTooltip:Show(); return end
-      GameTooltip:AddDoubleLine("學習等級", tostring(r.learn), .8, .8, .8, 1, 1, 1)
-      if r.down < 0.9995 then GameTooltip:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
-      if r.cd > 0 then GameTooltip:AddDoubleLine("冷卻", fmt1(r.cd) .. " 秒", .8, .8, .8, 1, 1, 1) end
+      GameTooltip:AddDoubleLine(L["學習等級"], tostring(r.learn), .8, .8, .8, 1, 1, 1)
+      if r.down < 0.9995 then GameTooltip:AddDoubleLine(L["降級"], string.format(L["治療效果只算 %d%%"], math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
+      if r.cd > 0 then GameTooltip:AddDoubleLine(L["冷卻"], fmt1(r.cd) .. L[" 秒"], .8, .8, .8, 1, 1, 1) end
       if r.oathAdd and r.oathAdd > 0 then
         local sit = SIT[playerClass()]
-        GameTooltip:AddDoubleLine(sit and sit.label or "", "+" .. fint(r.oathAdd) .. (r.oathRatio and string.format("（%d%%）", math.floor(r.oathRatio * 100 + .5)) or ""), .8, .8, .8, 1, 1, 1)
+        GameTooltip:AddDoubleLine(sit and L[sit.label] or "", "+" .. fint(r.oathAdd) .. (r.oathRatio and string.format(L["（%d%%）"], math.floor(r.oathRatio * 100 + .5)) or ""), .8, .8, .8, 1, 1, 1)
       end
-      if r.srcText ~= "遊戲" then GameTooltip:AddLine("部分數值來自資料表（遊戲讀不到）", 1, .6, .3) end
-      if r.f.note ~= "" then GameTooltip:AddLine(r.f.note, .6, .6, .6, true) end
+      if r.srcText ~= "遊戲" then GameTooltip:AddLine(L["部分數值來自資料表（遊戲讀不到）"], 1, .6, .3) end
+      if r.f.note ~= "" then GameTooltip:AddLine(L[r.f.note], .6, .6, .6, true) end
       GameTooltip:Show()
     end)
     l:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1943,7 +1968,7 @@ local function buildFrame()
   -- 單坦／團刷切換，接著是該模式的預設組合、詳細（聖騎在單坦多一個聖光誓約）
   frame.anaModeBtns, frame.anaModeW = {}, 0
   local prev
-  for i, m in ipairs({ { "單坦", false }, { "團刷", true } }) do
+  for i, m in ipairs({ { L["單坦"], false }, { L["團刷"], true } }) do
     local b = button(frame.ana, 40, m[1], function() db.anaGroup = m[2]; frame.anaOff = 0; HealHPS_Refresh() end)
     if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", frame.ana, "TOPLEFT", 0, 0) end
     frame.anaModeBtns[i] = { b = b, on = m[2] }
@@ -1965,7 +1990,7 @@ local function buildFrame()
     -- 預設情境依角色等級查表（tools/verify-combat-numbers.md，Codex 依永恆資料與正式服紀錄估的實收值；中間等級線性內插）
     -- 傷害都是打在身上的實收：菁英、首領是每 2 秒一下的等效值；兩隻菁英＝同一值改每 1 秒
     -- p[2] 是情境代號，數值在套用時才算，所以升級後再點一次就會跟著變
-    single = presetRow({ { "小怪", "trash" }, { "王戰", "boss" }, { "單練", "solo" }, { "省水", "easy" } }, function(p)
+    single = presetRow({ { L["小怪"], "trash" }, { L["王戰"], "boss" }, { L["單練"], "solo" }, { L["省水"], "easy" } }, function(p)
       local t = levelTable()
       local hp, hit, gap, fight
       if p[2] == "trash" then hp, hit, gap, fight = t.tank, t.elite, 1, 30 -- 兩隻菁英同時打坦克
@@ -1980,7 +2005,7 @@ local function buildFrame()
       db.anaHit = math.max(10, math.floor(hit / 10 + 0.5) * 10)
       db.anaGap, db.fight = gap, math.floor(fight / 5 + 0.5) * 5
     end),
-    group = presetRow({ { "群怪", "trash" }, { "全團技", "boss" }, { "範圍", "aoe" }, { "點名", "pick" } }, function(p)
+    group = presetRow({ { L["群怪"], "trash" }, { L["全團技"], "boss" }, { L["範圍"], "aoe" }, { L["點名"], "pick" } }, function(p)
       local t = levelTable()
       local r10 = function(v) return math.max(10, math.floor(v / 10 + 0.5) * 10) end
       -- { 範圍每次傷害, 範圍間隔, 範圍命中（0＝全員）, 坦克每次傷害, 坦克間隔, 戰鬥長度 }
@@ -1993,9 +2018,9 @@ local function buildFrame()
       db.gTankHit, db.gTankGap, db.gFight = v[4] > 0 and r10(v[4]) or 0, v[5], v[6]
     end),
   }
-  frame.anaDetailBtn = button(frame.ana, 40, "詳細", function() db.anaDetail = not db.anaDetail; frame.anaOff = 0; HealHPS_Refresh() end)
+  frame.anaDetailBtn = button(frame.ana, 40, L["詳細"], function() db.anaDetail = not db.anaDetail; frame.anaOff = 0; HealHPS_Refresh() end)
   -- 聖騎：坦克就是誓約目標時，分析要不要算聖光誓約的加成（和設定裡的同一個開關）
-  frame.anaOathBtn = button(frame.ana, 70, "聖光誓約", function() db.oath = not db.oath; HealHPS_Refresh() end)
+  frame.anaOathBtn = button(frame.ana, 70, L["聖光誓約"], function() db.oath = not db.oath; HealHPS_Refresh() end)
   frame.anaOathBtn:SetPoint("LEFT", frame.anaDetailBtn, "RIGHT", 2, 0)
   -- 滑桿組：cols 欄，同一欄的標籤同寬（用最長的值量），數字變長時滑桿不會跟著跳
   -- { 設定鍵, 文字, 最小, 最大, 間隔, 最長的值（量寬度用）, 值為 0 時的文字 }
@@ -2024,13 +2049,13 @@ local function buildFrame()
     set.w, set.rows = x - GAP, math.ceil(#defs / cols)
     return set
   end
-  frame.anaInputs = inputSet({ { "anaHp", "坦克生命 %d", 100, 20000, 100, 20000 }, { "anaHit", "每次傷害 %d", 10, 5000, 10, 5000 },
-    { "anaGap", "受傷間隔 %.1f 秒", 0.5, 5, 0.5, 5 }, { "fight", "戰鬥長度 %d 秒", 10, 600, 5, 600 } }, 1, 196)
-  frame.anaGInputs = inputSet({ { "gN", "人數 %d", 2, 10, 1, 10 }, { "gFight", "戰鬥長度 %d 秒", 10, 600, 5, 600 },
-    { "gHp", "成員生命 %d", 100, 20000, 100, 20000 }, { "gTankHp", "坦克生命 %d", 100, 30000, 100, 30000 },
-    { "gTankHit", "坦克每次傷害 %d", 0, 5000, 10, 5000, "坦克每次傷害 無" }, { "gTankGap", "坦克間隔 %.1f 秒", 0.5, 5, 0.5, 5 },
-    { "gAoe", "範圍每次傷害 %d", 0, 5000, 10, 5000, "範圍每次傷害 無" }, { "gAoeGap", "範圍間隔 %.1f 秒", 1, 30, 0.5, 30 },
-    { "gAoeK", "範圍命中 隨機 %d 人", 0, 5, 1, 5, "範圍命中 全員" } }, 2, 150)
+  frame.anaInputs = inputSet({ { "anaHp", L["坦克生命 %d"], 100, 20000, 100, 20000 }, { "anaHit", L["每次傷害 %d"], 10, 5000, 10, 5000 },
+    { "anaGap", L["受傷間隔 %.1f 秒"], 0.5, 5, 0.5, 5 }, { "fight", L["戰鬥長度 %d 秒"], 10, 600, 5, 600 } }, 1, 196)
+  frame.anaGInputs = inputSet({ { "gN", L["人數 %d"], 2, 10, 1, 10 }, { "gFight", L["戰鬥長度 %d 秒"], 10, 600, 5, 600 },
+    { "gHp", L["成員生命 %d"], 100, 20000, 100, 20000 }, { "gTankHp", L["坦克生命 %d"], 100, 30000, 100, 30000 },
+    { "gTankHit", L["坦克每次傷害 %d"], 0, 5000, 10, 5000, L["坦克每次傷害 無"] }, { "gTankGap", L["坦克間隔 %.1f 秒"], 0.5, 5, 0.5, 5 },
+    { "gAoe", L["範圍每次傷害 %d"], 0, 5000, 10, 5000, L["範圍每次傷害 無"] }, { "gAoeGap", L["範圍間隔 %.1f 秒"], 1, 30, 0.5, 30 },
+    { "gAoeK", L["範圍命中 隨機 %d 人"], 0, 5, 1, 5, L["範圍命中 全員"] } }, 2, 150)
   frame.anaConc = frame.ana:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   frame.anaConc:SetJustifyH("LEFT"); frame.anaConc:SetWordWrap(false)
   frame.anaLines = {}
@@ -2051,32 +2076,32 @@ local function buildFrame()
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:AddLine(r.name)
       local total = r.healed + r.over
-      GameTooltip:AddDoubleLine("補到", fint(r.healed), .8, .8, .8, 1, 1, 1)
-      GameTooltip:AddDoubleLine("溢補", string.format("%d%%", total > 0 and math.floor(r.over / total * 100 + 0.5) or 0), .8, .8, .8, 1, 1, 1)
+      GameTooltip:AddDoubleLine(L["補到"], fint(r.healed), .8, .8, .8, 1, 1, 1)
+      GameTooltip:AddDoubleLine(L["溢補"], string.format("%d%%", total > 0 and math.floor(r.over / total * 100 + 0.5) or 0), .8, .8, .8, 1, 1, 1)
       if r.group then
         local parts = {}
-        for _, c in ipairs({ { "group", "群補" }, { "pom", "癒合禱言" }, { "hot", "HoT" }, { "wg", "野性痊癒" }, { "tranq", "寧靜" }, { "single", "單補" }, { "emerg", "救命" } }) do
+        for _, c in ipairs({ { "group", L["群補"] }, { "pom", L["癒合禱言"] }, { "hot", "HoT" }, { "wg", L["野性痊癒"] }, { "tranq", L["寧靜"] }, { "single", L["單補"] }, { "emerg", L["救命"] } }) do
           if r.cnt[c[1]] > 0 then parts[#parts + 1] = c[2] .. " " .. r.cnt[c[1]] end
         end
-        GameTooltip:AddDoubleLine("施法", r.casts .. " 次" .. (#parts > 0 and ("（" .. table.concat(parts, "、") .. "）") or ""), .8, .8, .8, 1, 1, 1)
-        GameTooltip:AddDoubleLine("單補", r.M.r.label .. " 等級" .. r.M.r.rank .. (r.E ~= r.M and ("、救命 " .. r.E.r.label .. " 等級" .. r.E.r.rank) or ""), .8, .8, .8, 1, 1, 1)
+        GameTooltip:AddDoubleLine(L["施法"], r.casts .. L[" 次"] .. (#parts > 0 and (L["（"] .. table.concat(parts, L["、"]) .. L["）"]) or ""), .8, .8, .8, 1, 1, 1)
+        GameTooltip:AddDoubleLine(L["單補"], r.M.r.label .. L[" 等級"] .. r.M.r.rank .. (r.E ~= r.M and (L["、救命 "] .. r.E.r.label .. L[" 等級"] .. r.E.r.rank) or ""), .8, .8, .8, 1, 1, 1)
         if r.dead then
-          GameTooltip:AddDoubleLine("倒下", string.format("%d 人，第一人 %d 秒", r.deaths, math.floor(r.dead + 0.5)) .. (r.wiped and "，坦克或自己倒下" or ""), .8, .8, .8, 1, .42, .42)
+          GameTooltip:AddDoubleLine(L["倒下"], string.format(L["%d 人，第一人 %d 秒"], r.deaths, math.floor(r.dead + 0.5)) .. (r.wiped and L["，坦克或自己倒下"] or ""), .8, .8, .8, 1, .42, .42)
         end
-        GameTooltip:AddDoubleLine("低於 30%", string.format("%d 人秒", math.floor(r.lowSec + 0.5)), .8, .8, .8, 1, 1, 1)
-        if not r.wiped then GameTooltip:AddDoubleLine("戰鬥結束", "剩藍 " .. fint(r.rawMana), .8, .8, .8, 1, 1, 1) end
+        GameTooltip:AddDoubleLine(L["低於 30%"], string.format(L["%d 人秒"], math.floor(r.lowSec + 0.5)), .8, .8, .8, 1, 1, 1)
+        if not r.wiped then GameTooltip:AddDoubleLine(L["戰鬥結束"], L["剩藍 "] .. fint(r.rawMana), .8, .8, .8, 1, 1, 1) end
         if r.pulls then
-          GameTooltip:AddDoubleLine("不喝水連打", r.pulls == math.huge and "不用喝水" or r.pulls < 1 and "打完要喝水" or (r.pulls .. " 波"), .8, .8, .8, 1, 1, 1)
+          GameTooltip:AddDoubleLine(L["不喝水連打"], r.pulls == math.huge and L["不用喝水"] or r.pulls < 1 and L["打完要喝水"] or (r.pulls .. L[" 波"]), .8, .8, .8, 1, 1, 1)
         end
         GameTooltip:Show()
         return
       end
-      GameTooltip:AddDoubleLine("施法", r.casts .. " 次" .. ((r.hCasts > 0 or r.combo) and ("（" .. (r.hCasts > 0 and ("HoT " .. r.hCasts) or "") .. (r.hCasts > 0 and r.combo and "、" or "") .. (r.combo and ("救命 " .. r.eCasts) or "") .. "）") or ""), .8, .8, .8, 1, 1, 1)
+      GameTooltip:AddDoubleLine(L["施法"], r.casts .. L[" 次"] .. ((r.hCasts > 0 or r.combo) and (L["（"] .. (r.hCasts > 0 and ("HoT " .. r.hCasts) or "") .. (r.hCasts > 0 and r.combo and L["、"] or "") .. (r.combo and (L["救命 "] .. r.eCasts) or "") .. L["）"]) or ""), .8, .8, .8, 1, 1, 1)
       if not r.dead then
-        GameTooltip:AddDoubleLine("戰鬥結束", string.format("坦克 %d%%、剩藍 %s", math.floor(r.endPct + 0.5), fint(r.rawMana)), .8, .8, .8, 1, 1, 1)
+        GameTooltip:AddDoubleLine(L["戰鬥結束"], string.format(L["坦克 %d%%、剩藍 %s"], math.floor(r.endPct + 0.5), fint(r.rawMana)), .8, .8, .8, 1, 1, 1)
       end
       if r.pulls then
-        GameTooltip:AddDoubleLine("不喝水連打", r.pulls == math.huge and "不用喝水" or r.pulls < 1 and "打完要喝水" or (r.pulls .. " 波"), .8, .8, .8, 1, 1, 1)
+        GameTooltip:AddDoubleLine(L["不喝水連打"], r.pulls == math.huge and L["不用喝水"] or r.pulls < 1 and L["打完要喝水"] or (r.pulls .. L[" 波"]), .8, .8, .8, 1, 1, 1)
       end
       GameTooltip:Show()
     end)
@@ -2116,7 +2141,7 @@ local function buildMinimapButton()
   border:SetSize(53, 53); border:SetPoint("TOPLEFT")
   b:SetScript("OnClick", function(_, btn)
     if btn == "RightButton" then
-      db.tip = not db.tip; msg("技能提示的 HPS：" .. (db.tip and "開" or "關"))
+      db.tip = not db.tip; msg(L["技能提示的 HPS："] .. (db.tip and L["開"] or L["關"]))
     else toggleWindow() end
   end)
   b:SetScript("OnDragStart", function(self)
@@ -2131,10 +2156,10 @@ local function buildMinimapButton()
   b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("阿聖治療幫手")
-    GameTooltip:AddLine("左鍵：開關比較表", 1, 1, 1)
-    GameTooltip:AddLine("右鍵：開關技能提示的 HPS（目前" .. (db.tip and "開" or "關") .. "）", 1, 1, 1)
-    GameTooltip:AddLine("拖曳：沿著小地圖移動", .6, .6, .6)
+    GameTooltip:AddLine(L["阿聖治療幫手"])
+    GameTooltip:AddLine(L["左鍵：開關比較表"], 1, 1, 1)
+    GameTooltip:AddLine(L["右鍵：開關技能提示的 HPS（目前"] .. (db.tip and L["開"] or L["關"]) .. L["）"], 1, 1, 1)
+    GameTooltip:AddLine(L["拖曳：沿著小地圖移動"], .6, .6, .6)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -2146,21 +2171,22 @@ end
 local function debugDump()
   local class = playerClass()
   local book = API.Spellbook()
-  msg(string.format("版本 0.8.7　API：%s　法術書共 %d 個技能", (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and "新版 C_SpellBook" or "舊版", #book))
+  local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+  msg(string.format(L["版本 %s　API：%s　法術書共 %d 個技能"], tostring(meta and meta(ADDON, "Version") or "?"), (C_SpellBook and C_SpellBook.GetNumSpellBookSkillLines) and L["新版 C_SpellBook"] or L["舊版"], #book))
   rescan()
   local _, ctx = compute()
-  msg(string.format("職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s", tostring(class), ctx.level, ctx.bonus, ctx.descIncl and "已含治療效果" or "基礎量",
-    (#ctx.talents.found > 0 and table.concat(ctx.talents.found, "、") or "沒找到") .. "（" .. ctx.talents.source .. "）"))
+  msg(string.format(L["職業 %s　等級 %d　治療效果 %d　說明數字：%s　天賦：%s"], tostring(class), ctx.level, ctx.bonus, ctx.descIncl and L["已含治療效果"] or L["基礎量"],
+    (#ctx.talents.found > 0 and table.concat(ctx.talents.found, L["、"]) or L["沒找到"]) .. L["（"] .. L[ctx.talents.source] .. L["）"]))
   local o = ctx.talents.oath
   if o then
-    msg(o.unknown and ("聖光誓約：讀不到加成量。天賦說明：" .. tostring(ctx.talents.oathDesc))
-      or string.format("聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d（%s）", o.hl, o.fol, o.hs, db.oath and "比較表已計入" or "比較表未計入"))
+    msg(o.unknown and (L["聖光誓約：讀不到加成量。天賦說明："] .. tostring(ctx.talents.oathDesc))
+      or string.format(L["聖光誓約：聖光術 +%d、聖光閃現 +%d、神聖震擊 +%d（%s）"], o.hl, o.fol, o.hs, db.oath and L["比較表已計入"] or L["比較表未計入"]))
   end
-  if #ctx.talents.learned > 0 then msg("已點天賦：" .. table.concat(ctx.talents.learned, "、")) end
+  if #ctx.talents.learned > 0 then msg(L["已點天賦："] .. table.concat(ctx.talents.learned, L["、"])) end
   local sit = SIT[class]
   if sit and class ~= "PALADIN" then
     local has = ctx.talents.sitLearned or (class == "SHAMAN" and ctx.ripKnown)
-    msg(sit.label .. "：" .. (has and ("有" .. (db.oath and "（比較表已計入）" or "（比較表未計入）")) or "沒偵測到"))
+    msg(L[sit.label] .. L["："] .. (has and (L["有"] .. (db.oath and L["（比較表已計入）"] or L["（比較表未計入）"])) or L["沒偵測到"]))
   end
   local keys, anyFound = {}, false
   for k, st in pairs(scan.families) do table.insert(keys, k); if st.maxRank > 0 then anyFound = true end end
@@ -2168,19 +2194,19 @@ local function debugDump()
   if not anyFound then
     local names = {}
     for i = 1, math.min(15, #book) do names[i] = book[i].name .. (book[i].sub and book[i].sub ~= "" and ("(" .. book[i].sub .. ")") or "") end
-    msg("一個治療技能都沒對上。法術書前幾個技能：" .. table.concat(names, "、"))
+    msg(L["一個治療技能都沒對上。法術書前幾個技能："] .. table.concat(names, L["、"]))
   end
   for _, k in ipairs(keys) do
     local st = scan.families[k]
-    if st.maxRank == 0 then msg(string.format("%s：法術書沒找到", st.f.label))
+    if st.maxRank == 0 then msg(string.format(L["%s：法術書沒找到"], L[st.f.label]))
     else
       local nId = 0
       for r = 1, st.maxRank do if st.known[r] then nId = nId + 1 end end
       local top = st.known[st.maxRank]
       local d = getDesc(top)
       local a, b, h = parseDesc(st.f.parse, d)
-      msg(string.format("%s：遊戲名「%s」到等級 %d（%d 個等級有法術ID）　說明解析：%s", st.f.label, st.gameName or "?", st.maxRank, nId,
-        not st.f.parse and "不解析" or a and (a .. "–" .. b .. (h and (" HoT " .. h) or "")) or ("失敗：" .. (d and d:sub(1, 80) or "說明未載入"))))
+      msg(string.format(L["%s：遊戲名「%s」到等級 %d（%d 個等級有法術ID）　說明解析：%s"], L[st.f.label], st.gameName or "?", st.maxRank, nId,
+        not st.f.parse and L["不解析"] or a and (a .. "–" .. b .. (h and (" HoT " .. h) or "")) or (L["失敗："] .. (d and d:sub(1, 80) or L["說明未載入"]))))
     end
   end
 end
@@ -2190,8 +2216,8 @@ SLASH_HEALHPS2 = "/hps" -- 舊指令保留
 SlashCmdList.HEALHPS = function(input)
   ensureDB()
   local cmd, arg = (input or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
-  if not isHealerClass() and cmd ~= "debug" then
-    msg("這個職業沒有治療技能，插件不會運作。")
+  if not isHealerClass() and cmd ~= "debug" and cmd ~= "lang" then
+    msg(L["這個職業沒有治療技能，插件不會運作。"])
     return
   end
   if cmd == "" then
@@ -2199,33 +2225,37 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "minimap" then
     db.minimapHide = not db.minimapHide
     if mmBtn then if db.minimapHide then mmBtn:Hide() else mmBtn:Show() end end
-    msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /shps minimap 顯示）" or "顯示"))
+    msg(L["小地圖按鈕："] .. (db.minimapHide and L["隱藏（再輸入 /shps minimap 顯示）"] or L["顯示"]))
   elseif cmd == "pct" then
     db.pct = arg ~= "auto" and tonumber(arg) or nil
-    msg("治療加成 %：" .. (db.pct and db.pct .. "（手動）" or "依天賦自動"))
+    msg(L["治療加成 %："] .. (db.pct and db.pct .. L["（手動）"] or L["依天賦自動"]))
   elseif cmd == "absorb" then
     db.absorb = arg ~= "auto" and tonumber(arg) or nil
-    msg("吸收加成 %：" .. (db.absorb and db.absorb .. "（手動）" or "依天賦自動"))
+    msg(L["吸收加成 %："] .. (db.absorb and db.absorb .. L["（手動）"] or L["依天賦自動"]))
   elseif cmd == "targets" then
-    db.targets = math.max(2, math.min(10, tonumber(arg) or 5)); msg("群補目標數：" .. db.targets)
+    db.targets = math.max(2, math.min(10, tonumber(arg) or 5)); msg(L["群補目標數："] .. db.targets)
   elseif cmd == "tip" then
-    db.tip = not db.tip; msg("滑鼠提示：" .. (db.tip and "開" or "關"))
+    db.tip = not db.tip; msg(L["滑鼠提示："] .. (db.tip and L["開"] or L["關"]))
   elseif cmd == "downrank" then
-    db.downrank = not db.downrank; msg("降級衰減：" .. (db.downrank and "開" or "關"))
+    db.downrank = not db.downrank; msg(L["降級衰減："] .. (db.downrank and L["開"] or L["關"]))
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
-    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
-    else msg("用法：/shps scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
+    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg(L["視窗縮放："] .. v)
+    else msg(L["用法：/shps scale 1.2（0.5～2，目前 "] .. (db.scale or 1) .. L["）"]) end
   elseif cmd == "desc" then
     db.desc = (arg == "incl" or arg == "base") and arg or "auto"
-    msg("技能說明數字：" .. (db.desc == "incl" and "已含治療效果（手動）" or db.desc == "base" and "只有基礎量（手動）" or "自動判斷")
-      .. "　目前：" .. (descIncludesBonus() and "直接採用說明數字" or "基礎＋治療效果×係數"))
+    msg(L["技能說明數字："] .. (db.desc == "incl" and L["已含治療效果（手動）"] or db.desc == "base" and L["只有基礎量（手動）"] or L["自動判斷"])
+      .. L["　目前："] .. (descIncludesBonus() and L["直接採用說明數字"] or L["基礎＋治療效果×係數"]))
+  elseif cmd == "lang" then
+    -- 介面語言（測試用）：只換介面文字，解析技能說明仍照客戶端語言
+    db.lang = (arg == "en" or arg == "zh") and arg or "auto"
+    msg(string.format(L["介面語言：%s（/reload 後生效）"], db.lang))
   elseif cmd == "debug" then
     safe("除錯指令", debugDump)
   elseif cmd == "reset" then
-    HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
+    HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg(L["設定已重設"])
   else
-    msg("/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps debug　/shps reset")
+    msg(L["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|auto　/shps debug　/shps reset"])
   end
   if frame then HealHPS_Refresh() end
 end

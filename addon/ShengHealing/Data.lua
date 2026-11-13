@@ -133,7 +133,7 @@ HealHPS_Data = { families = {
     } },
   { key = "pom", label = "癒合禱言", class = "PRIEST", kind = "direct", group = true, groupModel = "bounce", maxTargets = 5,
     talent = true, healPct = true, absorbPct = false, gcd = 1.5, parse = "single", fallback = nil, note = "每跳等量；最多5跳；CD 10",
-    ids = { 33076 }, names = { "癒合禱言", "愈合禱言" },
+    ids = { 401859, 33076 }, names = { "癒合禱言", "愈合禱言" },
     ranks = {
       [1] = { learn = 40, mana = 210, cast = 0, cd = 10, min = 172, max = 172, coeff = 0.429, dur = nil, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
       [2] = { learn = 50, mana = 305, cast = 0, cd = 10, min = 298, max = 298, coeff = 0.429, dur = nil, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
@@ -221,7 +221,7 @@ HealHPS_Data = { families = {
     } },
   { key = "wg", label = "野性痊癒", class = "DRUID", kind = "hot", group = true, groupModel = "full_each", maxTargets = 5,
     talent = true, healPct = true, absorbPct = false, gcd = 1.5, parse = nil, fallback = nil, note = "cast 3s＋CD 6（ForeverChanges）；舊 Wiki 瞬發已否",
-    ids = { 48438 }, names = { "野性痊癒", "野性成長" },
+    ids = { 408120, 48438 }, names = { "野性痊癒", "野性成長" },
     ranks = {
       [1] = { learn = 40, mana = 550, cast = 3, cd = 6, min = 280, max = 280, coeff = 0.231, dur = 7, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
       [2] = { learn = 50, mana = 755, cast = 3, cd = 6, min = 420, max = 420, coeff = 0.231, dur = 7, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
@@ -263,7 +263,7 @@ HealHPS_Data = { families = {
     } },
   { key = "ript", label = "激流", class = "SHAMAN", kind = "hot", group = false, groupModel = "none", maxTargets = 1,
     talent = true, healPct = true, absorbPct = false, gcd = 1.5, parse = nil, fallback = nil, note = "僅HoT；CD 12；無瞬發",
-    ids = { 61295 }, names = { "激流" },
+    ids = { 408521, 61295 }, names = { "激流" },
     ranks = {
       [1] = { learn = 40, mana = 150, cast = 0, cd = 12, min = 445, max = 445, coeff = 0.5, dur = 15, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
       [2] = { learn = 50, mana = 180, cast = 0, cd = 12, min = 575, max = 575, coeff = 0.5, dur = 15, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
