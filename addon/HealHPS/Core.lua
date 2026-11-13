@@ -4,7 +4,7 @@
 
 local ADDON = ...
 local D = HealHPS_Data
-local DEFAULTS = { mode = "single", rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
+local DEFAULTS = { mode = "single", tipLevel = 3, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25 }
 local LOGO = "Interface\\AddOns\\HealHPS\\Media\\Logo"
 local db
@@ -482,29 +482,35 @@ local function compute()
         row.withOath = db.oath and sitAdd > 0 or nil
         row.perHeal = per
         local occupy = f.kind == "channel" and math.max(row.cast, row.dur or 0, f.gcd) or math.max(row.cast, f.gcd)
-        -- 單體純 HoT 在群補模式：持續時間內能輪流鋪給幾個人（每次占用施法時間／公共冷卻，有冷卻就受冷卻限制），最多到群補人數；
-        -- 鋪不到 2 人的（例如激流：冷卻 12 秒、持續 15 秒）不算群補
-        local reach = f.kind == "hot" and not f.group and not row.hotPart and (row.dur or 0) > 0
-          and math.floor(row.dur / math.max(occupy, row.cd)) or 0
+        -- 單體 HoT（含癒合這種直接＋HoT）在群補模式：持續時間內能輪流施放給幾個人（每次占用施法時間／公共冷卻，有冷卻就受冷卻限制），
+        -- 最多到群補人數；鋪不到 2 人的（例如激流：冷卻 12 秒、持續 15 秒）不算群補
+        local reach = f.kind == "hot" and not f.group and (row.dur or 0) > 0 and math.floor(row.dur / math.max(occupy, row.cd)) or 0
         row.spread = reach >= 2 or nil
+        local spreading = row.spread and db.mode == "group"
         local total, used = per, 1
         if f.key == "bh" then total, used = per * 2, 2
         elseif f.group then
           used = math.min(targets, f.maxTargets)
           total = f.groupModel == "chain50" and per * chainFactor(used) or per * used
-        elseif row.spread and db.mode == "group" then
-          used = math.min(targets, reach)
-          total = per * used
-        end
+        elseif spreading then used = math.min(targets, reach) end
+        -- 癒合輪流施放：同一人每「人數 × 占用」秒重放一次，HoT 沒跑完就被蓋掉，每發只算跑到的比例
+        local hotFrac = 1
+        if row.hotPart then
+          if spreading then hotFrac = math.min(1, used * occupy / row.dur) end
+          total = row.directPart + row.hotPart * hotFrac
+        elseif spreading then total = per * used end
         row.totalHeal, row.targets = total, used
-        if row.withOath then per = per + sitAdd; total = total + sitAdd; row.perHeal, row.totalHeal = per, total end
+        -- 情境加成；綻放在 HoT 自然結束才回：鋪幾人回幾次，癒合被蓋掉就沒有
+        local sitTimes = row.hotPart and (hotFrac >= 1 and 1 or 0) or (spreading and used or 1)
+        if row.withOath then per = per + sitAdd; total = total + sitAdd * sitTimes; row.perHeal, row.totalHeal = per, total end
         local manaEff = row.mana
-        if row.spread and db.mode == "group" then manaEff = manaEff * used end -- 鋪幾個人就施放幾次
+        if spreading and not row.hotPart then manaEff = manaEff * used end -- 鋪幾個人就施放幾次（癒合已經是每發的量）
         if f.key == "vigil" and hsMana then manaEff = manaEff + hsMana; occupy = occupy + 1.5 end
         local t = occupy
         -- 純 HoT 用效果期間：總量 ÷ 持續時間（冷卻比持續時間長就用冷卻）；群補 HoT 的總量已乘上目標數
         if f.kind == "hot" and not row.hotPart and (row.dur or 0) > 0 then t = math.max(row.dur, row.cd, occupy)
-        elseif f.kind ~= "absorb" and row.cd > 0 then t = math.max(row.cd, occupy) end
+        elseif f.kind == "absorb" then t = math.max(row.cd, occupy, 15) -- 同一目標受虛弱靈魂限制 15 秒一次
+        elseif row.cd > 0 then t = math.max(row.cd, occupy) end
         row.manaEff, row.time = manaEff, t
         local shown = (f.key == "bh" or (db.mode == "group" and (f.group or row.spread))) and total or per
         row.shown = shown
@@ -512,6 +518,15 @@ local function compute()
         row.hpm = manaEff > 0 and shown / manaEff or 0
         row.hpsT = t > 0 and total / t or 0
         row.hpmT = manaEff > 0 and total / manaEff or 0
+        if row.hotPart then
+          -- 直接 ÷ 施法時間 ＋ HoT ÷ 持續時間（群補輪流時 HoT 乘人數）；HPM 用每發的有效量
+          local bloom = row.withOath and sitAdd * sitTimes or 0
+          row.shown = total
+          row.hps = row.directPart / t + ((spreading and used or 1) * row.hotPart + bloom) / row.dur
+          row.hpsT = row.hps
+          row.hpm = manaEff > 0 and total / manaEff or 0
+          row.hpmT = row.hpm
+        end
         table.insert(rows, row)
         if row.id then byId[row.id] = byId[row.id] or {}; table.insert(byId[row.id], row) end
       end
@@ -579,6 +594,27 @@ local function unifyFont(tt, from)
   end
 end
 
+-- 拆解行（提示「標準」以上）：直接＋HoT 分開、HoT 輪流掛、盾輪流上、有冷卻的直接治療不計冷卻時
+local function breakdown(r)
+  local busy = math.max(r.cast, r.f.gcd)
+  local spread = r.spread and r.targets > 1 -- 群補模式輪流鋪：主數字已經是輪流的算法，不再列輪流那行
+  if r.hotPart and spread then
+    return string.format("直接 %s（每秒 %s）＋ %d 秒 %s，輪流 %d 人時每發只跑到 %d%%", fint(r.directPart), fmt1(r.directPart / busy),
+      r.dur, fint(r.hotPart), r.targets, math.floor(math.min(1, r.targets * busy / r.dur) * 100 + .5))
+  elseif r.hotPart then
+    return string.format("直接 %s（每秒 %s）＋ %d 秒 %s（每秒 %s）\n輪流補不同目標時每秒 %s", fint(r.directPart), fmt1(r.directPart / busy),
+      r.dur, fint(r.hotPart), fmt1(r.hotPart / r.dur), fmt1((r.directPart + r.hotPart) / busy))
+  elseif r.f.kind == "hot" and spread then
+    return string.format("%d 秒內補完；鋪 %d 人", r.dur, r.targets)
+  elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
+    return string.format("%d 秒內補完；輪流掛不同目標時每秒 %s", r.dur, fmt1(r.perHeal / busy))
+  elseif r.f.kind == "absorb" then
+    return string.format("同一目標 15 秒一次；輪流上不同目標時每秒 %s", fmt1(r.perHeal / busy))
+  elseif r.cd > 0 and r.f.kind == "direct" then
+    return string.format("不計冷卻時每秒 %s", fmt1(r.perHeal / busy))
+  end
+end
+
 local function addTooltip(tt, id)
   ensureDB()
   if not db.tip or not id then return end
@@ -603,18 +639,14 @@ local function addTooltip(tt, id)
     if r.withOath and sit then tag = "（" .. sit.tip .. "）" end
     -- 左欄標籤、右欄數字，兩排數字靠右對齊
     tt:AddDoubleLine("|cffd9b25fHPS ／ HPM|r" .. tag, fmt1(r.hpsT) .. " ／ " .. fmt2(r.hpmT), 1, 1, 1, 1, 1, 1)
-    if r.hotPart then
-      tt:AddLine(string.format("直接 %s（HPS %s）＋ HoT %s（每秒 %s）", fint(r.directPart), fmt1(r.time > 0 and r.directPart / r.time or 0),
-        fint(r.hotPart), fmt1((r.dur or 0) > 0 and r.hotPart / r.dur or 0)), .8, .8, .8)
-    elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
-      tt:AddLine(string.format("%d 秒內補完；輪流掛不同目標時每秒 %s", r.dur, fmt1(r.perHeal / math.max(r.cast, r.f.gcd))), .8, .8, .8)
-    elseif r.f.kind == "absorb" then
-      local gap = (r.cd and r.cd > 0) and r.cd or 15
-      tt:AddLine(string.format("同一目標每 %d 秒一次：每秒 %s", gap, fmt1(r.perHeal / gap)), .55, .75, 1)
-    end
-    if r.oathAdd > 0 and not r.withOath and sit then
+    local detail = breakdown(r)
+    if detail and db.tipLevel >= 2 then tt:AddLine(detail, .8, .8, .8) end
+    if r.oathAdd > 0 and not r.withOath and sit and db.tipLevel >= 2 then
       local h = r.totalHeal + r.oathAdd
       tt:AddDoubleLine("|cffd9b25f" .. sit.tip .. "|r", fmt1(r.time > 0 and h / r.time or 0) .. " ／ " .. fmt2(r.manaEff > 0 and h / r.manaEff or 0), 1, 1, 1, 1, 1, 1)
+    end
+    if db.tipLevel >= 3 then
+      if r.down < 0.9995 then tt:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
     end
     if sameRow(r, bh) then tt:AddLine("★ " .. catName .. " HPS最高", 1, .82, 0) end
     if sameRow(r, bm) then tt:AddLine("★ " .. catName .. " HPM最高", .4, 1, .4) end
@@ -726,13 +758,14 @@ local function refreshImpl()
   local th = frame.how.GetStringHeight and frame.how:GetStringHeight()
   th = (type(th) == "number" and th > 0) and th or 40
   frame.cdBtn:ClearAllPoints(); frame.cdBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(10 + th + 12))
-  frame.opts:SetHeight(10 + th + 12 + (isPal and 3 or 2) * 30 + 8)
+  frame.opts:SetHeight(10 + th + 12 + (isPal and 4 or 3) * 30 + 8)
   frame.info:SetText(string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus))
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" } }) do
     local on = db.mode == m[2]
     m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
   frame.cdBtn:SetText(db.includeCd and "冷卻技能：列入" or "冷卻技能：排除")
+  frame.tipBtn:SetText("技能提示：" .. (not db.tip and "關" or ({ "精簡", "標準", "完整" })[db.tipLevel]))
   frame.tgtLabel:SetText("群補人數 " .. (db.targets or 5))
   if frame.tgtSlider:GetValue() ~= (db.targets or 5) then frame.tgtSlider:SetValue(db.targets or 5) end
   for _, h in ipairs(frame.heads) do
@@ -891,8 +924,14 @@ local function buildFrame()
     if v ~= db.targets then db.targets = v; HealHPS_Refresh() end
   end)
   frame.tgtSlider = sl
+  frame.tipBtn = button(frame.opts, 250, "", function()
+    -- 完整 → 標準 → 精簡 → 關 → 完整
+    if not db.tip then db.tip, db.tipLevel = true, 3 elseif db.tipLevel <= 1 then db.tip = false else db.tipLevel = db.tipLevel - 1 end
+    HealHPS_Refresh()
+  end)
+  frame.tipBtn:SetHeight(26); frame.tipBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
   frame.oathBtn = button(frame.opts, 250, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
-  frame.oathBtn:SetHeight(26); frame.oathBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
+  frame.oathBtn:SetHeight(26); frame.oathBtn:SetPoint("TOP", frame.tipBtn, "BOTTOM", 0, -4)
   frame.oathBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     local sit = SIT[select(2, UnitClass("player"))]
@@ -933,14 +972,10 @@ local function buildFrame()
       local r = self.row; if not r then return end
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       GameTooltip:AddLine(r.label .. " 等級" .. r.rank)
-      if r.hotPart then
-        GameTooltip:AddDoubleLine("直接", fint(r.directPart) .. "（HPS " .. fmt1(r.time > 0 and r.directPart / r.time or 0) .. "）", .8, .8, .8, 1, 1, 1)
-        GameTooltip:AddDoubleLine("HoT", fint(r.hotPart) .. "（" .. (r.dur or 0) .. " 秒，每秒 " .. fmt1((r.dur or 0) > 0 and r.hotPart / r.dur or 0) .. "）", .8, .8, .8, 1, 1, 1)
-      elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
-        GameTooltip:AddDoubleLine("輪流掛不同目標", "每秒 " .. fmt1(r.perHeal / math.max(r.cast, r.f.gcd)) .. "（" .. r.dur .. " 秒）", .8, .8, .8, 1, 1, 1)
-      elseif r.f.kind == "absorb" then
-        GameTooltip:AddLine("吸收量不是治療量，不參加 HPS／HPM 最高的比較", .55, .75, 1, true)
-      end
+      local detail = breakdown(r)
+      if detail and db.tipLevel >= 2 then GameTooltip:AddLine(detail, .8, .8, .8, true) end
+      if r.f.kind == "absorb" and db.tipLevel >= 2 then GameTooltip:AddLine("吸收量不是治療量，不參加 HPS／HPM 最高的比較", .55, .75, 1, true) end
+      if db.tipLevel < 3 then GameTooltip:Show(); return end
       GameTooltip:AddDoubleLine("學習等級", tostring(r.learn), .8, .8, .8, 1, 1, 1)
       if r.down < 0.9995 then GameTooltip:AddDoubleLine("降級", string.format("治療效果只算 %d%%", math.floor(r.down * 100 + .5)), .8, .8, .8, 1, .6, .3) end
       if r.cd > 0 then GameTooltip:AddDoubleLine("冷卻", fmt1(r.cd) .. " 秒", .8, .8, .8, 1, 1, 1) end
