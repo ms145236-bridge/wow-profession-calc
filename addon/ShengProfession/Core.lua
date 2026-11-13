@@ -1066,7 +1066,10 @@ local function refreshImpl()
     emptyTxt = string.format(L["打開%s的專業視窗一次，插件就會記下你學會的配方"], p.name)
   else
     totalShort = string.format(L["%s %d–%d　花費 %s"], p.name, S, T, money(r.total))
-    totalFull = totalShort .. (pbTotal > 0.5 and string.format(L["　|cff9fd18b回本 %s|r　淨花費 %s"], money(pbTotal), money(math.max(0, r.total - pbTotal))) or "")
+    -- 回本超過花費時改顯示淨賺（原本會顯示淨花費 0）
+    totalFull = totalShort .. (pbTotal > 0.5 and (pbTotal > r.total
+      and string.format(L["　|cff9fd18b回本 %s|r　|cff9fd18b淨賺 %s|r"], money(pbTotal), money(pbTotal - r.total))
+      or string.format(L["　|cff9fd18b回本 %s|r　淨花費 %s"], money(pbTotal), money(r.total - pbTotal))) or "")
     if r.saved and r.saved > 0.5 then statusFull = statusFull .. L["　"] .. "|cff9fd18b" .. string.format(L["自製中間材料省 %s"], money(r.saved)) .. "|r" end
     if r.missing > 0 then warns[#warns + 1] = string.format(L["%d 項沒有價格"], r.missing) end
     emptyTxt = L["這個範圍不需要製作任何東西"]
