@@ -39,6 +39,8 @@ jobs:
             pid_var="CF_PROJECT_$name"; pid="${!pid_var}"
             if [ -z "$pid" ]; then echo "$name：沒有專案 ID，跳過"; continue; fi
             if [ "$ver" = "$old" ] && [ "$FORCE" != "true" ]; then echo "$name：版本 $ver 沒變，跳過"; continue; fi
+            # 版本號帶 beta（例如 1.1.0-beta）才發測試版，其餘都發正式版
+            case "$ver" in *beta*) rt=beta;; *) rt=release;; esac
             python3 tools/package.py "$name"
-            node tools/cf-upload.mjs "$pid" "dist/$name-$ver.zip" "$CF_GAME_VERSION" beta changelog.md
+            node tools/cf-upload.mjs "$pid" "dist/$name-$ver.zip" "$CF_GAME_VERSION" "$rt" changelog.md
           done
