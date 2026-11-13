@@ -1784,6 +1784,27 @@ local function slider(holder, label, min, max, step, value, set)
   return sl
 end
 
+-- 分析頁預設情境的等級對照表（Codex 查證：tools/verify-combat-numbers.md）
+-- 欄位：坦克生命、布甲生命、1 隻菁英實收／2 秒、首領實收／2 秒、聖騎單練實收／2 秒、單練戰鬥秒數、
+--       團刷全員大招（每人／20 秒）、持續範圍（每人／3 秒）、點名（／15 秒）
+local LEVEL_TABLE = {
+  { 20, 700, 400, 30, 50, 20, 15, 80, 20, 70 }, { 30, 1200, 700, 50, 80, 40, 20, 140, 40, 120 },
+  { 35, 1600, 900, 60, 90, 40, 25, 180, 50, 150 }, { 40, 1900, 1100, 70, 110, 50, 25, 220, 70, 190 },
+  { 45, 2400, 1300, 100, 160, 60, 25, 260, 80, 220 }, { 50, 2900, 1700, 130, 160, 60, 30, 340, 100, 290 },
+  { 55, 3500, 2000, 190, 360, 70, 30, 400, 120, 340 }, { 60, 4300, 2400, 300, 360, 80, 30, 480, 140, 410 },
+}
+local function levelTable()
+  local L = UnitLevel("player")
+  if type(L) ~= "number" or (issecretvalue and issecretvalue(L)) then L = 60 end
+  local T = LEVEL_TABLE
+  local a, b = T[1], T[#T]
+  for i = 1, #T - 1 do if L >= T[i][1] and L <= T[i + 1][1] then a, b = T[i], T[i + 1] end end
+  if L <= T[1][1] then a, b = T[1], T[1] elseif L >= T[#T][1] then a, b = T[#T], T[#T] end
+  local f = b[1] > a[1] and (L - a[1]) / (b[1] - a[1]) or 0
+  local function col(i) return a[i] + (b[i] - a[i]) * f end
+  return { tank = col(2), cloth = col(3), elite = col(4), boss = col(5), solo = col(6), soloSec = col(7), big = col(8), dot = col(9), pick = col(10) }
+end
+
 local function buildFrame()
   frame = CreateFrame("Frame", "HealHPSFrame", UIParent, "BasicFrameTemplateWithInset")
   frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1)
@@ -1941,35 +1962,34 @@ local function buildFrame()
     return row
   end
   frame.anaSets = {
-    -- 預設情境依角色等級 L 換算（估計值：同等級副本坦克與菁英怪的大概數字；60 級時接近一般五人本）
-    --   坦克生命 ≈ 1.2L²＋35L、隊員生命 ≈ 0.7L²＋25L、菁英怪每下 ≈ 4.5L、首領每下 ≈ 7L、野外普通怪每下 ≈ 2.2L
+    -- 預設情境依角色等級查表（tools/verify-combat-numbers.md，Codex 依永恆資料與正式服紀錄估的實收值；中間等級線性內插）
+    -- 傷害都是打在身上的實收：菁英、首領是每 2 秒一下的等效值；兩隻菁英＝同一值改每 1 秒
     -- p[2] 是情境代號，數值在套用時才算，所以升級後再點一次就會跟著變
     single = presetRow({ { "小怪", "trash" }, { "王戰", "boss" }, { "單練", "solo" }, { "省水", "easy" } }, function(p)
-      local L = UnitLevel("player") or 60
-      local tank = math.floor((1.2 * L * L + 35 * L) / 100 + 0.5) * 100
+      local t = levelTable()
       local hp, hit, gap, fight
-      if p[2] == "trash" then hp, hit, gap, fight = tank, 4.5 * L, 1, 30 -- 兩隻菁英怪同時打坦克
-      elseif p[2] == "boss" then hp, hit, gap, fight = tank, 7 * L, 2, 90
-      elseif p[2] == "easy" then hp, hit, gap, fight = tank, 4.5 * L, 2, 30 -- 一隻菁英怪
+      if p[2] == "trash" then hp, hit, gap, fight = t.tank, t.elite, 1, 30 -- 兩隻菁英同時打坦克
+      elseif p[2] == "boss" then hp, hit, gap, fight = t.tank, t.boss, 2, 90
+      elseif p[2] == "easy" then hp, hit, gap, fight = t.tank, t.elite, 2, 30 -- 一隻菁英
       else -- 單練：坦克就是自己，野外普通怪
         local ok, v = pcall(UnitHealthMax, "player")
-        hp = (ok and not (issecretvalue and issecretvalue(v)) and type(v) == "number") and v or tank
-        hit, gap, fight = 2.2 * L, 2, 30
+        hp = (ok and not (issecretvalue and issecretvalue(v)) and type(v) == "number") and v or t.tank
+        hit, gap, fight = t.solo, 2, t.soloSec
       end
-      db.anaHp = math.max(500, math.min(20000, math.floor(hp / 100 + 0.5) * 100))
-      db.anaHit = math.max(50, math.floor(hit / 10 + 0.5) * 10)
-      db.anaGap, db.fight = gap, fight
+      db.anaHp = math.max(100, math.floor(hp / 100 + 0.5) * 100)
+      db.anaHit = math.max(10, math.floor(hit / 10 + 0.5) * 10)
+      db.anaGap, db.fight = gap, math.floor(fight / 5 + 0.5) * 5
     end),
     group = presetRow({ { "群怪", "trash" }, { "全團技", "boss" }, { "範圍", "aoe" }, { "點名", "pick" } }, function(p)
-      local L = UnitLevel("player") or 60
+      local t = levelTable()
       local r10 = function(v) return math.max(10, math.floor(v / 10 + 0.5) * 10) end
-      local tank = math.floor((1.2 * L * L + 35 * L) / 100 + 0.5) * 100
-      local member = math.floor((0.7 * L * L + 25 * L) / 100 + 0.5) * 100
       -- { 範圍每次傷害, 範圍間隔, 範圍命中（0＝全員）, 坦克每次傷害, 坦克間隔, 戰鬥長度 }
-      local v = ({ trash = { 2.5 * L, 3, 0, 4.5 * L, 1.5, 45 }, boss = { 9 * L, 20, 0, 5 * L, 2, 90 },
-        aoe = { 1.8 * L, 2, 0, 0, 2, 60 }, pick = { 10 * L, 5, 1, 5 * L, 2, 60 } })[p[2]]
-      db.gN, db.gHp, db.gTankHp = 5, math.max(500, member), math.max(500, tank)
-      db.gAoe, db.gAoeGap, db.gAoeK = r10(v[1]), v[2], v[3]
+      local v = ({ trash = { 0, 3, 0, t.elite, 1, 45 }, boss = { t.big, 20, 0, t.boss, 2, 90 },
+        aoe = { t.dot, 3, 2, 0, 2, 60 }, pick = { t.pick, 15, 1, t.boss, 2, 60 } })[p[2]]
+      db.gN = 5
+      db.gHp = math.max(100, math.floor(t.cloth / 100 + 0.5) * 100)
+      db.gTankHp = math.max(100, math.floor(t.tank / 100 + 0.5) * 100)
+      db.gAoe, db.gAoeGap, db.gAoeK = v[1] > 0 and r10(v[1]) or 0, v[2], v[3]
       db.gTankHit, db.gTankGap, db.gFight = v[4] > 0 and r10(v[4]) or 0, v[5], v[6]
     end),
   }
@@ -2004,10 +2024,10 @@ local function buildFrame()
     set.w, set.rows = x - GAP, math.ceil(#defs / cols)
     return set
   end
-  frame.anaInputs = inputSet({ { "anaHp", "坦克生命 %d", 500, 20000, 100, 20000 }, { "anaHit", "每次傷害 %d", 50, 5000, 10, 5000 },
-    { "anaGap", "受傷間隔 %.1f 秒", 0.5, 5, 0.5, 5 }, { "fight", "戰鬥長度 %d 秒", 30, 600, 10, 600 } }, 1, 196)
-  frame.anaGInputs = inputSet({ { "gN", "人數 %d", 2, 10, 1, 10 }, { "gFight", "戰鬥長度 %d 秒", 30, 600, 10, 600 },
-    { "gHp", "成員生命 %d", 500, 20000, 100, 20000 }, { "gTankHp", "坦克生命 %d", 500, 30000, 100, 30000 },
+  frame.anaInputs = inputSet({ { "anaHp", "坦克生命 %d", 100, 20000, 100, 20000 }, { "anaHit", "每次傷害 %d", 10, 5000, 10, 5000 },
+    { "anaGap", "受傷間隔 %.1f 秒", 0.5, 5, 0.5, 5 }, { "fight", "戰鬥長度 %d 秒", 10, 600, 5, 600 } }, 1, 196)
+  frame.anaGInputs = inputSet({ { "gN", "人數 %d", 2, 10, 1, 10 }, { "gFight", "戰鬥長度 %d 秒", 10, 600, 5, 600 },
+    { "gHp", "成員生命 %d", 100, 20000, 100, 20000 }, { "gTankHp", "坦克生命 %d", 100, 30000, 100, 30000 },
     { "gTankHit", "坦克每次傷害 %d", 0, 5000, 10, 5000, "坦克每次傷害 無" }, { "gTankGap", "坦克間隔 %.1f 秒", 0.5, 5, 0.5, 5 },
     { "gAoe", "範圍每次傷害 %d", 0, 5000, 10, 5000, "範圍每次傷害 無" }, { "gAoeGap", "範圍間隔 %.1f 秒", 1, 30, 0.5, 30 },
     { "gAoeK", "範圍命中 隨機 %d 人", 0, 5, 1, 5, "範圍命中 全員" } }, 2, 150)
