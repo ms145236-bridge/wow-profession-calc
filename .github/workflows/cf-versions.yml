@@ -1,0 +1,22 @@
+name: 列出 CurseForge 遊戲版本
+
+# 手動執行：在記錄裡列出 CurseForge 的遊戲版本，找永恆（WoW Forever／1.60）的 ID
+on:
+  workflow_dispatch:
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          node tools/cf-upload.mjs versions > versions.txt
+          echo "== 可能是永恆的版本 =="
+          grep -iE "forever|1\.60|16001" versions.txt || echo "（沒有找到）"
+          echo "== 最新 40 筆 =="
+          head -40 versions.txt
