@@ -31,6 +31,9 @@
 **採集追蹤提醒**
 - 學了採礦或草藥學卻沒開「尋找礦物／尋找草藥」時，自動開啟；遊戲不允許時，畫面上出現提醒按鈕，點一下就開。
 
+**公會誰會做**
+- 有裝本插件的公會成員會自動互傳學會的配方：利潤表、佇列和物品滑鼠提示會顯示「公會：誰會做」；`/sprof guild` 看收到幾人的資料，`/sprof guild 名字` 看單人的專業與點數，`/sprof guild off` 不分享自己的（預設分享）。
+
 **專業視窗整合**
 - 打開專業視窗時，旁邊可以展開專業幫手，直接把配方加進佇列。
 
@@ -54,3 +57,5 @@
 ---
 
 **English (ShengProfession):** Profession helper for WoW Forever (zhTW client): profit table for all your recipes, a crafting queue with one-click crafting, cheapest leveling route based on Auctionator prices, Auctionator shopping lists, and a gathering-tracking reminder. Requires Auctionator for prices.
+
+- **Guild crafters:** guild members who also run ShengProfession share their known recipes automatically; recipe rows and item tooltips show who in your guild can craft it (`/sprof guild`, `/sprof guild <name>`; `/sprof guild off` stops sharing yours, on by default).

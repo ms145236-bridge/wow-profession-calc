@@ -2,7 +2,7 @@
 -- 依 Auctionator 的價格，從候選路線挑最省的一條，列出每段要做什麼、做幾次，以及要買的材料與花費。
 -- 自動偵測已學專業與目前點數、扣掉背包與銀行已有的材料，可一鍵建立 Auctionator 購物清單。
 
-local ADDON = ...
+local ADDON, NS = ... -- NS：跟 Guild.lua 共用
 local D = ProfLevel_Data
 local CALLER = "ProfLevel" -- 呼叫 Auctionator API 用的名稱
 local ICON = "Interface\\AddOns\\ShengProfession\\Media\\Logo"
@@ -31,11 +31,8 @@ local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r " .. s) end
 local reported = {}
-local function safe(where, fn, ...)
-  local ok, err = pcall(fn, ...)
-  if not ok then
-    err = tostring(err)
-  -- 錯誤存進存檔（登出後開發者讀得到），同一種錯誤只記一筆、算次數，最多 50 種
+-- 錯誤存進存檔（登出後開發者讀得到），同一種錯誤只記一筆、算次數，最多 50 種
+local function logError(where, err)
   if type(ProfLevelCharDB) == "table" then
     local log = ProfLevelCharDB.errors or {}
     ProfLevelCharDB.errors = log
@@ -47,6 +44,12 @@ local function safe(where, fn, ...)
       log[key] = { n = 1, t = date("%m/%d %H:%M") }
     end
   end
+end
+local function safe(where, fn, ...)
+  local ok, err = pcall(fn, ...)
+  if not ok then
+    err = tostring(err)
+    logError(where, err)
     if not reported[err] then reported[err] = true; msg("|cffff7b7b" .. where .. "出錯：|r" .. err .. "　請把這行回報給開發者") end
   end
   return ok
@@ -512,7 +515,7 @@ local function scanRecipes()
       end
     end
   end
-  if n > 0 then db.recipes[p.key] = out end
+  if n > 0 then db.recipes[p.key] = out; NS.guildRecipesChanged() end
 end
 
 local function bagCount(id) -- 製作只能用背包裡的
@@ -1101,7 +1104,7 @@ local function buildFrame()
       local fs = l:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fs:SetWordWrap(false)
       l.c[c] = fs
     end
-    l:EnableMouse(true)
+    l:EnableMouse(true); l.sprofRow = true
     l:SetScript("OnMouseUp", function(self, btn)
       local e = self.e; if not e then return end
       local d = (btn == "RightButton") and -1 or 1
@@ -1127,6 +1130,8 @@ local function buildFrame()
               1, 1, 1, got >= need and .6 or 1, got >= need and 1 or .6, .6)
           end
         end
+        local gl = NS.guildLine(e.recipe and e.id or e.queue.id, out)
+        if gl then GameTooltip:AddLine(gl, .55, .75, 1, true) end
         if e.recipe then
           if e.sell then GameTooltip:AddLine(string.format("售價 %s（已扣拍賣行 5%% 手續費）", money(e.sell)), .8, .8, .8) end
           local st = e.stats
@@ -1348,6 +1353,8 @@ SlashCmdList.PROFLEVEL = function(input)
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
     if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
     else msg("用法：/sprof scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
+  elseif cmd == "guild" then
+    NS.guildSlash((input or ""):match("^%s*%S+%s+(.-)%s*$"))
   elseif cmd == "track" then
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
   elseif cmd == "debug" then
@@ -1381,9 +1388,17 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof debug 列出偵測結果")
+    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
   end
 end
+
+NS.ensureDB, NS.msg, NS.learnedProfs, NS.recipes = ensureDB, msg, learnedProfs, recipes
+function NS.quiet(where, fn, ...) -- 跟 safe 一樣記錯誤，但不在聊天視窗顯示（公會同步要完全安靜）
+  local r = { pcall(fn, ...) }
+  if not r[1] then logError(where, tostring(r[2])); return nil end
+  return unpack(r, 2, table.maxn(r))
+end
+function NS.profName(k) return (PROF_BY_KEY[k] or (k == MINING.key and MINING) or { name = k }).name end
 
 -- ── 事件 ───────────────────────────────────────────────────────────────────
 local ev = CreateFrame("Frame")
