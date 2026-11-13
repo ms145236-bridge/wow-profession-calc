@@ -135,6 +135,22 @@ function API.Spellbook() -- 回傳 { {name, sub, id}, ... }，永恆的法術書
 end
 
 -- 出錯時印在聊天視窗（同一個錯誤只印一次），不要默默失敗
+-- 換版本時清掉舊版本留下的錯誤紀錄（修好的錯誤不用留著）
+do
+  local f = CreateFrame("Frame")
+  f:RegisterEvent("ADDON_LOADED")
+  f:SetScript("OnEvent", function(self, _, name)
+    if name ~= "ShengHealing" then return end
+    self:UnregisterEvent("ADDON_LOADED")
+    local meta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local ver = meta and meta("ShengHealing", "Version")
+    if type(HealHPSCharDB) == "table" and ver and type(HealHPSCharDB.errors) == "table" and HealHPSCharDB.errors.ver ~= ver then
+      HealHPSCharDB.errors = { ver = ver }
+    elseif type(HealHPSCharDB) == "table" and ver and HealHPSCharDB.errors == nil then
+      HealHPSCharDB.errors = { ver = ver }
+    end
+  end)
+end
 local reported = {}
 local function safe(where, fn, ...)
   local ok, err = pcall(fn, ...)
