@@ -47,7 +47,7 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - The helper can open next to the profession window so you can queue recipes straight from it.
 
 **Language**
-- English and Traditional Chinese, following your client language. Item, recipe and zone names follow the game language.
+- English, Traditional and Simplified Chinese, German, French, Spanish (Spain / Mexico), Russian, Korean and Portuguese, following your client language. Item, recipe and zone names follow the game language.
 
 ## Commands
 
@@ -58,7 +58,7 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - `/sprof train` next rank location for all your professions
 - `/sprof track` tracking reminder settings (`on`, `off`, `auto`, `mine`, `herb`, `reset`)
 - `/sprof guild` guild data summary; `/sprof guild <name>` one member; `/sprof guild on|off` share your recipes (on by default)
-- `/sprof lang en|zh|auto` interface language, applies after `/reload` (Chinese needs a Chinese client)
+- `/sprof lang en|zh|zhCN|deDE|frFR|esES|esMX|ruRU|koKR|ptBR|auto` interface language, applies after `/reload` (Chinese needs a Chinese client)
 - `/sprof debug` show what the addon detected
 
 ## Requirements
@@ -112,7 +112,7 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - 可以跟專業視窗一起打開，直接把配方加進佇列。
 
 **語言**
-- 英文、繁體中文介面，依遊戲語言自動切換；物品、配方、地區名稱跟著遊戲語言。
+- 英文、繁體中文、簡體中文、德文、法文、西班牙文（西班牙／墨西哥）、俄文、韓文、葡萄牙文介面，依遊戲語言自動切換；物品、配方、地區名稱跟著遊戲語言。
 
 ## 指令
 
@@ -123,7 +123,7 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - `/sprof train` 列出所有專業的下一階去哪學
 - `/sprof track` 採集追蹤提醒設定（`on`、`off`、`auto`、`mine`、`herb`、`reset`）
 - `/sprof guild` 公會資料摘要；`/sprof guild 名字` 看單人；`/sprof guild on|off` 分享我的配方（預設開）
-- `/sprof lang en|zh|auto` 介面語言，`/reload` 後生效（中文需要中文客戶端）
+- `/sprof lang en|zh|zhCN|deDE|frFR|esES|esMX|ruRU|koKR|ptBR|auto` 介面語言，`/reload` 後生效（中文需要中文客戶端）
 - `/sprof debug` 列出偵測結果
 
 ## 需求

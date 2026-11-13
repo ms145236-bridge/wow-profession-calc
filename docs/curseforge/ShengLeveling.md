@@ -43,10 +43,10 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - Inside a dungeon, only that dungeon's quests are shown.
 
 **Settings**
-- Size, width, opacity, fade, font size, pin size and hint position all adjustable.
+- Size, width, font size and fade on the main page; opacity, pin details and positions under Advanced. Hover a setting to see what it does.
 
 **Language**
-- English and Traditional Chinese, following your client language. Quest, NPC and mob names and the target macro use the game's names.
+- English, Traditional and Simplified Chinese, German, French, Spanish (Spain / Mexico), Russian, Korean and Portuguese, following your client language. Quest, NPC and mob names and the target macro use the game's names.
 
 ## Commands
 
@@ -54,8 +54,8 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - `/slv config` settings
 - `/slv macro` create the Quest Target macro
 - `/slv reset` realign with your quest log
-- `/slv minimap` show the minimap button
-- `/slv lang en|zh|auto` interface language, applies after `/reload`
+- `/slv minimap` show the minimap button (left-click: step bar, right-click: settings)
+- `/slv lang en|zh|zhCN|deDE|frFR|esES|esMX|ruRU|koKR|ptBR|auto` interface language, applies after `/reload`
 - `/slv rec on|off|export|clear` in-game route recording (stored locally, used to fix the route)
 - `/slv probe` diagnostic report (attach it to bug reports)
 
@@ -105,10 +105,10 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - 進副本後只顯示該副本的任務。
 
 **設定**
-- 大小、寬度、透明度、淡出、字體、標點大小、提示框位置都能調。
+- 主頁面調大小、寬度、字體和淡出；透明度、標點細項和位置收在「進階」。滑鼠移到設定上會顯示說明。
 
 **語言**
-- 英文、繁體中文介面，依遊戲語言自動切換；任務、NPC、怪物名稱與選怪巨集使用遊戲裡的名稱。
+- 英文、繁體中文、簡體中文、德文、法文、西班牙文（西班牙／墨西哥）、俄文、韓文、葡萄牙文介面，依遊戲語言自動切換；任務、NPC、怪物名稱與選怪巨集使用遊戲裡的名稱。
 
 ## 指令
 
@@ -116,8 +116,8 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - `/slv config` 設定
 - `/slv macro` 建立「任務目標」巨集
 - `/slv reset` 依任務日誌重新對齊
-- `/slv minimap` 顯示小地圖按鈕
-- `/slv lang en|zh|auto` 介面語言，`/reload` 後生效
+- `/slv minimap` 顯示小地圖按鈕（左鍵開關步驟列、右鍵打開設定）
+- `/slv lang en|zh|zhCN|deDE|frFR|esES|esMX|ruRU|koKR|ptBR|auto` 介面語言，`/reload` 後生效
 - `/slv rec on|off|export|clear` 遊戲內記錄（只存在本機，用來修正路線）
 - `/slv probe` 檢查報告（回報問題時請附上）
 

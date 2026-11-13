@@ -37,7 +37,7 @@ Compares **HPS** (healing per second) and **HPM** (healing per mana) for every h
 - Level, healing power, **Spirit** and mana regen (resting / while casting).
 
 **Language**
-- English and Traditional Chinese, following your client language.
+- English, Traditional and Simplified Chinese, German, French, Spanish (Spain / Mexico), Russian, Korean and Portuguese, following your client language.
 
 Minimap button (left click: open/close, right click: settings) and a resizable window. Other classes are left alone.
 
@@ -52,7 +52,7 @@ Minimap button (left click: open/close, right click: settings) and a resizable w
 - `/shps pct <number>|auto` healing bonus % (auto reads talents)
 - `/shps absorb <number>|auto` absorb bonus % (auto reads talents)
 - `/shps desc incl|base|auto` whether tooltip numbers already include healing power
-- `/shps lang en|zh|auto` interface language, applies after `/reload`
+- `/shps lang en|zh|zhCN|deDE|frFR|esES|esMX|ruRU|koKR|ptBR|auto` interface language, applies after `/reload`
 - `/shps debug` show what the addon read
 - `/shps reset` reset settings
 
@@ -94,7 +94,7 @@ Minimap button (left click: open/close, right click: settings) and a resizable w
 - 等級、治療效果、**精神**與回藍（停手／施法中）。
 
 **語言**
-- 英文、繁體中文介面，依遊戲語言自動切換。
+- 英文、繁體中文、簡體中文、德文、法文、西班牙文（西班牙／墨西哥）、俄文、韓文、葡萄牙文介面，依遊戲語言自動切換。
 
 小地圖按鈕（左鍵開關視窗、右鍵打開設定）、可調整大小的視窗。非治療職業不會啟用。
 
@@ -109,7 +109,7 @@ Minimap button (left click: open/close, right click: settings) and a resizable w
 - `/shps pct 數字|auto` 治療加成 %（auto 依天賦）
 - `/shps absorb 數字|auto` 吸收加成 %（auto 依天賦）
 - `/shps desc incl|base|auto` 技能說明數字是否已含治療效果
-- `/shps lang en|zh|auto` 介面語言，`/reload` 後生效
+- `/shps lang en|zh|zhCN|deDE|frFR|esES|esMX|ruRU|koKR|ptBR|auto` 介面語言，`/reload` 後生效
 - `/shps debug` 列出插件讀到的資料
 - `/shps reset` 重設設定
 
