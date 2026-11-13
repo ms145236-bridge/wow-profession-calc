@@ -1,4 +1,4 @@
--- 阿聖治療幫手 BridgeHealing（魔獸世界：永恆）
+-- 阿聖治療幫手 ShengHealing（魔獸世界：永恆）
 -- 盡量從遊戲讀取：技能與階級（法術書）、法力、施法時間、冷卻、學習等級、基礎治療量（技能說明）、治療效果、天賦。
 -- 遊戲讀不到的欄位才用 Data.lua（由網頁資料產生）。治療係數遊戲不會顯示，一律用資料表。
 
@@ -6,7 +6,7 @@ local ADDON = ...
 local D = HealHPS_Data
 local DEFAULTS = { mode = "single", tipLevel = 3, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25 }
-local LOGO = "Interface\\AddOns\\BridgeHealing\\Media\\Logo"
+local LOGO = "Interface\\AddOns\\ShengHealing\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
 -- 技能說明的數字是否已經含治療效果：永恆（新版引擎）實測會含；經典版不含。/shps desc 可手動指定

@@ -1,6 +1,6 @@
-**專案名稱：** 阿聖練等幫手 BridgeLeveling
+**專案名稱：** 阿聖練等幫手 ShengLeveling
 **授權（License）：** GPL-3.0（路線資料使用 Questie／QuestieDB 的資料，必須是 GPL-3.0）
-**系列：** 阿聖 Bridge（另有 阿聖治療幫手 BridgeHealing、阿聖專業幫手 BridgeProfession）
+**系列：** 阿聖 Sheng（另有 阿聖治療幫手 ShengHealing、阿聖專業幫手 ShengProfession）
 **摘要（Summary，一行）：** 魔獸世界：永恆部落 1–60 練等路線：一次只顯示一步，任務一變就自動對齊，地圖標點＋箭頭，照著走就能升級。
 **分類：** Quests & Leveling、Map & Minimap
 **語言：** 繁體中文（zhTW）
@@ -42,4 +42,4 @@
 
 ---
 
-**English (BridgeLeveling):** Horde 1–60 leveling route guide for WoW Forever (zhTW client). Shows one step at a time and auto-syncs with your quest log, with world map / minimap pins and WaypointUI arrows, race/class branches, a one-click "target quest mob" macro, XP-shortfall suggestions, dungeon prerequisites and in-dungeon quest lists. Optional: Questie, WaypointUI.
+**English (ShengLeveling):** Horde 1–60 leveling route guide for WoW Forever (zhTW client). Shows one step at a time and auto-syncs with your quest log, with world map / minimap pins and WaypointUI arrows, race/class branches, a one-click "target quest mob" macro, XP-shortfall suggestions, dungeon prerequisites and in-dungeon quest lists. Optional: Questie, WaypointUI.

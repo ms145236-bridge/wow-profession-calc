@@ -1,6 +1,6 @@
-**專案名稱：** 阿聖專業幫手 BridgeProfession
+**專案名稱：** 阿聖專業幫手 ShengProfession
 **授權（License）：** GPL-3.0
-**系列：** 阿聖 Bridge（另有 阿聖練等幫手 BridgeLeveling、阿聖治療幫手 BridgeHealing）
+**系列：** 阿聖 Sheng（另有 阿聖練等幫手 ShengLeveling、阿聖治療幫手 ShengHealing）
 **摘要（Summary，一行）：** 魔獸世界：永恆專業幫手：利潤表、製作佇列一鍵製作、最省衝級路線、Auctionator 購物清單、採集追蹤提醒。
 **分類：** Professions、Auction & Economy
 **語言：** 繁體中文（zhTW）
@@ -53,4 +53,4 @@
 
 ---
 
-**English (BridgeProfession):** Profession helper for WoW Forever (zhTW client): profit table for all your recipes, a crafting queue with one-click crafting, cheapest leveling route based on Auctionator prices, Auctionator shopping lists, and a gathering-tracking reminder. Requires Auctionator for prices.
+**English (ShengProfession):** Profession helper for WoW Forever (zhTW client): profit table for all your recipes, a crafting queue with one-click crafting, cheapest leveling route based on Auctionator prices, Auctionator shopping lists, and a gathering-tracking reminder. Requires Auctionator for prices.

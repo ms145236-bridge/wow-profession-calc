@@ -1,6 +1,6 @@
-**專案名稱：** 阿聖治療幫手 BridgeHealing
+**專案名稱：** 阿聖治療幫手 ShengHealing
 **授權（License）：** GPL-3.0
-**系列：** 阿聖 Bridge（另有 阿聖練等幫手 BridgeLeveling、阿聖專業幫手 BridgeProfession）
+**系列：** 阿聖 Sheng（另有 阿聖練等幫手 ShengLeveling、阿聖專業幫手 ShengProfession）
 **摘要（Summary，一行）：** 魔獸世界：永恆治療職 HPS／HPM 比較：直接讀遊戲技能說明與天賦，滑鼠提示與比較表告訴你哪一招最划算。
 **分類：** Healer、Tooltip、Class（Paladin/Priest/Druid/Shaman）
 **語言：** 繁體中文（zhTW）
@@ -43,4 +43,4 @@
 
 ---
 
-**English (BridgeHealing):** HPS / HPM comparison for healers in WoW Forever (zhTW client). Reads real numbers from in-game spell tooltips and talents, shows HPS/HPM in tooltips and a sortable comparison table (`/shps`, single-target / group / cooldown tabs, adjustable group size), including downranking penalties and the Oath of Light talent.
+**English (ShengHealing):** HPS / HPM comparison for healers in WoW Forever (zhTW client). Reads real numbers from in-game spell tooltips and talents, shows HPS/HPM in tooltips and a sortable comparison table (`/shps`, single-target / group / cooldown tabs, adjustable group size), including downranking penalties and the Oath of Light talent.

@@ -1,4 +1,4 @@
-# 阿聖治療幫手 BridgeHealing（魔獸世界：永恆插件）
+# 阿聖治療幫手 ShengHealing（魔獸世界：永恆插件）
 
 ![LOGO](Media/Logo256.png)
 
@@ -6,9 +6,9 @@
 
 ## 安裝
 
-1. 下載 `BridgeHealing.zip`，解壓縮。
-2. 把 `BridgeHealing` 資料夾放到 `World of Warcraft\_forever_\Interface\AddOns\`。
-   放好後路徑應該是 `...\Interface\AddOns\BridgeHealing\BridgeHealing.toc`。
+1. 下載 `ShengHealing.zip`，解壓縮。
+2. 把 `ShengHealing` 資料夾放到 `World of Warcraft\_forever_\Interface\AddOns\`。
+   放好後路徑應該是 `...\Interface\AddOns\ShengHealing\ShengHealing.toc`。
 3. 進遊戲，在角色選擇畫面左下角的「插件」確認「阿聖治療幫手」有勾選。
    如果顯示「過期」，勾選「載入過期插件」。
 

@@ -5,7 +5,7 @@
 local ADDON = ...
 local D = ProfLevel_Data
 local CALLER = "ProfLevel" -- 呼叫 Auctionator API 用的名稱
-local ICON = "Interface\\AddOns\\BridgeProfession\\Media\\Logo"
+local ICON = "Interface\\AddOns\\ShengProfession\\Media\\Logo"
 local PROFS = {
   { key = "alchemy",        name = "鍊金術", line = 171 },
   { key = "blacksmithing",  name = "鍛造",   line = 164 },

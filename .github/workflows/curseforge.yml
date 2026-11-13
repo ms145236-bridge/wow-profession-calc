@@ -26,13 +26,13 @@ jobs:
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_GAME_VERSION: ${{ vars.CF_GAME_VERSION }}
-          CF_PROJECT_BridgeHealing: ${{ vars.CF_PROJECT_HEALING }}
-          CF_PROJECT_BridgeProfession: ${{ vars.CF_PROJECT_PROFESSION }}
+          CF_PROJECT_ShengHealing: ${{ vars.CF_PROJECT_HEALING }}
+          CF_PROJECT_ShengProfession: ${{ vars.CF_PROJECT_PROFESSION }}
           FORCE: ${{ inputs.force }}
         run: |
           if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_GAME_VERSION" ]; then echo "還沒設定 CF_API_TOKEN 或 CF_GAME_VERSION，跳過"; exit 0; fi
           git log -1 --format=%B > changelog.md
-          for name in BridgeHealing BridgeProfession; do
+          for name in ShengHealing ShengProfession; do
             toc="addon/$name/$name.toc"
             ver=$(grep -m1 '^## Version:' "$toc" | cut -d' ' -f3 | tr -d '\r')
             old=$(git show "HEAD~1:$toc" 2>/dev/null | grep -m1 '^## Version:' | cut -d' ' -f3 | tr -d '\r' || true)

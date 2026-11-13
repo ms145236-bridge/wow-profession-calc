@@ -1,4 +1,4 @@
-// 把網頁的 healer-data.js 轉成插件用的 addon/BridgeHealing/Data.lua
+// 把網頁的 healer-data.js 轉成插件用的 addon/ShengHealing/Data.lua
 // 用法（在 repo 根目錄）：node tools/addon-data.mjs
 import fs from 'fs';
 import path from 'path';
@@ -68,7 +68,7 @@ for (const f of fam.values()) {
   out += `    } },\n`;
 }
 out += `} }\n`;
-const dest = path.join(root, 'addon', 'BridgeHealing', 'Data.lua');
+const dest = path.join(root, 'addon', 'ShengHealing', 'Data.lua');
 fs.mkdirSync(path.dirname(dest), { recursive: true });
 fs.writeFileSync(dest, out);
 console.log('寫入', path.relative(root, dest), fam.size, '個技能');
