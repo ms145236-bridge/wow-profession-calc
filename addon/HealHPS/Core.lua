@@ -428,7 +428,7 @@ local function compute()
   ctx.healPct = (db.pct or tal.heal) / 100
   ctx.absorbPct = (db.absorb or tal.absorb) / 100
   ctx.talents = tal
-  local targets = math.max(1, math.min(5, db.targets or 5))
+  local targets = math.max(1, math.min(10, db.targets or 5))
   local rows, byId = {}, {}
   local hsMana
   do -- 聖光守望要接一發最高階神聖震擊
@@ -480,23 +480,29 @@ local function compute()
         row.oathAdd = sitAdd
         row.withOath = db.oath and sitAdd > 0 or nil
         row.perHeal = per
+        local occupy = f.kind == "channel" and math.max(row.cast, row.dur or 0, f.gcd) or math.max(row.cast, f.gcd)
+        -- 單體純 HoT 在群補模式：持續時間內能輪流鋪給幾個人（每次占用施法時間／公共冷卻，有冷卻就受冷卻限制），最多到群補人數
+        row.spread = f.kind == "hot" and not f.group and not row.hotPart and (row.dur or 0) > 0 or nil
         local total, used = per, 1
         if f.key == "bh" then total, used = per * 2, 2
         elseif f.group then
           used = math.min(targets, f.maxTargets)
           total = f.groupModel == "chain50" and per * chainFactor(used) or per * used
+        elseif row.spread and db.mode == "group" then
+          used = math.max(1, math.min(targets, math.floor(row.dur / math.max(occupy, row.cd))))
+          total = per * used
         end
         row.totalHeal, row.targets = total, used
         if row.withOath then per = per + sitAdd; total = total + sitAdd; row.perHeal, row.totalHeal = per, total end
-        local occupy = f.kind == "channel" and math.max(row.cast, row.dur or 0, f.gcd) or math.max(row.cast, f.gcd)
         local manaEff = row.mana
+        if row.spread and db.mode == "group" then manaEff = manaEff * used end -- 鋪幾個人就施放幾次
         if f.key == "vigil" and hsMana then manaEff = manaEff + hsMana; occupy = occupy + 1.5 end
         local t = occupy
         -- 純 HoT 用效果期間：總量 ÷ 持續時間（冷卻比持續時間長就用冷卻）；群補 HoT 的總量已乘上目標數
         if f.kind == "hot" and not row.hotPart and (row.dur or 0) > 0 then t = math.max(row.dur, row.cd, occupy)
         elseif f.kind ~= "absorb" and row.cd > 0 then t = math.max(row.cd, occupy) end
         row.manaEff, row.time = manaEff, t
-        local shown = (f.key == "bh" or (db.mode == "group" and f.group)) and total or per
+        local shown = (f.key == "bh" or (db.mode == "group" and (f.group or row.spread))) and total or per
         row.shown = shown
         row.hps = t > 0 and shown / t or 0
         row.hpm = manaEff > 0 and shown / manaEff or 0
@@ -531,7 +537,7 @@ local function filterRows(rows, mode)
   local list = {}
   for _, r in ipairs(rows) do
     local f = r.f
-    local okMode = (mode == "group") == (f.group and true or false)
+    local okMode = mode == "group" and (f.group or r.spread) or mode ~= "group" and not f.group
     local okCd = db.includeCd or mode == "group" or r.cd <= 0 or f.kind == "absorb"
     if okMode and okCd then table.insert(list, r) end
   end
@@ -577,7 +583,7 @@ local function addTooltip(tt, id)
   compute() -- 治療效果、增益可能改變，重新算
   local rows = scan.byId[id]
   if not rows then return end
-  local cat = rows[1].f.group and "group" or "single"
+  local cat = (rows[1].f.group or (rows[1].spread and db.mode == "group")) and "group" or "single"
   local bh, bm
   for _, r in ipairs(filterRows(scan.rows, cat)) do
     if r.f.kind ~= "absorb" then
@@ -588,7 +594,7 @@ local function addTooltip(tt, id)
   local catName = cat == "group" and "群補" or "單補"
   local firstLine = (tt.NumLines and tt:NumLines() or 0) + 1
   for _, r in ipairs(rows) do
-    local tag = r.f.kind == "absorb" and "（吸收）" or ((r.f.group or r.f.key == "bh") and string.format("（%d人）", r.targets) or "")
+    local tag = r.f.kind == "absorb" and "（吸收）" or ((r.f.group or r.f.key == "bh" or r.targets > 1) and string.format("（%d人）", r.targets) or "")
     local sit = SIT[select(2, UnitClass("player"))]
     if r.withOath and sit then tag = "（" .. sit.tip .. "）" end
     -- 左欄標籤、右欄數字，兩排數字靠右對齊
@@ -723,7 +729,8 @@ local function refreshImpl()
     m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
   frame.cdBtn:SetText(db.includeCd and "冷卻技能：列入" or "冷卻技能：排除")
-  frame.tgtBtn:SetText("群補人數：" .. (db.targets or 5))
+  frame.tgtLabel:SetText("群補人數 " .. (db.targets or 5))
+  if frame.tgtSlider:GetValue() ~= (db.targets or 5) then frame.tgtSlider:SetValue(db.targets or 5) end
   for _, h in ipairs(frame.heads) do
     local on = h.key == db.sort
     h.fs:SetText((on and "▼" or "") .. h.label) -- 箭頭放左邊，右邊緣才會跟數字對齊
@@ -852,12 +859,34 @@ local function buildFrame()
   end
   local how = frame.opts:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   how:SetPoint("TOPLEFT", 12, -10); how:SetWidth(266); how:SetJustifyH("LEFT"); how:SetSpacing(3)
-  how:SetText("HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n有冷卻的技能用冷卻時間算|r")
+  how:SetText("HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n有冷卻的技能用冷卻時間算\n持續治療用持續時間算；群補時算能輪流鋪給幾人|r")
   frame.how = how
   frame.cdBtn = button(frame.opts, 250, "", function() db.includeCd = not db.includeCd; HealHPS_Refresh() end)
   frame.cdBtn:SetHeight(26)
-  frame.tgtBtn = button(frame.opts, 250, "", function() db.targets = (db.targets or 5) % 5 + 1; HealHPS_Refresh() end)
-  frame.tgtBtn:SetHeight(26); frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -4)
+  -- 群補人數：滑桿 1–10（群補技能還受技能本身的人數上限；持續治療受持續時間與公共冷卻限制）
+  frame.tgtBtn = CreateFrame("Frame", nil, frame.opts)
+  frame.tgtBtn:SetSize(250, 26); frame.tgtBtn:SetPoint("TOP", frame.cdBtn, "BOTTOM", 0, -4)
+  frame.tgtLabel = frame.tgtBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  frame.tgtLabel:SetPoint("LEFT", 4, 0)
+  local ok, sl = pcall(CreateFrame, "Slider", nil, frame.tgtBtn, "OptionsSliderTemplate")
+  if ok and sl then
+    for _, k in ipairs({ "Low", "High", "Text" }) do if type(sl[k]) == "table" and sl[k].SetText then sl[k]:SetText("") end end
+  else -- 沒有這個樣板就自己畫軌道
+    sl = CreateFrame("Slider", nil, frame.tgtBtn)
+    sl:SetOrientation("HORIZONTAL")
+    local track = sl:CreateTexture(nil, "BACKGROUND")
+    track:SetColorTexture(.35, .29, .15, 1); track:SetPoint("LEFT"); track:SetPoint("RIGHT"); track:SetHeight(4)
+    sl:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+  end
+  sl:SetPoint("LEFT", frame.tgtLabel, "RIGHT", 12, 0); sl:SetPoint("RIGHT", frame.tgtBtn, "RIGHT", -6, 0); sl:SetHeight(16)
+  sl:SetMinMaxValues(1, 10); sl:SetValueStep(1)
+  if sl.SetObeyStepsOnDrag then sl:SetObeyStepsOnDrag(true) end
+  sl:SetValue(db.targets or 5)
+  sl:SetScript("OnValueChanged", function(_, v)
+    v = math.floor(v + 0.5)
+    if v ~= db.targets then db.targets = v; HealHPS_Refresh() end
+  end)
+  frame.tgtSlider = sl
   frame.oathBtn = button(frame.opts, 250, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
   frame.oathBtn:SetHeight(26); frame.oathBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
   frame.oathBtn:SetScript("OnEnter", function(self)
@@ -1047,7 +1076,7 @@ SlashCmdList.HEALHPS = function(input)
     db.absorb = arg ~= "auto" and tonumber(arg) or nil
     msg("吸收加成 %：" .. (db.absorb and db.absorb .. "（手動）" or "依天賦自動"))
   elseif cmd == "targets" then
-    db.targets = math.max(1, math.min(5, tonumber(arg) or 5)); msg("群補目標數：" .. db.targets)
+    db.targets = math.max(1, math.min(10, tonumber(arg) or 5)); msg("群補目標數：" .. db.targets)
   elseif cmd == "tip" then
     db.tip = not db.tip; msg("滑鼠提示：" .. (db.tip and "開" or "關"))
   elseif cmd == "downrank" then
@@ -1065,7 +1094,7 @@ SlashCmdList.HEALHPS = function(input)
   elseif cmd == "reset" then
     HealHPSCharDB = CopyTable(DEFAULTS); db = HealHPSCharDB; msg("設定已重設")
   else
-    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-5　/hps tip　/hps scale 1.2　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
+    msg("/hps 開關視窗　/hps pct 數字|auto　/hps absorb 數字|auto　/hps targets 1-10　/hps tip　/hps scale 1.2　/hps minimap　/hps downrank　/hps desc incl|base|auto　/hps debug　/hps reset")
   end
   if frame then HealHPS_Refresh() end
 end
