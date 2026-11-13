@@ -65,9 +65,11 @@ local function status()
       elseif e.spellID then other = e.name end
     end
   end
-  if not gather and #list == 0 then -- 沒有追蹤清單 API：改看身上的追蹤效果
+  -- 沒有追蹤清單 API：改看身上的追蹤效果（戰鬥中遊戲不讓讀增益，跳過）
+  if not gather and #list == 0 and not InCombatLockdown() and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
     for id, k in pairs(GATHER) do
-      if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID and C_UnitAuras.GetPlayerAuraBySpellID(id) then gather = k end
+      local ok, a = pcall(C_UnitAuras.GetPlayerAuraBySpellID, id)
+      if ok and a then gather = k end
     end
   end
   return gather, other, list
