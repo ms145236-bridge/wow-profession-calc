@@ -492,7 +492,9 @@ local function compute()
         local manaEff = row.mana
         if f.key == "vigil" and hsMana then manaEff = manaEff + hsMana; occupy = occupy + 1.5 end
         local t = occupy
-        if f.kind ~= "absorb" and row.cd > 0 then t = math.max(row.cd, occupy) end
+        -- 純 HoT 用效果期間：總量 ÷ 持續時間（冷卻比持續時間長就用冷卻）；群補 HoT 的總量已乘上目標數
+        if f.kind == "hot" and not row.hotPart and (row.dur or 0) > 0 then t = math.max(row.dur, row.cd, occupy)
+        elseif f.kind ~= "absorb" and row.cd > 0 then t = math.max(row.cd, occupy) end
         row.manaEff, row.time = manaEff, t
         local shown = (f.key == "bh" or (db.mode == "group" and f.group)) and total or per
         row.shown = shown
@@ -595,7 +597,7 @@ local function addTooltip(tt, id)
       tt:AddLine(string.format("直接 %s（HPS %s）＋ HoT %s（每秒 %s）", fint(r.directPart), fmt1(r.time > 0 and r.directPart / r.time or 0),
         fint(r.hotPart), fmt1((r.dur or 0) > 0 and r.hotPart / r.dur or 0)), .8, .8, .8)
     elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
-      tt:AddLine(string.format("單一目標每秒 %s（%d 秒內補完）", fmt1(r.perHeal / r.dur), r.dur), .8, .8, .8)
+      tt:AddLine(string.format("%d 秒內補完；輪流掛不同目標時每秒 %s", r.dur, fmt1(r.perHeal / math.max(r.cast, r.f.gcd))), .8, .8, .8)
     elseif r.f.kind == "absorb" then
       local gap = (r.cd and r.cd > 0) and r.cd or 15
       tt:AddLine(string.format("同一目標每 %d 秒一次：每秒 %s", gap, fmt1(r.perHeal / gap)), .55, .75, 1)
@@ -902,7 +904,7 @@ local function buildFrame()
         GameTooltip:AddDoubleLine("直接", fint(r.directPart) .. "（HPS " .. fmt1(r.time > 0 and r.directPart / r.time or 0) .. "）", .8, .8, .8, 1, 1, 1)
         GameTooltip:AddDoubleLine("HoT", fint(r.hotPart) .. "（" .. (r.dur or 0) .. " 秒，每秒 " .. fmt1((r.dur or 0) > 0 and r.hotPart / r.dur or 0) .. "）", .8, .8, .8, 1, 1, 1)
       elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
-        GameTooltip:AddDoubleLine("單一目標每秒", fmt1(r.perHeal / r.dur) .. "（" .. r.dur .. " 秒）", .8, .8, .8, 1, 1, 1)
+        GameTooltip:AddDoubleLine("輪流掛不同目標", "每秒 " .. fmt1(r.perHeal / math.max(r.cast, r.f.gcd)) .. "（" .. r.dur .. " 秒）", .8, .8, .8, 1, 1, 1)
       elseif r.f.kind == "absorb" then
         GameTooltip:AddLine("吸收量不是治療量，不參加 HPS／HPM 最高的比較", .55, .75, 1, true)
       end
