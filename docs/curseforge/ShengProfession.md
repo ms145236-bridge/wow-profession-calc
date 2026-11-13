@@ -71,10 +71,6 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - Listed count means how many people are selling, not how many sell (the game has no sales data).
 - Leveling route data is based on the kovarel.com WoW Forever profession tool.
 
-Web version: https://ms145236-bridge.github.io/wow-profession-calc/
-Source: https://github.com/ms145236-bridge/wow-profession-calc
-Issues: https://github.com/ms145236-bridge/wow-profession-calc/issues
-
 ---
 
 # 阿聖專業幫手（魔獸世界：永恆）
@@ -140,6 +136,3 @@ Issues: https://github.com/ms145236-bridge/wow-profession-calc/issues
 - 在架數量只代表有多少人在賣，不代表賣得掉（遊戲沒有成交量資料）。
 - 衝級路線資料整理自 kovarel.com 的 WoW Forever 專業工具。
 
-網頁版：https://ms145236-bridge.github.io/wow-profession-calc/
-原始碼：https://github.com/ms145236-bridge/wow-profession-calc
-問題回報：https://github.com/ms145236-bridge/wow-profession-calc/issues

@@ -68,9 +68,6 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - Horde only for now.
 - Route order follows the WoW Forever leveling videos by Bilibili creator 奇怪小鸭, refined with other public routes. Quest, NPC and coordinate data from Questie / QuestieDB (GPL-3.0).
 
-Source: https://github.com/ms145236-bridge/wow-leveling-guide
-Issues: https://github.com/ms145236-bridge/wow-leveling-guide/issues
-
 ---
 
 # 阿聖練等幫手（魔獸世界：永恆）
@@ -133,5 +130,3 @@ Issues: https://github.com/ms145236-bridge/wow-leveling-guide/issues
 - 目前路線只有部落。
 - 路線站序參考 Bilibili UP 主「奇怪小鸭」的《魔兽世界无限》練級路線影片，並參考其他公開練級路線優化；任務、NPC、座標資料取自 Questie／QuestieDB（GPL-3.0）。
 
-原始碼：https://github.com/ms145236-bridge/wow-leveling-guide
-問題回報：https://github.com/ms145236-bridge/wow-leveling-guide/issues

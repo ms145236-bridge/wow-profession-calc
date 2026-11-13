@@ -61,10 +61,6 @@ Minimap button (left click: window, right click: tooltip HPS on/off) and a resiz
 - The comparison table ignores crits and overhealing; the analysis tab includes crits (HoTs can crit in Forever).
 - Base spell values were checked rank by rank against WoW Forever client data (1.60.1). Analysis preset damage numbers come from Forever data and combat logs and are estimates.
 
-Web version: https://ms145236-bridge.github.io/wow-profession-calc/healer.html
-Source: https://github.com/ms145236-bridge/wow-profession-calc
-Issues: https://github.com/ms145236-bridge/wow-profession-calc/issues
-
 ---
 
 # 阿聖治療幫手（魔獸世界：永恆）
@@ -122,6 +118,3 @@ Issues: https://github.com/ms145236-bridge/wow-profession-calc/issues
 - 比較表不含爆擊、溢補；分析頁有算爆擊（永恆的持續治療會爆擊）。
 - 技能基礎數值已依永恆客戶端資料（1.60.1）逐階核對；分析頁預設情境的傷害數字依永恆資料與戰鬥紀錄估計。
 
-網頁版：https://ms145236-bridge.github.io/wow-profession-calc/healer.html
-原始碼：https://github.com/ms145236-bridge/wow-profession-calc
-問題回報：https://github.com/ms145236-bridge/wow-profession-calc/issues
