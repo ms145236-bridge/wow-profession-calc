@@ -407,6 +407,7 @@ local function readRank(st, r, id, ctx)
   else return nil end
   if f.parse == "regrowth" then
     if ghot then row.hotBase = ghot; src.hot = "遊戲" elseif d and d.hotBase then row.hotBase = d.hotBase; src.hot = "資料" else return nil end
+    row.hotCoeff = d and d.hotCoeff or 0
     row.dur = gdur or row.dur or 21
   end
   if f.parse == "hot" and gdur then row.dur = gdur end -- 回春術、恢復的持續時間也從說明讀（天賦會改）
@@ -432,7 +433,7 @@ local function compute()
   local targets = math.max(2, math.min(10, db.targets or 5))
   local rows, byId = {}, {}
   local hsMana
-  do -- 聖光守望要接一發最高階神聖震擊
+  do -- 聖光戒備要接一發最高階神聖震擊
     local st = scan.families.hs
     if st and st.maxRank > 0 then
       local id = st.known[st.maxRank]
@@ -459,7 +460,10 @@ local function compute()
           row.inclDesc = true
         else
           per = (avg + ctx.bonus * row.coeff * row.down) * mult
-          if f.parse == "regrowth" then row.directPart, row.hotPart = per, row.hotBase * mult; per = per + row.hotBase * mult end -- HoT 係數未公開，不加治療效果
+          if f.parse == "regrowth" then -- HoT 段的治療效果係數另計（永恆 DB2：直接 0.286、HoT 0.497）
+            local hot = (row.hotBase + ctx.bonus * row.hotCoeff * row.down) * mult
+            row.directPart, row.hotPart = per, hot; per = per + hot
+          end
         end
         -- 情境加成（不在技能說明裡）
         local sitAdd = 0

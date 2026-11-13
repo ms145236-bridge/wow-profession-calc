@@ -15,8 +15,8 @@ const { SPELLS } = new Function(src + ';return { SPELLS };')();
 const GAME = {
   hl:    { ids: [635],   names: ['聖光術'],               parse: 'range' },
   fol:   { ids: [19750], names: ['聖光閃現'],             parse: 'range' },
-  hs:    { ids: [20473], names: ['神聖震擊'],             parse: 'range' },
-  vigil: { ids: [],      names: ['聖光守望'],             parse: null },
+  hs:    { ids: [1311606, 20473], names: ['神聖震擊'],             parse: 'range' },
+  vigil: { ids: [1310911], names: ['聖光戒備', '聖光守望'],             parse: null },
   lh:    { ids: [2050],  names: ['次級治療術'],           parse: 'range' },
   heal:  { ids: [2054],  names: ['治療術'],               parse: 'range' },
   fh:    { ids: [2061],  names: ['快速治療'],             parse: 'range' },
@@ -25,7 +25,7 @@ const GAME = {
   pws:   { ids: [17],    names: ['真言術：盾'],           parse: 'absorb' },
   poh:   { ids: [596],   names: ['治療禱言'],             parse: 'range' },
   bh:    { ids: [32546], names: ['束縛治療'],             parse: 'range' },
-  pen:   { ids: [47540], names: ['懺悟', '苦修'],         parse: null },
+  pen:   { ids: [402174, 47540], names: ['懺悟', '苦修'],         parse: null },
   pom:   { ids: [33076], names: ['癒合禱言', '愈合禱言'], parse: 'single' },
   hn:    { ids: [15237], names: ['神聖新星'],             parse: 'range' },
   ht:    { ids: [5185],  names: ['治療之觸'],             parse: 'range' },
@@ -40,7 +40,7 @@ const GAME = {
   ript:  { ids: [61295], names: ['激流'],                 parse: null },
 };
 const CLASS = { paladin_holy: 'PALADIN', priest_holy: 'PRIEST', priest_disc: 'PRIEST', druid_resto: 'DRUID', shaman_resto: 'SHAMAN' };
-const LABEL = { rg: '癒合（不含HoT）', rgh: '癒合', vigil: '聖光守望→震擊', hn: '神聖新星（治療）', pen: '懺悟', pom: '癒合禱言', wg: '野性痊癒', ch: '治療鍊' };
+const LABEL = { rg: '癒合（不含HoT）', rgh: '癒合', vigil: '聖光戒備→震擊', hn: '神聖新星（治療）', pen: '懺悟', pom: '癒合禱言', wg: '野性痊癒', ch: '治療鍊' };
 
 const fam = new Map();
 for (const s of SPELLS) {
@@ -51,19 +51,19 @@ for (const s of SPELLS) {
   const f = fam.get(s.id);
   if (!f.note && s.note) f.note = s.note;
   f.ranks[s.rank] = { learn: s.learnLevel, mana: s.mana, cast: s.cast, cd: s.cd, min: s.healMin, max: s.healMax, coeff: s.coeff,
-    dur: s.duration, hotBase: s.hotBase, rel: s.reliability };
+    dur: s.duration, hotBase: s.hotBase, hotCoeff: s.hotCoeff, rel: s.reliability };
 }
 
 const q = v => JSON.stringify(v); // JSON 字串在 Lua 5.1 也合法（只有 \" \\ 跳脫，中文原樣輸出）
 const val = v => v === undefined || v === null ? 'nil' : typeof v === 'string' ? q(v) : typeof v === 'boolean' ? String(v) : String(v);
-let out = `-- 由 tools/addon-data.mjs 從 healer-data.js 產生，請勿手改。\n-- 資料主源：ForeverChanges 1.60.1.70790（核對 2026-11-06 台北時間）\nHealHPS_Data = { families = {\n`;
+let out = `-- 由 tools/addon-data.mjs 從 healer-data.js 產生，請勿手改。\n-- 資料主源：ForeverChanges 1.60.1.70790（核對 2026-11-06），永恆 DB2 1.60.1.70938 全面複核 2026-11-13\nHealHPS_Data = { families = {\n`;
 for (const f of fam.values()) {
   const g = GAME[f.key];
   out += `  { key = ${q(f.key)}, label = ${q(f.label)}, class = ${q(f.cls)}, kind = ${q(f.kind)}, group = ${f.group}, groupModel = ${q(f.groupModel)}, maxTargets = ${f.maxTargets},\n`;
   out += `    talent = ${f.talent}, healPct = ${f.healPct}, absorbPct = ${f.absorbPct}, gcd = ${f.gcd}, parse = ${val(g.parse)}, fallback = ${val(g.fallback)}, note = ${q(f.note)},\n`;
   out += `    ids = { ${g.ids.join(', ')} }, names = { ${g.names.map(q).join(', ')} },\n    ranks = {\n`;
   for (const [r, d] of Object.entries(f.ranks)) {
-    out += `      [${r}] = { learn = ${d.learn}, mana = ${d.mana}, cast = ${d.cast}, cd = ${d.cd}, min = ${d.min}, max = ${d.max}, coeff = ${d.coeff}, dur = ${val(d.dur)}, hotBase = ${val(d.hotBase)}, rel = ${q(d.rel)} },\n`;
+    out += `      [${r}] = { learn = ${d.learn}, mana = ${d.mana}, cast = ${d.cast}, cd = ${d.cd}, min = ${d.min}, max = ${d.max}, coeff = ${d.coeff}, dur = ${val(d.dur)}, hotBase = ${val(d.hotBase)}, hotCoeff = ${val(d.hotCoeff)}, rel = ${q(d.rel)} },\n`;
   }
   out += `    } },\n`;
 }
