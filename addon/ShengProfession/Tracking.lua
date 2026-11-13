@@ -1,6 +1,7 @@
 -- 專業助手：採集追蹤提醒
 -- 學了採礦／草藥學但小地圖沒開「尋找礦物／尋找草藥」時，畫面上出現提醒按鈕（點一下就開）；可以的話自動開啟。
 
+local _, NS = ...
 local KINDS = {
   mine = { spell = 2580, label = "尋找礦物" },
   herb = { spell = 2383, label = "尋找草藥" },
@@ -215,5 +216,14 @@ function ProfLevel_Track(arg)
       KINDS[db.trackPref or ""] and KINDS[db.trackPref].label or "自動", g and KINDS[g].label or "沒有開"))
     msg("/sprof track on|off 開關提醒　/sprof track auto 開關自動開啟　/sprof track mine|herb 兩種都學時優先哪個　/sprof track reset 重設按鈕位置")
   end
+  update()
+end
+
+-- 給主視窗「採集」分頁用的開關（不在聊天視窗說話，按鈕文字就是狀態）
+function NS.trackLabel() return DB().trackRemind and "追蹤提醒：開" or "追蹤提醒：關" end
+function NS.trackToggle()
+  local db = DB()
+  db.trackRemind = not db.trackRemind
+  if db.trackRemind then snoozeUntil = 0 end
   update()
 end

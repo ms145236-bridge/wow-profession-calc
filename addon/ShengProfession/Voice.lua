@@ -77,6 +77,13 @@ local function pickVoice(v)
   return l[1]
 end
 
+-- 短名稱：「Microsoft YunJhe Online (Natural) - Chinese (Taiwan)」→「YunJhe」
+local function shortName(n)
+  n = tostring(n)
+  local t = n:gsub(" %- .*$", ""):gsub(" Online", ""):gsub(" Desktop", ""):gsub(" %(Natural%)", ""):gsub("^Microsoft ", "")
+  return t ~= "" and t or n
+end
+
 local function speak(text)
   local v = V()
   local x = pickVoice(v)
@@ -137,10 +144,19 @@ local function refreshPanel()
   local v = V()
   ui.on:SetChecked(v.on); ui.canGather:SetChecked(v.canGather); ui.learnedOnly:SetChecked(v.learnedOnly)
   ui.volume:SetValue(v.volume); ui.rate:SetValue(v.rate)
+  -- 下拉選單寬度配合目前的短名稱（量字寬，不猜）
   local x = pickVoice(v)
-  ui.voice:SetText(x and tostring(x.name) or "沒有可用的語音")
-  local fs = ui.voice:GetFontString()
-  ui.voice:SetWidth(math.min(320, math.max(120, (fs and fs:GetStringWidth() or 0) + 28)))
+  local short = x and shortName(x.name) or "沒有可用的語音"
+  ui.measure:SetText(short)
+  local w = ui.measure.GetUnboundedStringWidth and ui.measure:GetUnboundedStringWidth() or ui.measure:GetStringWidth()
+  w = math.ceil(math.max(40, w or 0))
+  if ui.voice.modern then
+    ui.voice:SetWidth(w + 44)
+    if ui.voice.GenerateMenu then ui.voice:GenerateMenu() end
+  else
+    UIDropDownMenu_SetWidth(ui.voice, w + 30)
+    UIDropDownMenu_SetText(ui.voice, short)
+  end
   for _, cb in ipairs(ui.nodes) do cb:SetChecked(not v.off[cb.name]) end
 end
 
@@ -152,13 +168,36 @@ local function toggle()
   if ui and panel:IsShown() then refreshPanel() end
 end
 
-local function cycleVoice(d)
-  local l = voices()
-  if #l == 0 then return end
-  local cur, idx = pickVoice(V()), 1
-  for i, x in ipairs(l) do if x.voiceID == cur.voiceID then idx = i end end
-  V().voice = l[(idx - 1 + d) % #l + 1].voiceID
-  refreshPanel()
+local function setVoice(id) V().voice = id; refreshPanel() end
+
+-- 語音下拉選單：新版選單 API（WowStyle1DropdownTemplate），沒有就用舊的 UIDropDownMenu
+local function voiceDropdown()
+  local ok, dd = pcall(CreateFrame, "DropdownButton", nil, panel, "WowStyle1DropdownTemplate")
+  if ok and dd and dd.SetupMenu then
+    dd.modern = true
+    if dd.SetDefaultText then dd:SetDefaultText("沒有可用的語音") end
+    dd:SetupMenu(function(_, root)
+      for _, x in ipairs(voices()) do
+        local item = root:CreateRadio(shortName(x.name), function()
+          local c = pickVoice(V()); return c ~= nil and c.voiceID == x.voiceID
+        end, function() NS.quiet("語音設定", setVoice, x.voiceID) end)
+        if item and item.SetTooltip then item:SetTooltip(function(tip) tip:SetText(tostring(x.name), 1, 1, 1, 1, true) end) end
+      end
+    end)
+    return dd
+  end
+  dd = CreateFrame("Frame", "ProfLevelVoiceDropDown", panel, "UIDropDownMenuTemplate")
+  UIDropDownMenu_Initialize(dd, function(_, level)
+    local c = pickVoice(V())
+    for _, x in ipairs(voices()) do
+      local info = UIDropDownMenu_CreateInfo()
+      info.text, info.checked = shortName(x.name), c ~= nil and c.voiceID == x.voiceID
+      info.tooltipTitle, info.tooltipOnButton = tostring(x.name), true
+      info.func = function() NS.quiet("語音設定", setVoice, x.voiceID) end
+      UIDropDownMenu_AddButton(info, level)
+    end
+  end)
+  return dd
 end
 
 local function buildPanel()
@@ -173,16 +212,28 @@ local function buildPanel()
   ui.volume.label:SetPoint("TOPLEFT", 20, -60)
   ui.rate = slider(panel, "語速", "rate", -5, 5)
   ui.rate.label:SetPoint("LEFT", ui.volume, "RIGHT", 50, 0)
-  ui.voice = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  ui.voice:SetHeight(24); ui.voice:SetPoint("TOPLEFT", 16, -92)
-  ui.voice:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  ui.voice:SetScript("OnClick", function(_, btn) NS.quiet("語音設定", cycleVoice, btn == "RightButton" and -1 or 1) end)
-  ui.voice:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("左鍵下一個、右鍵上一個"); GameTooltip:Show()
-  end)
-  ui.voice:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- 語音：標籤、下拉選單（短名稱，滑鼠移上去看完整名稱）、試聽
+  local vl = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); vl:SetText("語音")
+  vl:SetPoint("TOPLEFT", 20, -100)
+  ui.voice = voiceDropdown()
+  ui.measure = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); ui.measure:SetPoint("TOPLEFT"); ui.measure:SetAlpha(0)
+  local vt = ui.voice.Text or _G.ProfLevelVoiceDropDownText
+  if vt and vt.GetFont and vt:GetFont() then ui.measure:SetFont(vt:GetFont()) end
+  if ui.voice.modern then ui.voice:SetPoint("LEFT", vl, "RIGHT", 10, 0) else ui.voice:SetPoint("LEFT", vl, "RIGHT", -6, -2) end
+  local hover = ui.voice.modern and ui.voice or (ui.voice.Button or _G.ProfLevelVoiceDropDownButton)
+  if hover then
+    hover:HookScript("OnEnter", function(self)
+      local x = pickVoice(V())
+      if not x then return end
+      GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(tostring(x.name)); GameTooltip:Show()
+    end)
+    hover:HookScript("OnLeave", function() GameTooltip:Hide() end)
+  end
   local test = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-  test:SetSize(60, 24); test:SetText("試聽"); test:SetPoint("LEFT", ui.voice, "RIGHT", 6, 0)
+  test:SetHeight(24); test:SetText("試聽")
+  local tf = test:GetFontString()
+  test:SetWidth(math.max(60, math.ceil(tf and tf:GetStringWidth() or 0) + 24))
+  test:SetPoint("LEFT", ui.voice, "RIGHT", ui.voice.modern and 8 or -6, ui.voice.modern and 0 or 2)
   test:SetScript("OnClick", function() NS.quiet("語音試聽", speak, SAMPLE) end)
   -- 礦、草兩欄，依技能點排序
   local sf = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
