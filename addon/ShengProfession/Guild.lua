@@ -7,6 +7,7 @@
 --   1~D~<雜湊>~<第幾則>/<共幾則>~<內容>  資料分段（私訊）；內容 = 專業:點數:配方ID(36進位),...
 
 local _, NS = ...
+local L = NS.L
 local PREFIX, VER = "ShengProf", "1"
 local LIMIT = 225 -- 每段內容的長度上限（整則訊息不能超過 255 位元組）
 local KEEP = 30 * 86400
@@ -216,12 +217,12 @@ local function knowers(id, out)
   return names
 end
 local function nameList(names)
-  if #names <= 5 then return table.concat(names, "、") end
-  return table.concat(names, "、", 1, 5) .. " 等 " .. #names .. " 人"
+  if #names <= 5 then return table.concat(names, L["、"]) end
+  return string.format(L["%s 等 %d 人"], table.concat(names, L["、"], 1, 5), #names)
 end
 function NS.guildLine(id, out)
   local names = NS.quiet("公會", knowers, id, out)
-  if names and #names > 0 then return "公會：" .. nameList(names) end
+  if names and #names > 0 then return L["公會："] .. nameList(names) end
 end
 
 local function itemTip(tt, id)
@@ -230,7 +231,7 @@ local function itemTip(tt, id)
   if owner and owner.sprofRow then return end -- 插件視窗的列自己會加「公會：」
   if not NS.recipes()[id] then return end
   local names = knowers(nil, id)
-  if #names > 0 then tt:AddLine("公會會做：" .. nameList(names), .55, .75, 1, true) end
+  if #names > 0 then tt:AddLine(L["公會會做："] .. nameList(names), .55, .75, 1, true) end
 end
 if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
   pcall(TooltipDataProcessor.AddTooltipPostCall, Enum.TooltipDataType.Item, function(tt, data)
@@ -250,20 +251,20 @@ end
 -- ── /sprof guild [名字] ────────────────────────────────────────────────────
 local function ago(t)
   local s = math.max(0, time() - (t or 0))
-  if s < 120 then return "剛剛" end
-  if s < 7200 then return math.floor(s / 60) .. " 分鐘前" end
-  if s < 172800 then return math.floor(s / 3600) .. " 小時前" end
-  return math.floor(s / 86400) .. " 天前"
+  if s < 120 then return L["剛剛"] end
+  if s < 7200 then return string.format(L["%d 分鐘前"], math.floor(s / 60)) end
+  if s < 172800 then return string.format(L["%d 小時前"], math.floor(s / 3600)) end
+  return string.format(L["%d 天前"], math.floor(s / 86400))
 end
 function NS.guildSlash(arg)
   local sw = arg and arg:lower()
   if sw == "on" or sw == "off" then
     NS.ensureDB().guildShare = sw == "on"
     if sw == "on" then sentHash = nil; if loggedIn then scheduleHello(1) end else wipe(outq) end
-    NS.msg("分享我的配方給公會：" .. (sw == "on" and "開" or "關（仍看得到別人的）"))
+    NS.msg(L["分享我的配方給公會："] .. (sw == "on" and L["開"] or L["關（仍看得到別人的）"]))
     return
   end
-  if not inGuild() then NS.msg("沒有公會"); return end
+  if not inGuild() then NS.msg(L["沒有公會"]); return end
   local g = store()
   if arg and arg ~= "" then
     local q, found = arg:lower(), nil
@@ -272,21 +273,21 @@ function NS.guildSlash(arg)
       if l == q then found = name; break end
       if not found and l:sub(1, #q) == q then found = name end
     end
-    if not found then NS.msg("沒有 " .. arg .. " 的資料"); return end
+    if not found then NS.msg(string.format(L["沒有 %s 的資料"], arg)); return end
     local e, t = g[found], {}
     for key, p in pairs(e.profs) do
       local n = 0
       for _ in pairs(p.ids) do n = n + 1 end
-      t[#t + 1] = string.format("%s %d（%d 個配方）", NS.profName(key), p.skill or 0, n)
+      t[#t + 1] = string.format(L["%s %d（%d 個配方）"], NS.profName(key), p.skill or 0, n)
     end
     table.sort(t)
-    NS.msg(found .. "：" .. (#t > 0 and table.concat(t, "、") or "沒有配方") .. "　" .. ago(e.t))
+    NS.msg(found .. L["："] .. (#t > 0 and table.concat(t, L["、"]) or L["沒有配方"]) .. L["　"] .. ago(e.t))
     return
   end
   local n, last = 0, nil
   for _, e in pairs(g) do n = n + 1; if not last or e.t > last then last = e.t end end
-  if n == 0 then NS.msg("還沒有公會成員的資料（對方也要裝阿聖專業幫手）" .. (sharing() and "" or "　（我的不分享）")); return end
-  NS.msg(string.format("公會 %d 人的配方資料，最近更新：%s%s", n, ago(last), sharing() and "" or "　（我的不分享）"))
+  if n == 0 then NS.msg(L["還沒有公會成員的資料（對方也要裝阿聖專業幫手）"] .. (sharing() and "" or L["　（我的不分享）"])); return end
+  NS.msg(string.format(L["公會 %d 人的配方資料，最近更新：%s"], n, ago(last)) .. (sharing() and "" or L["　（我的不分享）"]))
 end
 
 -- 私訊的對象剛好下線時，遊戲會在聊天視窗說「找不到玩家」：是我們送的就藏起來，並丟掉要給他的訊息

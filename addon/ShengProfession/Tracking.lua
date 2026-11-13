@@ -2,14 +2,15 @@
 -- 學了採礦／草藥學但小地圖沒開「尋找礦物／尋找草藥」時，畫面上出現提醒按鈕（點一下就開）；可以的話自動開啟。
 
 local _, NS = ...
-local KINDS = {
+local L = NS.L
+local KINDS = { -- label 是中文原文，顯示時查 L
   mine = { spell = 2580, label = "尋找礦物" },
   herb = { spell = 2383, label = "尋找草藥" },
 }
 local ORDER = { "mine", "herb" }
 local GATHER = { [2580] = "mine", [2383] = "herb" }
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage(L["|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r "] .. s) end
 local function DB()
   local db = ProfLevelCharDB
   if not db then ProfLevelCharDB = {}; db = ProfLevelCharDB end
@@ -104,7 +105,6 @@ btn.text:SetPoint("LEFT", btn.icon, "RIGHT", 8, 7)
 btn.text:SetJustifyH("LEFT")
 btn.sub = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 btn.sub:SetPoint("TOPLEFT", btn.text, "BOTTOMLEFT", 0, -3)
-btn.sub:SetText("左鍵開啟　右鍵 10 分鐘內不提醒　Shift 拖曳移動")
 btn.sub:SetTextColor(.7, .7, .7)
 -- 閃爍外框
 local pulse = btn:CreateAnimationGroup()
@@ -126,7 +126,7 @@ local update
 btn:SetScript("PostClick", function(_, button)
   if button == "RightButton" then
     snoozeUntil = GetTime() + 600
-    msg("採集追蹤提醒：10 分鐘內不再提醒（/sprof track off 可以完全關閉）")
+    msg(L["採集追蹤提醒：10 分鐘內不再提醒（/sprof track off 可以完全關閉）"])
     if not InCombatLockdown() then btn:Hide() end
   end
   if C_Timer then C_Timer.After(0.5, function() update() end) end
@@ -153,10 +153,10 @@ local function tryAuto(k, list)
   C_Timer.After(1.5, function()
     local g = status()
     if g then
-      if not autoMsg then msg("已自動開啟" .. KINDS[k].label .. "（/sprof track auto 可以關掉自動開啟）"); autoMsg = true end
+      if not autoMsg then msg(string.format(L["已自動開啟%s（/sprof track auto 可以關掉自動開啟）"], L[KINDS[k].label])); autoMsg = true end
     else
       autoFailed = true -- 遊戲不允許插件直接開：之後只用提醒按鈕
-      msg("沒辦法自動開啟" .. KINDS[k].label .. "，請點畫面上的提醒按鈕")
+      msg(string.format(L["沒辦法自動開啟%s，請點畫面上的提醒按鈕"], L[KINDS[k].label]))
     end
     update()
   end)
@@ -174,13 +174,14 @@ update = function()
   if hide then btn:Hide(); return end
   -- 有開其他法術追蹤（例如獵人追蹤野獸）時不搶，只提醒
   if not other then tryAuto(k, list) end
-  local name = spellName(KINDS[k].spell) or KINDS[k].label
+  local name = spellName(KINDS[k].spell) or L[KINDS[k].label]
   btn:SetAttribute("type1", "spell")
   btn:SetAttribute("spell1", name)
   btn:SetAttribute("type2", nil)
   btn.icon:SetTexture(spellIcon(KINDS[k].spell) or "Interface\\Icons\\INV_Misc_QuestionMark")
-  btn.text:SetText(other and string.format("|cffffd100目前追蹤：%s|r　點這裡改成%s", other, name)
-    or string.format("|cffffd100還沒開啟%s|r　點這裡開啟", name))
+  btn.sub:SetText(L["左鍵開啟　右鍵 10 分鐘內不提醒　Shift 拖曳移動"])
+  btn.text:SetText(other and string.format(L["|cffffd100目前追蹤：%s|r　點這裡改成%s"], other, name)
+    or string.format(L["|cffffd100還沒開啟%s|r　點這裡開啟"], name))
   btn:SetWidth(math.max(270, 54 + math.max(btn.text:GetStringWidth(), btn.sub:GetStringWidth()) + 14))
   btn:Show()
 end
@@ -204,23 +205,23 @@ if C_Timer and C_Timer.NewTicker then C_Timer.NewTicker(10, function() if btn:Is
 function ProfLevel_Track(arg)
   local db = DB()
   arg = (arg or ""):lower()
-  if arg == "off" then db.trackRemind = false; msg("採集追蹤提醒：關")
-  elseif arg == "on" then db.trackRemind = true; snoozeUntil = 0; msg("採集追蹤提醒：開")
-  elseif arg == "auto" then db.trackAuto = not db.trackAuto; autoFailed = false; msg("自動開啟採集追蹤：" .. (db.trackAuto and "開" or "關"))
-  elseif arg == "mine" or arg == "herb" then db.trackPref = arg; msg("兩種都學時優先追蹤：" .. KINDS[arg].label)
-  elseif arg == "reset" then db.trackPos = nil; if not InCombatLockdown() then place() end; msg("提醒按鈕位置已重設")
+  if arg == "off" then db.trackRemind = false; msg(L["採集追蹤提醒：關"])
+  elseif arg == "on" then db.trackRemind = true; snoozeUntil = 0; msg(L["採集追蹤提醒：開"])
+  elseif arg == "auto" then db.trackAuto = not db.trackAuto; autoFailed = false; msg(L["自動開啟採集追蹤："] .. (db.trackAuto and L["開"] or L["關"]))
+  elseif arg == "mine" or arg == "herb" then db.trackPref = arg; msg(L["兩種都學時優先追蹤："] .. L[KINDS[arg].label])
+  elseif arg == "reset" then db.trackPos = nil; if not InCombatLockdown() then place() end; msg(L["提醒按鈕位置已重設"])
   else
     local g = status()
-    msg(string.format("採集追蹤　提醒：%s　自動開啟：%s%s　優先：%s　目前：%s",
-      db.trackRemind and "開" or "關", db.trackAuto and "開" or "關", autoFailed and "（這次登入失敗過）" or "",
-      KINDS[db.trackPref or ""] and KINDS[db.trackPref].label or "自動", g and KINDS[g].label or "沒有開"))
-    msg("/sprof track on|off 開關提醒　/sprof track auto 開關自動開啟　/sprof track mine|herb 兩種都學時優先哪個　/sprof track reset 重設按鈕位置")
+    msg(string.format(L["採集追蹤　提醒：%s　自動開啟：%s%s　優先：%s　目前：%s"],
+      db.trackRemind and L["開"] or L["關"], db.trackAuto and L["開"] or L["關"], autoFailed and L["（這次登入失敗過）"] or "",
+      KINDS[db.trackPref or ""] and L[KINDS[db.trackPref].label] or L["自動"], g and L[KINDS[g].label] or L["沒有開"]))
+    msg(L["/sprof track on|off 開關提醒　/sprof track auto 開關自動開啟　/sprof track mine|herb 兩種都學時優先哪個　/sprof track reset 重設按鈕位置"])
   end
   update()
 end
 
 -- 給主視窗「採集」分頁用的開關（不在聊天視窗說話，按鈕文字就是狀態）
-function NS.trackLabel() return DB().trackRemind and "追蹤提醒：開" or "追蹤提醒：關" end
+function NS.trackLabel() return DB().trackRemind and L["追蹤提醒：開"] or L["追蹤提醒：關"] end
 function NS.trackToggle()
   local db = DB()
   db.trackRemind = not db.trackRemind

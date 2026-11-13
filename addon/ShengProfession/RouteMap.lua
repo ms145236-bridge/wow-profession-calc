@@ -3,13 +3,14 @@
 -- 世界地圖：在地圖畫布上用線段畫；小地圖：用 HereBeDragons-Pins（Questie 帶的）放點，沒有就不畫。戰鬥中不重畫，脫戰再補。
 
 local _, NS = ...
+local L, loc = NS.L, NS.loc
 local ROUTES = NS.ROUTES or {}
 local BY_ID = {}
 for _, r in ipairs(ROUTES) do BY_ID[r.id] = r end
 local REF = "ShengProfessionRoute"
 local DOT = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask" -- 白色圓點，染色用
 local COLOR = { ore = { .93, .55, .22 }, herb = { .35, .86, .35 }, both = { 1, .82, 0 } }
-local KINDS = { { "ore", "礦" }, { "herb", "草" }, { "both", "雙" } }
+local KINDS = { { "ore", "礦" }, { "herb", "草" }, { "both", "雙" } } -- 第二欄是中文原文，顯示時查 L
 local STEP_YD, MAX_MINI = 25, 400 -- 小地圖每 25 碼一點，太長的路線放寬間距，最多 400 點
 
 local function DB() return NS.ensureDB() end
@@ -183,28 +184,36 @@ local function fits(r, all)
   return inRange(r.kind == "ore" and all.mining or all.herbalism, r.min, r.max)
 end
 local function rangeText(r)
-  if r.kind == "both" then return string.format("礦 %d–%d　草 %d–%d", r.ore[1], r.ore[2], r.herb[1], r.herb[2]) end
+  if r.kind == "both" then return string.format(L["礦 %d–%d　草 %d–%d"], r.ore[1], r.ore[2], r.herb[1], r.herb[2]) end
   return string.format("%d–%d", r.min, r.max)
+end
+-- 區域名：中文用資料表；遊戲語言跟介面相同時問遊戲（uiMapID），不然用資料表的翻譯
+local function zoneName(r)
+  if NS.gameText and C_Map and C_Map.GetMapInfo then
+    local info = C_Map.GetMapInfo(r.map)
+    if info and info.name then return info.name end
+  end
+  return loc(r, "zone")
 end
 
 local function rowTip(self)
   local r = self.r
   GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-  GameTooltip:AddLine(r.zone .. "　" .. r.name, 1, .82, 0)
-  GameTooltip:AddDoubleLine("建議角色 " .. r.level .. " 級", "技能 " .. rangeText(r), 1, 1, 1, 1, 1, 1)
-  GameTooltip:AddLine(r.yields, .8, .8, .8, true)
-  GameTooltip:AddLine("一圈約 " .. r.lap, .8, .8, .8, true)
-  GameTooltip:AddLine(r.note, 1, .62, .42, true)
+  GameTooltip:AddLine(zoneName(r) .. L["　"] .. loc(r, "name"), 1, .82, 0)
+  GameTooltip:AddDoubleLine(string.format(L["建議角色 %s 級"], r.level), L["技能 "] .. rangeText(r), 1, 1, 1, 1, 1, 1)
+  GameTooltip:AddLine(loc(r, "yields"), .8, .8, .8, true)
+  GameTooltip:AddLine(L["一圈約 "] .. loc(r, "lap"), .8, .8, .8, true)
+  GameTooltip:AddLine(loc(r, "note"), 1, .62, .42, true)
   GameTooltip:Show()
 end
 
 local function build(g)
   local u = {}
   u.sep = g:CreateTexture(nil, "ARTWORK"); u.sep:SetColorTexture(1, 1, 1, .12); u.sep:SetHeight(1)
-  u.title = g:CreateFontString(nil, "OVERLAY", "GameFontNormal"); u.title:SetText("採集路線")
+  u.title = g:CreateFontString(nil, "OVERLAY", "GameFontNormal"); u.title:SetText(L["採集路線"])
   u.kinds = {}
   for i, k in ipairs(KINDS) do
-    local b = NS.button(g, 16, k[2], function() DB().routeKind = k[1]; ProfLevel_Refresh() end)
+    local b = NS.button(g, 16, L[k[2]], function() DB().routeKind = k[1]; ProfLevel_Refresh() end)
     b:SetHeight(22); b.kind = k[1]
     if i == 1 then b:SetPoint("LEFT", u.title, "RIGHT", 8, 0) else b:SetPoint("LEFT", u.kinds[i - 1], "RIGHT", 2, 0) end
     u.kinds[i] = b
@@ -213,9 +222,9 @@ local function build(g)
     local db = DB(); db.routeShow = db.routeShow == false; NS.routeRedraw(); ProfLevel_Refresh()
   end)
   u.show:SetHeight(22); u.show:SetPoint("LEFT", u.kinds[#KINDS], "RIGHT", 16, 0)
-  u.go = NS.button(g, 50, "去起點", function()
+  u.go = NS.button(g, 50, L["去起點"], function()
     local r = BY_ID[DB().route]
-    if r then NS.goTo({ map = r.map, x = r.pts[1][1], y = r.pts[1][2], name = r.zone .. " " .. r.short }) end
+    if r then NS.goTo({ map = r.map, x = r.pts[1][1], y = r.pts[1][2], name = zoneName(r) .. " " .. loc(r, "short") }) end
   end)
   u.go:SetHeight(22); u.go:SetPoint("LEFT", u.show, "RIGHT", 6, 0)
   u.rows = {}
@@ -238,7 +247,7 @@ function NS.routeLayout(g, fw, y, all)
     local on = b.kind == kind
     b:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
   end
-  u.show:SetText(db.routeShow == false and "顯示：關" or "顯示：開"); NS.fitButton(u.show, 60)
+  u.show:SetText(db.routeShow == false and L["顯示：關"] or L["顯示：開"]); NS.fitButton(u.show, 60)
   u.go:SetEnabled(BY_ID[db.route] ~= nil)
   y = y - 28
   -- 目前技能符合的排前面（第一條是推薦），其他照技能區間
@@ -270,7 +279,7 @@ function NS.routeLayout(g, fw, y, all)
       u.rows[i] = row
     end
     row.r = r
-    row.zone:SetText(r.zone); row.range:SetText(rangeText(r))
+    row.zone:SetText(zoneName(r)); row.range:SetText(rangeText(r))
     zoneW = math.max(zoneW, NS.measure(row.zone)); rangeW = math.max(rangeW, NS.measure(row.range))
   end
   for i, row in ipairs(u.rows) do
@@ -278,7 +287,7 @@ function NS.routeLayout(g, fw, y, all)
     if r then
       row:ClearAllPoints(); row:SetPoint("TOPLEFT", g, "TOPLEFT", 14, y); row:SetWidth(rowW); row:Show()
       row.name:ClearAllPoints(); row.name:SetPoint("LEFT", row, "LEFT", 6 + math.ceil(zoneW) + 12, 0)
-      NS.fitText(row.name, rowW - 12 - math.ceil(zoneW) - 12 - math.ceil(rangeW) - 12, r.short)
+      NS.fitText(row.name, rowW - 12 - math.ceil(zoneW) - 12 - math.ceil(rangeW) - 12, loc(r, "short"))
       local c = (i == 1 and #fit > 0) and { 1, .82, 0 } or (i <= #fit and { 1, 1, 1 }) or { .5, .5, .5 }
       for _, fs in ipairs({ row.zone, row.name, row.range }) do fs:SetTextColor(c[1], c[2], c[3]) end
       local col = COLOR[r.kind]

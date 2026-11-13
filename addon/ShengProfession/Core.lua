@@ -3,6 +3,7 @@
 -- 自動偵測已學專業與目前點數、扣掉背包與銀行已有的材料，可一鍵建立 Auctionator 購物清單。
 
 local ADDON, NS = ... -- NS：跟 Guild.lua 共用
+local L, loc = NS.L, NS.loc -- 介面文字（Locale.lua）
 local D = ProfLevel_Data
 local CALLER = "ProfLevel" -- 呼叫 Auctionator API 用的名稱
 local ICON = "Interface\\AddOns\\ShengProfession\\Media\\Logo"
@@ -29,7 +30,7 @@ local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .
 local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, useBag = true, useBank = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
 local db
 
-local function msg(s) DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r " .. s) end
+local function msg(s) DEFAULT_CHAT_FRAME:AddMessage(L["|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r "] .. s) end
 local reported = {}
 -- 錯誤存進存檔（登出後開發者讀得到），同一種錯誤只記一筆、算次數，最多 50 種
 local function logError(where, err)
@@ -50,7 +51,7 @@ local function safe(where, fn, ...)
   if not ok then
     err = tostring(err)
     logError(where, err)
-    if not reported[err] then reported[err] = true; msg("|cffff7b7b" .. where .. "出錯：|r" .. err .. "　請把這行回報給開發者") end
+    if not reported[err] then reported[err] = true; msg("|cffff7b7b" .. string.format(L["%s出錯："], L[where]) .. "|r" .. err .. L["　請把這行回報給開發者"]) end
   end
   return ok
 end
@@ -59,6 +60,7 @@ local function ensureDB()
   ProfLevelCharDB = ProfLevelCharDB or {}
   for k, v in pairs(DEFAULTS) do if ProfLevelCharDB[k] == nil then ProfLevelCharDB[k] = type(v) == "table" and {} or v end end
   db = ProfLevelCharDB
+  NS.applyLang(db.lang); NS.relabel() -- /sprof lang：存檔讀到後才套用
   if (db.dockV or 0) < 2 then db.dock = false; db.dockV = 2 end -- 自動開改成預設關閉（點了才打開）
   if db.tabV ~= 1 then db.tab = "profit"; db.tabV = 1 end -- 主體改成利潤與佇列，衝級變成其中一個分頁
   return db
@@ -70,9 +72,9 @@ local function money(c)
   if c <= 0 then return "0" end
   local g, s, cu = math.floor(c / 10000), math.floor(c % 10000 / 100), c % 100
   local t = ""
-  if g > 0 then t = t .. "|cffffd100" .. g .. "金|r" end
-  if s > 0 then t = t .. "|cffc7c9cc" .. s .. "銀|r" end
-  if cu > 0 and g < 100 then t = t .. "|cffc9814a" .. cu .. "銅|r" end
+  if g > 0 then t = t .. "|cffffd100" .. g .. L["金"] .. "|r" end
+  if s > 0 then t = t .. "|cffc7c9cc" .. s .. L["銀"] .. "|r" end
+  if cu > 0 and g < 100 then t = t .. "|cffc9814a" .. cu .. L["銅"] .. "|r" end
   return t
 end
 
@@ -81,6 +83,15 @@ end
 local EXTRA = { { key = "herbalism", name = "草藥學", line = 182 }, { key = "skinning", name = "剝皮", line = 393 }, { key = "fishing", name = "釣魚", line = 356 } }
 local EXTRA_BY_LINE, EXTRA_BY_NAME = {}, { ["草藥"] = EXTRA[1] }
 for _, p in ipairs(EXTRA) do EXTRA_BY_LINE[p.line] = p; EXTRA_BY_NAME[p.name] = p end
+-- 顯示名稱跟著介面語言（存檔讀到後才知道 /sprof lang）；偵測用的名稱表收所有語言的寫法（舊版 API 用遊戲語言的名稱）
+local NAMED = { MINING, EXTRA[1], EXTRA[2], EXTRA[3] }
+for _, p in ipairs(PROFS) do NAMED[#NAMED + 1] = p end
+for _, p in ipairs(NAMED) do
+  p.zhName = p.name
+  local byName = PROF_BY_LINE[p.line] == p and PROF_BY_NAME or EXTRA_BY_NAME
+  for _, t in pairs(NS.locales) do if t[p.name] then byName[t[p.name]] = p end end
+end
+function NS.relabel() for _, p in ipairs(NAMED) do p.name = L[p.zhName] end end
 
 -- 已學的專業與目前點數：{ [key] = { cur, max } }；all 為真時連草藥、剝皮、釣魚也算
 local function learnedProfs(all)
@@ -110,23 +121,30 @@ end
 -- ── 升階提示 ───────────────────────────────────────────────────────────────
 local TRAIN = ProfLevel_Trainers or {}
 -- 下一階的資料：上限 150 要學專家、225 要學大師；其他上限回傳 nil
-local function nextRank(key, L)
-  local t = L and TRAIN[key]
-  local rk = t and ((L.max == 150 and "expert") or (L.max == 225 and "master"))
-  if rk and t[rk] then return t[rk], rk == "expert" and "專家" or "大師" end
+local function nextRank(key, sk)
+  local t = sk and TRAIN[key]
+  local rk = t and ((sk.max == 150 and "expert") or (sk.max == 225 and "master"))
+  if rk and t[rk] then return t[rk], rk == "expert" and L["專家"] or L["大師"] end
+end
+-- 訓練師「地點 名字」（英文是「名字, 地點」）
+local function whoAt(a)
+  if NS.zh then return a.place .. " " .. a.name end
+  return loc(a, "name") .. ", " .. loc(a, "place")
 end
 -- 一行說明，例如「下一階 大師：斯通納德 羅格瓦爾（35 級、技能 200、5 金）」；第二個回傳值：角色等級還不夠；第四個：不含括號條件的短版
-local function rankText(key, L)
-  local R, label = nextRank(key, L)
+local function rankText(key, sk)
+  local R, label = nextRank(key, sk)
   if not R then return end
-  local a = R.at[1]
   local need = {}
-  if R.level then need[#need + 1] = R.level .. " 級" end
-  need[#need + 1] = "技能 " .. R.skill
-  if R.cost >= 10000 then need[#need + 1] = (R.cost / 10000) .. " 金" elseif R.cost > 0 then need[#need + 1] = (R.cost / 100) .. " 銀" end
-  local how = (R.book and ("　買《" .. R.book .. "》")) or (R.quest and ("　任務「" .. R.quest .. "」")) or ""
-  local short = string.format("下一階 %s：%s %s%s", label, a.place, a.name, how)
-  return short .. "（" .. table.concat(need, "、") .. "）", (R.level or 0) > (UnitLevel("player") or 0), R, short
+  if R.level then need[#need + 1] = string.format(L["%d 級"], R.level) end
+  need[#need + 1] = string.format(L["技能 %d"], R.skill)
+  if R.cost >= 10000 then need[#need + 1] = string.format(L["%s 金"], R.cost / 10000) elseif R.cost > 0 then need[#need + 1] = string.format(L["%s 銀"], R.cost / 100) end
+  -- 非中文：遊戲語言跟介面相同時書名、任務名先問遊戲，查不到用資料表的翻譯
+  local book = R.book and ((NS.gameText and R.bookID and C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(R.bookID)) or loc(R, "book"))
+  local quest = R.quest and ((NS.gameText and R.questID and C_QuestLog and C_QuestLog.GetTitleForQuestID and C_QuestLog.GetTitleForQuestID(R.questID)) or loc(R, "quest"))
+  local how = (book and string.format(L["　買《%s》"], book)) or (quest and string.format(L["　任務「%s」"], quest)) or ""
+  local short = string.format(L["下一階 %s：%s%s"], label, whoAt(R.at[1]), how)
+  return string.format(L["%s（%s）"], short, table.concat(need, L["、"])), (R.level or 0) > (UnitLevel("player") or 0), R, short
 end
 -- 升階提示的滑鼠提示：完整文字＋每個訓練師的位置
 local function rankTip(owner, full, R)
@@ -134,16 +152,16 @@ local function rankTip(owner, full, R)
   GameTooltip:SetOwner(owner, "ANCHOR_TOP")
   GameTooltip:AddLine(full, 1, .82, 0, true)
   for _, a in ipairs(R and R.at or {}) do
-    GameTooltip:AddDoubleLine(a.place .. " " .. a.name, a.map and string.format("%.1f, %.1f", a.x, a.y) or "", 1, 1, 1, .6, .6, .6)
+    GameTooltip:AddDoubleLine(whoAt(a), a.map and string.format("%.1f, %.1f", a.x, a.y) or "", 1, 1, 1, .6, .6, .6)
   end
-  if R and R.note then GameTooltip:AddLine(R.note, .8, .8, .8, true) end
+  if R and R.note then GameTooltip:AddLine(loc(R, "note"), .8, .8, .8, true) end
   GameTooltip:Show()
 end
 local function goTo(a)
   if not (a and a.map) then return end
   local api = WaypointUIAPI and WaypointUIAPI.Navigation
   if api and type(api.NewUserNavigation) == "function"
-    and pcall(api.NewUserNavigation, { name = a.name, mapID = a.map, x = a.x, y = a.y, flags = "ShengProfession" }) then return end
+    and pcall(api.NewUserNavigation, { name = loc(a, "name"), mapID = a.map, x = a.x, y = a.y, flags = "ShengProfession" }) then return end
   pcall(function()
     C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(a.map, a.x / 100, a.y / 100))
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
@@ -200,10 +218,10 @@ local function have(id)
   return (db.useBag and bag or 0) + (db.useBank and math.max(0, all - bag) or 0)
 end
 local function haveText() -- 「已扣掉背包和銀行」這類說明
-  if db.useBag and db.useBank then return "已扣掉背包和銀行裡的數量" end
-  if db.useBag then return "已扣掉背包裡的數量（不扣銀行）" end
-  if db.useBank then return "已扣掉銀行裡的數量（不扣背包）" end
-  return "沒有扣掉背包和銀行裡的數量"
+  if db.useBag and db.useBank then return L["已扣掉背包和銀行裡的數量"] end
+  if db.useBag then return L["已扣掉背包裡的數量（不扣銀行）"] end
+  if db.useBank then return L["已扣掉銀行裡的數量（不扣背包）"] end
+  return L["沒有扣掉背包和銀行裡的數量"]
 end
 
 -- 名稱、圖示、品質：遊戲讀得到就用遊戲的，讀不到用資料表
@@ -218,16 +236,16 @@ local function info(k, id)
     icon = (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)) or (GetItemIcon and GetItemIcon(id))
     if not name and C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, id) end
   end
-  name = name or (d and d[1]) or ("#" .. id)
+  name = name or ((NS.zh or NS.clientZh) and d and d[1]) or ("#" .. id) -- 資料表的名稱是中文，其他語言等遊戲讀到再顯示
   icon = icon or (d and d[3] and ("Interface\\Icons\\" .. d[3])) or "Interface\\Icons\\INV_Misc_QuestionMark"
   local col = QUALITY[(d and d[2]) or "common"] or QUALITY.common
   return name, icon, col
 end
 
 local function srcName(s)
-  if SRC[s] then return SRC[s] end
+  if SRC[s] then return L[SRC[s]] end
   if s == nil or s == "" then return "" end
-  return (D.npcs[s] or s) .. "（商人）"
+  return string.format(L["%s（商人）"], (D["npcs_" .. NS.lang] or {})[s] or D.npcs[s] or s)
 end
 
 -- ── 路線計算（移植自網頁 tools/calc.js） ───────────────────────────────────
@@ -412,8 +430,8 @@ end
 local function canCraft(id, learned)
   local rec = recipes()[id]
   if not rec then return nil end
-  local L = learned[rec.prof]
-  if not L or L.cur < rec.minSkill then return nil end
+  local sk = learned[rec.prof]
+  if not sk or sk.cur < rec.minSkill then return nil end
   return rec
 end
 
@@ -640,7 +658,7 @@ local function queueRoute()
       queueAdd(current.prof.key, id, out, (info(s.k, s.id)), n); added = added + 1
     end
   end
-  msg(string.format("已把 %d 個步驟加入製作佇列", added))
+  msg(string.format(L["已把 %d 個步驟加入製作佇列"], added))
 end
 
 -- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
@@ -677,27 +695,27 @@ end
 -- 製作下一個：佇列裡第一個「目前開著的專業」的項目，一次做完（材料夠多少做多少）
 local function craftNext()
   local p = openProf()
-  if not p then msg("請先打開專業視窗（例如鍛造），再按「製作下一個」"); return end
+  if not p then msg(L["請先打開專業視窗（例如鍛造），再按「製作下一個」"]); return end
   local T = C_TradeSkillUI
   for _, q in ipairs(db.queue) do
     if q.count > 0 and q.prof == p.key then
       q.id = q.id or findRecipe(p.key, q.out)
-      if not q.id then msg((q.name or "?") .. "：專業視窗裡找不到這個配方（還沒學？）"); return end
+      if not q.id then msg(string.format(L["%s：專業視窗裡找不到這個配方（還沒學？）"], q.name or "?")); return end
       local rec = db.recipes[p.key] and db.recipes[p.key][q.id]
       local n = math.min(q.count, rec and canMakeNow(rec) or q.count)
       if T and T.GetRecipeInfo then
         local ok, ri = pcall(T.GetRecipeInfo, q.id)
         if ok and type(ri) == "table" and type(ri.numAvailable) == "number" then n = math.min(q.count, ri.numAvailable) end
       end
-      if n <= 0 then msg((q.name or "?") .. "：材料不夠（只算背包裡的），先把材料準備好"); return end
+      if n <= 0 then msg(string.format(L["%s：材料不夠（只算背包裡的），先把材料準備好"], q.name or "?")); return end
       if T and T.CraftRecipe then T.CraftRecipe(q.id, n)
       elseif DoTradeSkill and rec and rec.index then DoTradeSkill(rec.index, n)
-      else msg("這個遊戲版本不支援從插件製作"); return end
-      msg(string.format("開始製作 %s ×%d", q.name or "?", n))
+      else msg(L["這個遊戲版本不支援從插件製作"]); return end
+      msg(string.format(L["開始製作 %s ×%d"], q.name or "?", n))
       return
     end
   end
-  msg("佇列裡沒有" .. p.name .. "要做的東西")
+  msg(string.format(L["佇列裡沒有%s要做的東西"], p.name))
 end
 
 -- 做完一次就從佇列扣掉
@@ -744,10 +762,10 @@ local function fitText(fs, maxW, full, short)
   local lo, hi = 0, #ch
   while lo < hi do
     local mid = math.ceil((lo + hi) / 2)
-    fs:SetText(table.concat(ch, "", 1, mid) .. "…")
+    fs:SetText(table.concat(ch, "", 1, mid) .. L["…"])
     if measure(fs) <= maxW then lo = mid else hi = mid - 1 end
   end
-  fs:SetText(table.concat(ch, "", 1, lo) .. "…")
+  fs:SetText(table.concat(ch, "", 1, lo) .. L["…"])
 end
 
 -- 採集分頁列出的技能：採礦、草藥、剝皮、釣魚（烹飪、急救不是採集，下一階提示在專業切換的狀態列）
@@ -801,7 +819,7 @@ local function addResizeGrip(f)
   g:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
   g:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
   g:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine("拖曳調整視窗大小"); GameTooltip:Show()
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine(L["拖曳調整視窗大小"]); GameTooltip:Show()
   end)
   g:SetScript("OnLeave", function() GameTooltip:Hide() end)
   g:SetScript("OnMouseDown", function(self)
@@ -858,8 +876,8 @@ local function refreshImpl()
     frame:SetWidth(fw)
     local shown, nameW = {}, 0
     for _, p in ipairs(GATHER) do
-      local L = all[p.key]
-      if L then
+      local sk = all[p.key]
+      if sk then
         local i = #shown + 1
         local r = g.rows[i]
         if not r then
@@ -869,18 +887,18 @@ local function refreshImpl()
           r.hit = CreateFrame("Frame", nil, r); r.hit:SetAllPoints(r.hint); r.hit:EnableMouse(true)
           r.hit:SetScript("OnEnter", function(self) rankTip(self, r.full, r.R) end)
           r.hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-          r.go = button(r, 20, "去", function() goTo(r.R and r.R.at[1]) end)
+          r.go = button(r, 20, L["去"], function() goTo(r.R and r.R.at[1]) end)
           r.go:SetHeight(20); r.go:SetPoint("LEFT", r.hint, "RIGHT", 6, 0)
           r.go:SetScript("OnEnter", function(self) rankTip(self, r.full, r.R) end)
           r.go:SetScript("OnLeave", function() GameTooltip:Hide() end)
           g.rows[i] = r
         end
-        r.name:SetText(string.format("%s %d/%d", p.name, L.cur, L.max))
+        r.name:SetText(string.format("%s %d/%d", p.name, sk.cur, sk.max))
         nameW = math.max(nameW, measure(r.name))
-        local tr, low, R, short = rankText(p.key, L)
-        r.full = tr or (L.max >= 300 and "已是大師") or (L.max <= 75 and "下一階：任一訓練師（10 級、技能 50）") or ""
+        local tr, low, R, short = rankText(p.key, sk)
+        r.full = tr or (sk.max >= 300 and L["已是大師"]) or (sk.max <= 75 and L["下一階：任一訓練師（10 級、技能 50）"]) or ""
         r.short, r.R = short, R
-        r.ready = tr and not low and L.cur >= R.skill
+        r.ready = tr and not low and sk.cur >= R.skill
         shown[i] = r
       end
     end
@@ -907,12 +925,12 @@ local function refreshImpl()
   local list = profList(learned)
   if not db.prof or not PROF_BY_KEY[db.prof] then db.prof = list[1].key end
   local p = PROF_BY_KEY[db.prof]
-  local L = learned[p.key]
-  local S = tonumber(db.from[p.key]) or (L and L.cur) or 1
+  local sk = learned[p.key]
+  local S = tonumber(db.from[p.key]) or (sk and sk.cur) or 1
   local T = tonumber(db.to[p.key]) or 300
   S = math.max(1, math.min(299, math.floor(S)))
   T = math.max(S + 1, math.min(300, math.floor(T)))
-  frame.profBtn:SetText(p.name .. (L and string.format("（%d）", L.cur) or "（沒學）")); fitButton(frame.profBtn, 146)
+  frame.profBtn:SetText(p.name .. (sk and string.format(L["（%d）"], sk.cur) or L["（沒學）"])); fitButton(frame.profBtn, 146)
   if not frame.fromBox:HasFocus() then frame.fromBox:SetText(tostring(S)) end
   if not frame.toBox:HasFocus() then frame.toBox:SetText(tostring(T)) end
   local route, r, nVar = pickRoute(p.key, S, T)
@@ -922,29 +940,29 @@ local function refreshImpl()
   local qr
   if db.tab == "queue" then qr = queueNeeds(learned); current.r = qr; current.queue = true end
   local api = auctionator()
-  frame.status:SetText(api and string.format("價格：Auctionator　從 %d 條路線選出最省的", nVar)
-    or "|cffff9d5c沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）|r")
+  frame.status:SetText(api and string.format(L["價格：Auctionator　從 %d 條路線選出最省的"], nVar)
+    or ("|cffff9d5c" .. L["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] .. "|r"))
   if db.tab == "queue" then
     local nq = 0
     for _, q in ipairs(db.queue) do nq = nq + q.count end
-    frame.total:SetText(string.format("製作佇列 %d 項（共 %d 次）　材料花費 %s%s%s", #db.queue, nq, money(qr.total),
-      qr.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", qr.missing) or "",
-      qr.unknown > 0 and string.format("　|cffff9d5c%d 項還不知道材料（打開那個專業視窗一次）|r", qr.unknown) or ""))
+    frame.total:SetText(string.format(L["製作佇列 %d 項（共 %d 次）　材料花費 %s"], #db.queue, nq, money(qr.total))
+      .. (qr.missing > 0 and (L["　"] .. "|cffff9d5c" .. string.format(L["%d 項沒有價格"], qr.missing) .. "|r") or "")
+      .. (qr.unknown > 0 and (L["　"] .. "|cffff9d5c" .. string.format(L["%d 項還不知道材料（打開那個專業視窗一次）"], qr.unknown) .. "|r") or ""))
   elseif db.tab == "profit" then
     local book, nr = db.recipes[p.key], 0
     if book then for _ in pairs(book) do nr = nr + 1 end end
-    frame.total:SetText(nr > 0 and string.format("%s 已記下 %d 個配方　點一下加入佇列（Shift 加 5、右鍵減 1）", p.name, nr)
-      or string.format("|cffff9d5c打開%s的專業視窗一次，插件就會記下你學會的配方|r", p.name))
+    frame.total:SetText(nr > 0 and string.format(L["%s 已記下 %d 個配方　點一下加入佇列（Shift 加 5、右鍵減 1）"], p.name, nr)
+      or ("|cffff9d5c" .. string.format(L["打開%s的專業視窗一次，插件就會記下你學會的配方"], p.name) .. "|r"))
   else
-    frame.total:SetText(string.format("%s %d–%d　花費 %s%s", p.name, S, T, money(r.total),
-      pbTotal > 0.5 and string.format("　|cff9fd18b回本 %s|r　淨花費 %s", money(pbTotal), money(math.max(0, r.total - pbTotal))) or ""))
+    frame.total:SetText(string.format(L["%s %d–%d　花費 %s"], p.name, S, T, money(r.total))
+      .. (pbTotal > 0.5 and string.format(L["　|cff9fd18b回本 %s|r　淨花費 %s"], money(pbTotal), money(math.max(0, r.total - pbTotal))) or ""))
     -- 次要資訊放在價格來源那行，避免花費這行太長被截斷
-    frame.status:SetText((frame.status:GetText() or "") .. ((r.saved and r.saved > 0.5) and ("　|cff9fd18b自製中間材料省 " .. money(r.saved) .. "|r") or "")
-      .. (r.missing > 0 and string.format("　|cffff9d5c%d 項沒有價格|r", r.missing) or ""))
+    frame.status:SetText((frame.status:GetText() or "") .. ((r.saved and r.saved > 0.5) and (L["　"] .. "|cff9fd18b" .. string.format(L["自製中間材料省 %s"], money(r.saved)) .. "|r") or "")
+      .. (r.missing > 0 and (L["　"] .. "|cffff9d5c" .. string.format(L["%d 項沒有價格"], r.missing) .. "|r") or ""))
   end
-  frame.decBtn:SetText(db.decompose and "拆中間材料：開" or "拆中間材料：關"); fitButton(frame.decBtn, 120)
-  frame.bagBtn:SetText(db.useBag and "扣背包：開" or "扣背包：關"); fitButton(frame.bagBtn, 90)
-  frame.bankBtn:SetText(db.useBank and "扣銀行：開" or "扣銀行：關"); fitButton(frame.bankBtn, 90)
+  frame.decBtn:SetText(db.decompose and L["拆中間材料：開"] or L["拆中間材料：關"]); fitButton(frame.decBtn, 120)
+  frame.bagBtn:SetText(db.useBag and L["扣背包：開"] or L["扣背包：關"]); fitButton(frame.bagBtn, 90)
+  frame.bankBtn:SetText(db.useBank and L["扣銀行：開"] or L["扣銀行：關"]); fitButton(frame.bankBtn, 90)
   frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
   frame.decBtn:ClearAllPoints()
@@ -955,8 +973,8 @@ local function refreshImpl()
   local cols = TABS[db.tab]
   for c = 1, NCOL do
     local col = cols[c]
-    local lbl = col and col[1] or ""
-    if col and col[5] and col[5] == db.psort then lbl = (db.pdesc ~= false and "▼" or "▲") .. lbl end
+    local lbl = col and L[col[1]] or ""
+    if col and col[5] and col[5] == db.psort then lbl = (db.pdesc ~= false and L["▼"] or L["▲"]) .. lbl end
     frame.headFs[c]:SetText(lbl)
     if col and col[5] and col[5] == db.psort then frame.headFs[c]:SetTextColor(1, .82, 0) else frame.headFs[c]:SetTextColor(.6, .57, .5) end
   end
@@ -1009,7 +1027,7 @@ local function refreshImpl()
         l.icon:SetTexture(icon); l.icon:Show()
         local pf = e.profit and ((e.profit >= 0 and "|cff9fd18b" or "|cffff7b7b") .. (e.profit >= 0 and "" or "-") .. money(math.abs(e.profit)) .. "|r") or "—"
         local pc = e.pct and string.format("%s%d%%|r", e.pct >= 0 and "|cff9fd18b" or "|cffff7b7b", math.floor(e.pct + 0.5)) or "—"
-        vals = { name, e.cost and money(e.cost) or "|cffff9d5c沒價格|r", e.sell and money(e.sell) or "—", pf, pc,
+        vals = { name, e.cost and money(e.cost) or ("|cffff9d5c" .. L["沒價格"] .. "|r"), e.sell and money(e.sell) or "—", pf, pc,
           e.listed and tostring(e.listed) or "—", e.can > 0 and e.can or "0", e.queued > 0 and ("|cffffd100" .. e.queued .. "|r") or "" }
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.queue then
@@ -1018,11 +1036,11 @@ local function refreshImpl()
         local name, icon, col
         if q.out then name, icon, col = info("i", q.out) else name, icon, col = info("s", q.id or 0); name = q.name or name end
         l.icon:SetTexture(icon); l.icon:Show()
-        local pn = q.prof == "mining" and "採礦" or (PROF_BY_KEY[q.prof] and PROF_BY_KEY[q.prof].name or q.prof)
-        local miss, matTxt = 0, "|cffff9d5c不知道材料|r"
+        local pn = q.prof == "mining" and MINING.name or (PROF_BY_KEY[q.prof] and PROF_BY_KEY[q.prof].name or q.prof)
+        local miss, matTxt = 0, "|cffff9d5c" .. L["不知道材料"] .. "|r"
         if rec then
           for _, m in ipairs(rec.mats) do if bagCount(m[1]) < m[2] * q.count then miss = miss + 1 end end
-          matTxt = miss == 0 and "|cff9fd18b齊了|r" or string.format("|cffff9d5c缺 %d 種|r", miss)
+          matTxt = miss == 0 and ("|cff9fd18b" .. L["齊了"] .. "|r") or ("|cffff9d5c" .. string.format(L["缺 %d 種"], miss) .. "|r")
         end
         vals = { name, "×" .. q.count, pn, matTxt, rec and canMakeNow(rec) or "—" }
         l.c[1]:SetTextColor(col[1], col[2], col[3])
@@ -1030,8 +1048,8 @@ local function refreshImpl()
         local c = e.prep
         local name, icon, col = info("i", c.id)
         l.icon:SetTexture(icon); l.icon:Show()
-        local pn = c.rec.prof == "mining" and "採礦" or (PROF_BY_KEY[c.rec.prof] and PROF_BY_KEY[c.rec.prof].name or "")
-        vals = { "準備", name, "×" .. c.n, "自己做（" .. pn .. "）" }
+        local pn = c.rec.prof == "mining" and MINING.name or (PROF_BY_KEY[c.rec.prof] and PROF_BY_KEY[c.rec.prof].name or "")
+        vals = { L["準備"], name, "×" .. c.n, string.format(L["自己做（%s）"], pn) }
         l.c[2]:SetTextColor(col[1], col[2], col[3])
       elseif e.step then
         local s = e.step
@@ -1044,13 +1062,13 @@ local function refreshImpl()
         local it = e.item
         local name, icon, col = info("i", it.id)
         l.icon:SetTexture(icon); l.icon:Show()
-        local tag = it.kind == "recipe" and "|cfff0cf7f（配方）|r" or (D.vendor[it.id] and "|cff9fd18b（商人）|r" or "")
+        local tag = it.kind == "recipe" and ("|cfff0cf7f" .. L["（配方）"] .. "|r") or (D.vendor[it.id] and ("|cff9fd18b" .. L["（商人）"] .. "|r") or "")
         if it.kind == "craft" then
-          vals = { name .. string.format("|cff8cc4ff（自己做 ×%d）|r", it.n), it.qty, it.have > 0 and ("|cff9fd18b" .. it.have .. "|r") or "0", "—",
-            it.unit and ("自製 " .. money(it.unit)) or "—", it.saved and ("|cff9fd18b省 " .. money(it.saved) .. "|r") or "—" }
+          vals = { name .. "|cff8cc4ff" .. string.format(L["（自己做 ×%d）"], it.n) .. "|r", it.qty, it.have > 0 and ("|cff9fd18b" .. it.have .. "|r") or "0", "—",
+            it.unit and string.format(L["自製 %s"], money(it.unit)) or "—", it.saved and ("|cff9fd18b" .. string.format(L["省 %s"], money(it.saved)) .. "|r") or "—" }
         else
           vals = { name .. tag, it.qty, it.have > 0 and ("|cff9fd18b" .. it.have .. "|r") or "0", it.buy,
-            it.unit and money(it.unit) or "|cffff9d5c沒價格|r", it.unit and money(it.unit * it.buy) or "—" }
+            it.unit and money(it.unit) or ("|cffff9d5c" .. L["沒價格"] .. "|r"), it.unit and money(it.unit * it.buy) or "—" }
         end
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       end
@@ -1061,9 +1079,9 @@ local function refreshImpl()
       l:Hide()
     end
   end
-  local emptyTxt = db.tab == "queue" and "佇列是空的：從「利潤」或「衝級」加入"
-    or (db.tab == "profit" and "還沒有記下配方" or "這個範圍不需要製作任何東西")
-  frame.foot:SetText(#rows == 0 and emptyTxt or (#rows > MAXLINES and string.format("共 %d 列，用滾輪捲動", #rows) or ""))
+  local emptyTxt = db.tab == "queue" and L["佇列是空的：從「利潤」或「衝級」加入"]
+    or (db.tab == "profit" and L["還沒有記下配方"] or L["這個範圍不需要製作任何東西"])
+  frame.foot:SetText(#rows == 0 and emptyTxt or (#rows > MAXLINES and string.format(L["共 %d 列，用滾輪捲動"], #rows) or ""))
   -- 底部動作按鈕（依分頁）
   local y = -(TOP + shown * ROW_H + 8)
   frame.atrBtn:ClearAllPoints(); frame.atrBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, y)
@@ -1071,10 +1089,10 @@ local function refreshImpl()
   if frame.atrBtn:IsShown() then frame.foot:SetPoint("LEFT", frame.atrBtn, "RIGHT", 10, 0) else frame.foot:SetPoint("TOPLEFT", 14, y - 5) end
   frame.act1:Hide(); frame.act2:Hide()
   if db.tab == "steps" then
-    frame.act1:SetText("全部加入製作佇列"); fitButton(frame.act1, 140); frame.act1.fn = queueRoute; frame.act1:Show()
+    frame.act1:SetText(L["全部加入製作佇列"]); fitButton(frame.act1, 140); frame.act1.fn = queueRoute; frame.act1:Show()
   elseif db.tab == "queue" then
-    frame.act1:SetText("製作下一個"); fitButton(frame.act1, 120); frame.act1.fn = craftNext; frame.act1:Show()
-    frame.act2:SetText("清空佇列"); fitButton(frame.act2, 90); frame.act2.fn = function() wipe(db.queue) end; frame.act2:Show()
+    frame.act1:SetText(L["製作下一個"]); fitButton(frame.act1, 120); frame.act1.fn = craftNext; frame.act1:Show()
+    frame.act2:SetText(L["清空佇列"]); fitButton(frame.act2, 90); frame.act2.fn = function() wipe(db.queue) end; frame.act2:Show()
   end
   frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
   frame.act2:ClearAllPoints(); frame.act2:SetPoint("RIGHT", frame.act1, "LEFT", -6, 0)
@@ -1090,8 +1108,8 @@ local function refreshImpl()
   autoFit(cols)
   if frame:GetWidth() < rowEnd(tabs) + 14 then frame:SetWidth(rowEnd(tabs) + 14) end
   -- 升階提示（點數到上限前 10 點或已夠升階時才出現）：放不下先拿掉括號條件，再截斷；價格來源排在後面，剩下的寬度才給它
-  local tr, low, R, short = rankText(p.key, L)
-  if tr and L.cur < math.min(L.max - 10, R.skill) then tr = nil end
+  local tr, low, R, short = rankText(p.key, sk)
+  if tr and sk.cur < math.min(sk.max - 10, R.skill) then tr = nil end
   local avail = frame:GetWidth() - 28
   frame.total:SetWidth(avail)
   frame.status:ClearAllPoints()
@@ -1128,10 +1146,10 @@ local function createShoppingList()
       table.insert(terms, ok and s or ('"' .. name .. '"'))
     end
   end
-  if #terms == 0 then msg("沒有要在拍賣行買的東西"); return end
-  local listName = current.queue and "阿聖專業幫手 製作佇列" or string.format("阿聖專業幫手 %s %d-%d", current.prof.name, current.S, current.T)
+  if #terms == 0 then msg(L["沒有要在拍賣行買的東西"]); return end
+  local listName = current.queue and L["阿聖專業幫手 製作佇列"] or string.format(L["阿聖專業幫手 %s %d-%d"], current.prof.name, current.S, current.T)
   if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then
-    msg(string.format("已建立 Auctionator 購物清單「%s」，共 %d 項（%s，商人物品不列入）", listName, #terms, haveText()))
+    msg(string.format(L["已建立 Auctionator 購物清單「%s」，共 %d 項（%s，商人物品不列入）"], listName, #terms, haveText()))
   end
 end
 
@@ -1163,29 +1181,29 @@ local function buildFrame()
     frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     frame.TitleText:SetPoint("TOP", 0, -5)
   end
-  frame.TitleText:SetText("阿聖專業幫手")
+  frame.TitleText:SetText(L["阿聖專業幫手"])
   local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(ICON); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
   -- 分頁以外的內容分兩組：main（利潤／佇列／衝級）、gather（採集），切分頁時整組顯示或隱藏
   local main = CreateFrame("Frame", nil, frame); main:SetAllPoints(); frame.main = main
   local gather = CreateFrame("Frame", nil, frame); gather:SetAllPoints(); gather:Hide(); frame.gather = gather
   -- 第一列：分頁（右邊接衝級子分頁和開關）
-  frame.profitBtn = button(frame, 50, "利潤", function() db.tab = "profit"; offset = 0; ProfLevel_Refresh() end)
-  frame.queueBtn = button(frame, 50, "佇列", function() db.tab = "queue"; offset = 0; ProfLevel_Refresh() end)
-  frame.levelBtn = button(frame, 50, "衝級", function() db.tab = db.lvTab or "steps"; offset = 0; ProfLevel_Refresh() end)
-  frame.gatherBtn = button(frame, 50, "採集", function() db.tab = "gather"; offset = 0; ProfLevel_Refresh() end)
+  frame.profitBtn = button(frame, 50, L["利潤"], function() db.tab = "profit"; offset = 0; ProfLevel_Refresh() end)
+  frame.queueBtn = button(frame, 50, L["佇列"], function() db.tab = "queue"; offset = 0; ProfLevel_Refresh() end)
+  frame.levelBtn = button(frame, 50, L["衝級"], function() db.tab = db.lvTab or "steps"; offset = 0; ProfLevel_Refresh() end)
+  frame.gatherBtn = button(frame, 50, L["採集"], function() db.tab = "gather"; offset = 0; ProfLevel_Refresh() end)
   frame.profitBtn:SetPoint("TOPLEFT", 12, -30)
   frame.queueBtn:SetPoint("LEFT", frame.profitBtn, "RIGHT", 2, 0)
   frame.levelBtn:SetPoint("LEFT", frame.queueBtn, "RIGHT", 2, 0)
   frame.gatherBtn:SetPoint("LEFT", frame.levelBtn, "RIGHT", 2, 0)
   -- 採集分頁：技能列在 refresh 時建立；下面是語音、追蹤提醒（之後的「採集路線」接在這組下面）
   gather.rows = {}
-  gather.empty = gather:CreateFontString(nil, "OVERLAY", "GameFontDisable"); gather.empty:SetText("沒有學採集或副專業")
+  gather.empty = gather:CreateFontString(nil, "OVERLAY", "GameFontDisable"); gather.empty:SetText(L["沒有學採集或副專業"])
   gather.sep = gather:CreateTexture(nil, "ARTWORK"); gather.sep:SetColorTexture(1, 1, 1, .12); gather.sep:SetHeight(1)
   gather.trackBtn = button(gather, 60, "", function() NS.trackToggle(); ProfLevel_Refresh() end)
   gather.trackBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("採集追蹤提醒")
-    GameTooltip:AddLine("學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕", 1, 1, 1, true)
-    GameTooltip:AddLine("/sprof track 看其他設定", .6, .6, .6); GameTooltip:Show()
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["採集追蹤提醒"])
+    GameTooltip:AddLine(L["學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕"], 1, 1, 1, true)
+    GameTooltip:AddLine(L["/sprof track 看其他設定"], .6, .6, .6); GameTooltip:Show()
   end)
   gather.trackBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第二列：專業切換、起點、目標
@@ -1204,18 +1222,18 @@ local function buildFrame()
   frame.prevBtn:SetScript("OnClick", function() cycle(-1) end)
   frame.nextBtn:SetScript("OnClick", function() cycle(1) end)
   frame.profBtn:SetScript("OnClick", function() cycle(1) end)
-  local fromLbl = main:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fromLbl:SetText("從"); frame.fromLbl = fromLbl
+  local fromLbl = main:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fromLbl:SetText(L["從"]); frame.fromLbl = fromLbl
   fromLbl:SetPoint("LEFT", frame.nextBtn, "RIGHT", 12, 0)
   frame.fromBox = numBox(main, function(v) db.from[db.prof] = v end)
   frame.fromBox:SetPoint("LEFT", fromLbl, "RIGHT", 8, 0)
-  local toLbl = main:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); toLbl:SetText("到"); frame.toLbl = toLbl
+  local toLbl = main:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); toLbl:SetText(L["到"]); frame.toLbl = toLbl
   toLbl:SetPoint("LEFT", frame.fromBox, "RIGHT", 8, 0)
   frame.toBox = numBox(main, function(v) db.to[db.prof] = v end)
   frame.toBox:SetPoint("LEFT", toLbl, "RIGHT", 8, 0)
-  frame.nowBtn = button(main, 52, "目前", function() db.from[db.prof] = nil; ProfLevel_Refresh() end)
+  frame.nowBtn = button(main, 52, L["目前"], function() db.from[db.prof] = nil; ProfLevel_Refresh() end)
   frame.nowBtn:SetPoint("LEFT", frame.toBox, "RIGHT", 6, 0)
   frame.nowBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("起點改回目前的專業點數"); GameTooltip:Show()
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["起點改回目前的專業點數"]); GameTooltip:Show()
   end)
   frame.nowBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第三、四列：價格來源、總花費
@@ -1227,23 +1245,23 @@ local function buildFrame()
   frame.trainHit = CreateFrame("Frame", nil, main); frame.trainHit:SetAllPoints(frame.train); frame.trainHit:EnableMouse(true); frame.trainHit:Hide()
   frame.trainHit:SetScript("OnEnter", function(self) rankTip(self, self.full, frame.goBtn.R) end)
   frame.trainHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  frame.goBtn = button(main, 20, "去", function(self) goTo(self.R and self.R.at[1]) end)
+  frame.goBtn = button(main, 20, L["去"], function(self) goTo(self.R and self.R.at[1]) end)
   frame.goBtn:SetHeight(20); frame.goBtn:SetPoint("LEFT", frame.train, "RIGHT", 6, 0); frame.goBtn:Hide()
   frame.goBtn:SetScript("OnEnter", function(self) rankTip(self, self.full, self.R) end)
   frame.goBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.total = main:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   frame.total:SetPoint("TOPLEFT", 14, -116); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
   -- 衝級子分頁與購物清單按鈕
-  frame.stepsBtn = button(main, 50, "步驟", function() db.tab = "steps"; db.lvTab = "steps"; offset = 0; ProfLevel_Refresh() end)
-  frame.shopBtn = button(main, 50, "材料", function() db.tab = "shop"; db.lvTab = "shop"; offset = 0; ProfLevel_Refresh() end)
+  frame.stepsBtn = button(main, 50, L["步驟"], function() db.tab = "steps"; db.lvTab = "steps"; offset = 0; ProfLevel_Refresh() end)
+  frame.shopBtn = button(main, 50, L["材料"], function() db.tab = "shop"; db.lvTab = "shop"; offset = 0; ProfLevel_Refresh() end)
   frame.act1 = button(main, 120, "", function(self) if self.fn then safe("動作", self.fn) end; ProfLevel_Refresh() end)
   frame.act2 = button(main, 90, "", function(self) if self.fn then safe("動作", self.fn) end; ProfLevel_Refresh() end)
   frame.act1:Hide(); frame.act2:Hide()
-  frame.atrBtn = button(main, 160, "建立 Auctionator 購物清單", function() safe("建立購物清單", createShoppingList) end)
+  frame.atrBtn = button(main, 160, L["建立 Auctionator 購物清單"], function() safe("建立購物清單", createShoppingList) end)
   frame.atrBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:AddLine("建立 Auctionator 購物清單")
-    GameTooltip:AddLine("數量" .. haveText() .. "；商人販售的物品不列入。在拍賣行打開 Auctionator 的購物分頁就能用。", 1, 1, 1, true)
+    GameTooltip:AddLine(L["建立 Auctionator 購物清單"])
+    GameTooltip:AddLine(string.format(L["數量%s；商人販售的物品不列入。在拍賣行打開 Auctionator 的購物分頁就能用。"], haveText()), 1, 1, 1, true)
     GameTooltip:Show()
   end)
   frame.atrBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1276,8 +1294,8 @@ local function buildFrame()
   frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
   frame.decBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:AddLine("拆中間材料")
-    GameTooltip:AddLine("開：每個中間材料都比較「直接買」和「買原料自己做」，便宜的那個才列進清單。只拆你學過、點數也夠的配方（冶煉要有採礦）。", 1, 1, 1, true)
+    GameTooltip:AddLine(L["拆中間材料"])
+    GameTooltip:AddLine(L["開：每個中間材料都比較「直接買」和「買原料自己做」，便宜的那個才列進清單。只拆你學過、點數也夠的配方（冶煉要有採礦）。"], 1, 1, 1, true)
     GameTooltip:Show()
   end)
   frame.decBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1314,58 +1332,58 @@ local function buildFrame()
             local nm = info("i", m[1])
             local need, got = m[2] * times, bagCount(m[1])
             local pr = price(m[1])
-            GameTooltip:AddDoubleLine(string.format("%s ×%d", nm, need), string.format("%s背包 %d", pr and (money(pr * m[2]) .. "　") or "", got),
+            GameTooltip:AddDoubleLine(string.format("%s ×%d", nm, need), (pr and (money(pr * m[2]) .. L["　"]) or "") .. string.format(L["背包 %d"], got),
               1, 1, 1, got >= need and .6 or 1, got >= need and 1 or .6, .6)
           end
         end
         local gl = NS.guildLine(e.recipe and e.id or e.queue.id, out)
         if gl then GameTooltip:AddLine(gl, .55, .75, 1, true) end
         if e.recipe then
-          if e.sell then GameTooltip:AddLine(string.format("售價 %s（已扣拍賣行 5%% 手續費）", money(e.sell)), .8, .8, .8) end
+          if e.sell then GameTooltip:AddLine(string.format(L["售價 %s（已扣拍賣行 5%% 手續費）"], money(e.sell)), .8, .8, .8) end
           local st = e.stats
           if st then
-            GameTooltip:AddLine(string.format("拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到，平均在架 %d 個", st.last, st.days, math.floor(st.avg + 0.5)), .55, .75, 1, true)
-            GameTooltip:AddLine("（只代表有多少人在賣，不代表賣得掉：賣不掉的也會一直重新上架。遊戲沒有成交量資料）", .6, .6, .6, true)
+            GameTooltip:AddLine(string.format(L["拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到，平均在架 %d 個"], st.last, st.days, math.floor(st.avg + 0.5)), .55, .75, 1, true)
+            GameTooltip:AddLine(L["（只代表有多少人在賣，不代表賣得掉：賣不掉的也會一直重新上架。遊戲沒有成交量資料）"], .6, .6, .6, true)
           else
-            GameTooltip:AddLine("拍賣場：Auctionator 沒有這個成品的掃描紀錄", .6, .6, .6, true)
+            GameTooltip:AddLine(L["拍賣場：Auctionator 沒有這個成品的掃描紀錄"], .6, .6, .6, true)
           end
-          GameTooltip:AddLine("左鍵加入佇列、Shift+左鍵加 5、右鍵減 1", .6, .6, .6)
+          GameTooltip:AddLine(L["左鍵加入佇列、Shift+左鍵加 5、右鍵減 1"], .6, .6, .6)
         else
-          GameTooltip:AddLine("左鍵 +1、右鍵 −1（Shift 一次 5）", .6, .6, .6)
+          GameTooltip:AddLine(L["左鍵 +1、右鍵 −1（Shift 一次 5）"], .6, .6, .6)
         end
       elseif e.prep then
         local c = e.prep
         pcall(GameTooltip.SetItemByID, GameTooltip, c.id)
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(string.format("自己做 %d 次（共 %d 個，已有 %d）", c.n, c.qty, c.have), 1, .82, 0, true)
+        GameTooltip:AddLine(string.format(L["自己做 %d 次（共 %d 個，已有 %d）"], c.n, c.qty, c.have), 1, .82, 0, true)
         local mats = {}
         for _, m in ipairs(c.rec.mats) do table.insert(mats, string.format("%s ×%d", (info("i", m[1])), math.ceil(c.n * m[2] - 1e-9))) end
-        GameTooltip:AddLine("材料：" .. table.concat(mats, "、"), 1, 1, 1, true)
-        if c.buyUnit and c.unit then GameTooltip:AddLine(string.format("直接買每個 %s，自己做每個 %s", money(c.buyUnit), money(c.unit)), .8, .8, .8, true) end
+        GameTooltip:AddLine(L["材料："] .. table.concat(mats, L["、"]), 1, 1, 1, true)
+        if c.buyUnit and c.unit then GameTooltip:AddLine(string.format(L["直接買每個 %s，自己做每個 %s"], money(c.buyUnit), money(c.unit)), .8, .8, .8, true) end
       elseif e.step then
         local s = e.step
         if s.k == "s" then pcall(GameTooltip.SetSpellByID, GameTooltip, s.id) else pcall(GameTooltip.SetItemByID, GameTooltip, s.id) end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(string.format("做 %d 次%s", e.n, e.extra > 0 and string.format("（其中 %d 次是多做的，留給後面步驟當材料）", e.extra) or ""), 1, .82, 0, true)
+        GameTooltip:AddLine(string.format(L["做 %d 次"], e.n) .. (e.extra > 0 and string.format(L["（其中 %d 次是多做的，留給後面步驟當材料）"], e.extra) or ""), 1, .82, 0, true)
         local mats = {}
         for _, m in ipairs(s.m) do
           local nm = info("i", m[1])
           table.insert(mats, string.format("%s ×%d", nm, math.ceil(e.n * m[2] / s.c)))
         end
-        if #mats > 0 then GameTooltip:AddLine("材料：" .. table.concat(mats, "、"), 1, 1, 1, true) end
-        if e.val then GameTooltip:AddLine("做出來的成品賣掉約可回本 " .. money(e.val) .. "（已扣 5% 手續費、扣掉後面步驟會用掉的）", .6, 1, .6, true) end
+        if #mats > 0 then GameTooltip:AddLine(L["材料："] .. table.concat(mats, L["、"]), 1, 1, 1, true) end
+        if e.val then GameTooltip:AddLine(string.format(L["做出來的成品賣掉約可回本 %s（已扣 5%% 手續費、扣掉後面步驟會用掉的）"], money(e.val)), .6, 1, .6, true) end
         local st = s.k == "i" and ahStats(s.id)
-        if st then GameTooltip:AddLine(string.format("拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到", st.last, st.days), .55, .75, 1, true) end
+        if st then GameTooltip:AddLine(string.format(L["拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到"], st.last, st.days), .55, .75, 1, true) end
         if s.d and #s.d == 4 then
           local function dv(x) return (x == nil or x == "" or x == "–") and "—" or x end
-          GameTooltip:AddLine(string.format("難度：|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", dv(s.d[1]), dv(s.d[2]), dv(s.d[3]), dv(s.d[4])), .8, .8, .8)
+          GameTooltip:AddLine(string.format(L["難度："] .. "|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", dv(s.d[1]), dv(s.d[2]), dv(s.d[3]), dv(s.d[4])), .8, .8, .8)
         end
       else
         pcall(GameTooltip.SetItemByID, GameTooltip, e.item.id)
         local c = e.item
         if c.kind == "craft" then
           GameTooltip:AddLine(" ")
-          GameTooltip:AddLine(string.format("比價：直接買每個 %s，自己做每個 %s → 自己做", c.buyUnit and money(c.buyUnit) or "沒價格", money(c.unit or 0)), .55, .75, 1, true)
+          GameTooltip:AddLine(string.format(L["比價：直接買每個 %s，自己做每個 %s → 自己做"], c.buyUnit and money(c.buyUnit) or L["沒價格"], money(c.unit or 0)), .55, .75, 1, true)
         end
       end
       GameTooltip:Show()
@@ -1401,7 +1419,7 @@ local function updateProfUI()
   if not profUI or not profUI:IsVisible() then return end
   local open = frame and frame:IsShown() and true or false
   profUI.text:SetShown(open); profUI.addBtn:SetShown(open)
-  profUI.openBtn:SetText(open and "關閉幫手" or "專業幫手"); fitButton(profUI.openBtn, 110)
+  profUI.openBtn:SetText(open and L["關閉幫手"] or L["專業幫手"]); fitButton(profUI.openBtn, 110)
   if not open then return end
   local p, id = openProf(), selectedRecipe()
   profUI.id, profUI.prof, profUI.rec = id, p and p.key, nil
@@ -1415,11 +1433,11 @@ local function updateProfUI()
   if rec then
     local cost, sell, profit = profitOf(rec, learnedProfs())
     if profit then
-      txt = string.format("利潤 %s%s|r（%d%%）", profit >= 0 and "|cff9fd18b" or "|cffff7b7b", (profit < 0 and "-" or "") .. money(math.abs(profit)),
+      txt = string.format(L["利潤 %s%s|r（%d%%）"], profit >= 0 and "|cff9fd18b" or "|cffff7b7b", (profit < 0 and "-" or "") .. money(math.abs(profit)),
         cost > 0 and math.floor(profit / cost * 100 + 0.5) or 0)
-    elseif cost then txt = "成本 " .. money(cost) .. "（沒有售價）" end
+    elseif cost then txt = string.format(L["成本 %s（沒有售價）"], money(cost)) end
   end
-  profUI.text:SetText(txt .. (qn > 0 and string.format("　|cffffd100佇列 ×%d|r", qn) or ""))
+  profUI.text:SetText(txt .. (qn > 0 and (L["　"] .. "|cffffd100" .. string.format(L["佇列 ×%d"], qn) .. "|r") or ""))
 end
 local function dockOpen(force)
   if (not force and not db.dock) or not ProfessionsFrame then return end
@@ -1449,7 +1467,7 @@ local function setupProfUI()
   profUI.text = profUI:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   profUI.text:SetPoint("TOPLEFT", 2, 0); profUI.text:SetJustifyH("LEFT")
   local b = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  b:SetSize(110, 24); b:SetText("加入佇列"); profUI.addBtn = b
+  b:SetSize(110, 24); b:SetText(L["加入佇列"]); profUI.addBtn = b
   b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b:SetScript("OnClick", function(_, btn)
     if not profUI.id then return end
@@ -1461,13 +1479,13 @@ local function setupProfUI()
     if frame and frame:IsShown() then ProfLevel_Refresh() end
   end)
   b:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine("加入製作佇列")
-    GameTooltip:AddLine("左鍵 +1、Shift+左鍵 +5、右鍵 −1", 1, 1, 1); GameTooltip:Show()
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["加入製作佇列"])
+    GameTooltip:AddLine(L["左鍵 +1、Shift+左鍵 +5、右鍵 −1"], 1, 1, 1); GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
   fitButton(b, 110)
   local o = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  o:SetSize(110, 24); o:SetText("專業幫手"); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
+  o:SetSize(110, 24); o:SetText(L["專業幫手"]); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
   b:SetPoint("LEFT", o, "RIGHT", 6, 0)
   -- 點了才打開（不會改「自動開啟」的設定）
   o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else dockOpen(true) end end)
@@ -1512,9 +1530,9 @@ local function buildMinimapButton()
   b:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine("阿聖專業幫手")
-    GameTooltip:AddLine("左鍵：開關視窗", 1, 1, 1)
-    GameTooltip:AddLine("拖曳：沿著小地圖移動", .6, .6, .6)
+    GameTooltip:AddLine(L["阿聖專業幫手"])
+    GameTooltip:AddLine(L["左鍵：開關視窗"], 1, 1, 1)
+    GameTooltip:AddLine(L["拖曳：沿著小地圖移動"], .6, .6, .6)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1533,14 +1551,14 @@ SlashCmdList.PROFLEVEL = function(input)
   elseif cmd == "minimap" then
     db.minimapHide = not db.minimapHide
     if mmBtn then if db.minimapHide then mmBtn:Hide() else mmBtn:Show() end end
-    msg("小地圖按鈕：" .. (db.minimapHide and "隱藏（再輸入 /sprof minimap 顯示）" or "顯示"))
+    msg(L["小地圖按鈕："] .. (db.minimapHide and L["隱藏（再輸入 /sprof minimap 顯示）"] or L["顯示"]))
   elseif cmd == "dock" then
     db.dock = not db.dock
-    msg("打開專業視窗時自動顯示專業助手：" .. (db.dock and "開" or "關"))
+    msg(L["打開專業視窗時自動顯示專業助手："] .. (db.dock and L["開"] or L["關"]))
   elseif cmd == "scale" then
     local v = tonumber((input or ""):match("scale%s+([%d%.]+)"))
-    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg("視窗縮放：" .. v)
-    else msg("用法：/sprof scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
+    if v and v >= 0.5 and v <= 2 then db.scale = v; if frame then frame:SetScale(v) end; msg(L["視窗縮放："] .. v)
+    else msg(string.format(L["用法：/sprof scale 1.2（0.5～2，目前 %s）"], tostring(db.scale or 1))) end
   elseif cmd == "guild" then
     NS.guildSlash((input or ""):match("^%s*%S+%s+(.-)%s*$"))
   elseif cmd == "train" then
@@ -1548,53 +1566,59 @@ SlashCmdList.PROFLEVEL = function(input)
     local n = 0
     for _, list in ipairs({ PROFS, { MINING }, EXTRA }) do
       for _, p in ipairs(list) do
-        local L = learned[p.key]
-        if L then
+        local sk = learned[p.key]
+        if sk then
           n = n + 1
-          local tr, low, R = rankText(p.key, L)
+          local tr, low, R = rankText(p.key, sk)
           local a = R and R.at[1]
-          local where = (a and a.map) and string.format("　|cffffff00|Hworldmap:%d:%d:%d|h[%s %.1f, %.1f]|h|r", a.map, math.floor(a.x * 100 + 0.5), math.floor(a.y * 100 + 0.5), a.place, a.x, a.y) or ""
+          local where = (a and a.map) and string.format(L["　"] .. "|cffffff00|Hworldmap:%d:%d:%d|h[%s %.1f, %.1f]|h|r", a.map, math.floor(a.x * 100 + 0.5), math.floor(a.y * 100 + 0.5), loc(a, "place"), a.x, a.y) or ""
           local line = tr and ((low and "|cff808080" or "") .. tr .. (low and "|r" or "") .. where)
-            or (L.max >= 300 and "已是大師") or (L.max <= 75 and "下一階：任一訓練師（10 級、技能 50）") or "沒有資料"
-          msg(string.format("%s %d/%d　%s", p.name, L.cur, L.max, line))
+            or (sk.max >= 300 and L["已是大師"]) or (sk.max <= 75 and L["下一階：任一訓練師（10 級、技能 50）"]) or L["沒有資料"]
+          msg(string.format("%s %d/%d", p.name, sk.cur, sk.max) .. L["　"] .. line)
         end
       end
     end
-    if n == 0 then msg("沒偵測到專業") end
+    if n == 0 then msg(L["沒偵測到專業"]) end
   elseif cmd == "track" then
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
+  elseif cmd == "lang" then -- 測試用：中文客戶端也能預覽其他語言的介面（偵測專業、讀遊戲文字仍照客戶端語言）
+    local v = (input or ""):lower():match("lang%s+(%a+)")
+    if v == "en" or (v == "zh" and NS.clientZh) or v == "auto" then -- 非中文客戶端的字型沒有中文字，不給切中文
+      db.lang = v ~= "auto" and v or nil
+      msg(string.format(L["介面語言：%s（/reload 後生效）"], v))
+    else msg(string.format(L["用法：/sprof lang en/zh/auto（目前 %s）"], db.lang or "auto")) end
   elseif cmd == "debug" then
     local learned = learnedProfs()
     local t = {}
     for _, p in ipairs(PROFS) do if learned[p.key] then table.insert(t, p.name .. " " .. learned[p.key].cur .. "/" .. learned[p.key].max) end end
-    msg("版本 0.7.1　已學專業：" .. (#t > 0 and table.concat(t, "、") or "沒偵測到"))
-    msg("Auctionator：" .. (auctionator() and "有" or "沒有"))
+    msg(L["版本 0.7.1　已學專業："] .. (#t > 0 and table.concat(t, L["、"]) or L["沒偵測到"]))
+    msg(L["Auctionator："] .. (auctionator() and L["有"] or L["沒有"]))
     -- 專業視窗 API（下一版做製作佇列、利潤表會用到）：打開專業視窗再執行
     local T = C_TradeSkillUI
     if T and T.GetAllRecipeIDs then
       local ok, ids = pcall(T.GetAllRecipeIDs)
       local n = ok and type(ids) == "table" and #ids or 0
       local base = T.GetBaseProfessionInfo and select(2, pcall(T.GetBaseProfessionInfo))
-      msg(string.format("專業視窗 API：新版　配方 %d 個　目前專業：%s　CraftRecipe：%s", n,
-        type(base) == "table" and tostring(base.professionName or base.professionID) or "未開啟",
-        T.CraftRecipe and "有" or "沒有"))
+      msg(string.format(L["專業視窗 API：新版　配方 %d 個　目前專業：%s　CraftRecipe：%s"], n,
+        type(base) == "table" and tostring(base.professionName or base.professionID) or L["未開啟"],
+        T.CraftRecipe and L["有"] or L["沒有"]))
       if n > 0 then
         local id = ids[1]
         local okI, ri = pcall(T.GetRecipeInfo, id)
         local okS, sc = pcall(T.GetRecipeSchematic, id, false)
         local reag = 0
         if okS and type(sc) == "table" and type(sc.reagentSlotSchematics) == "table" then reag = #sc.reagentSlotSchematics end
-        msg(string.format("第一個配方 %d：%s　產物 %s　材料欄 %d　可做 %s", id,
+        msg(string.format(L["第一個配方 %d：%s　產物 %s　材料欄 %d　可做 %s"], id,
           okI and type(ri) == "table" and tostring(ri.name) or "?", okS and type(sc) == "table" and tostring(sc.outputItemID) or "?",
           reag, okI and type(ri) == "table" and tostring(ri.numAvailable) or "?"))
       end
     elseif GetNumTradeSkills then
-      msg("專業視窗 API：舊版　配方列 " .. tostring(GetNumTradeSkills()) .. " 列")
+      msg(string.format(L["專業視窗 API：舊版　配方列 %s 列"], tostring(GetNumTradeSkills())))
     else
-      msg("專業視窗 API：沒有")
+      msg(L["專業視窗 API：沒有"])
     end
   else
-    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
+    msg(L["/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果　/sprof lang en/zh/auto 介面語言"])
   end
 end
 

@@ -25,6 +25,17 @@ out.push('  },');
 // 商人固定售價（銅）
 out.push('  vendor = { ' + Object.entries(D.vendor).map(([id, p]) => `[${id}] = ${p}`).join(', ') + ' },');
 out.push('  npcs = { ' + Object.entries(D.npcs || {}).filter(([, v]) => v).map(([k, v]) => `[${q(k)}] = ${q(v)}`).join(', ') + ' },');
+// 商人 NPC 其他語言的名字（插件依介面語言用 npcs_<語言>，沒有就用 npcs）。來源只有簡中名，英文是手寫的經典版名稱
+const NPCS_ENUS = {
+  '布里克·基克拉夫': 'Brikk Keencraft', '玛格努斯·霜鸣': 'Magnus Frostwake', '巴兹克·布拉斯温': 'Buzzek Bracketswing',
+  '贾斯·法拉恩': 'Jase Farlane', '辛德拉圣职者': "Shen'dralar Provisioner", '亨利·斯特恩': 'Henry Stern', '吉科希斯': 'Gikkix',
+  '玛兹克·斯奈普沙特': 'Mazk Snipeshot', '吞克': 'Tunkk', '琦亚': 'Qia', '凯尔希·杨斯': 'Kelsey Yance', '希兹尔·菲兹波特': 'Xizzer Fizzbolt',
+  '扎诺克': 'Zannok Hidepiercer', '卡妮亚': 'Kania', '安诺拉': 'Annora', '塔里查': "Tari'qa", '罗莱尔·冬歌': 'Lorelae Wintersong',
+  '肯多尔·卡邦卡': 'Kendor Kabonka',
+};
+const missingEn = Object.keys(D.npcs || {}).filter(k => D.npcs[k] && !NPCS_ENUS[k]);
+if (missingEn.length) console.warn('商人沒有英文名（英文介面會顯示中文）：', missingEn.join('、'));
+out.push('  npcs_enUS = { ' + Object.entries(NPCS_ENUS).map(([k, v]) => `[${q(k)}] = ${q(v)}`).join(', ') + ' },');
 // 每個專業的候選路線
 out.push('  variants = {');
 for (const [prof, vs] of Object.entries(D.variants)) {
