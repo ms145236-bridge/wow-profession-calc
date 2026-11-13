@@ -37,6 +37,9 @@
 **專業視窗整合**
 - 打開專業視窗時，旁邊可以展開專業幫手，直接把配方加進佇列。
 
+**下一階去哪學**
+- 點數快到上限時，視窗顯示下一階（專家／大師）的部落訓練師、等級與技能門檻、費用，烹飪、急救、釣魚則列出技能書或任務；按「去」設航點（有 WaypointUI 就用它）。`/sprof train` 列出所有專業的下一階地點。
+
 ### 指令
 
 - `/sprof` 開關視窗
@@ -59,3 +62,4 @@
 **English (ShengProfession):** Profession helper for WoW Forever (zhTW client): profit table for all your recipes, a crafting queue with one-click crafting, cheapest leveling route based on Auctionator prices, Auctionator shopping lists, and a gathering-tracking reminder. Requires Auctionator for prices.
 
 - **Guild crafters:** guild members who also run ShengProfession share their known recipes automatically; recipe rows and item tooltips show who in your guild can craft it (`/sprof guild`, `/sprof guild <name>`; `/sprof guild off` stops sharing yours, on by default).
+- **Next rank trainer:** when a profession nears its cap, the window shows where to learn Expert/Artisan (Horde trainer, level and skill requirements, cost; the book or quest for Cooking, First Aid and Fishing) with a button that sets a waypoint (uses WaypointUI if installed). `/sprof train` lists the next rank location for all your professions.

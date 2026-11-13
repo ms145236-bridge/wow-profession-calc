@@ -77,8 +77,13 @@ local function money(c)
 end
 
 -- ── 遊戲資料 ───────────────────────────────────────────────────────────────
--- 已學的專業與目前點數：{ [key] = { cur, max } }
-local function learnedProfs()
+-- 只有升階提示用到的專業（沒有衝級路線）
+local EXTRA = { { key = "herbalism", name = "草藥學", line = 182 }, { key = "skinning", name = "剝皮", line = 393 }, { key = "fishing", name = "釣魚", line = 356 } }
+local EXTRA_BY_LINE, EXTRA_BY_NAME = {}, { ["草藥"] = EXTRA[1] }
+for _, p in ipairs(EXTRA) do EXTRA_BY_LINE[p.line] = p; EXTRA_BY_NAME[p.name] = p end
+
+-- 已學的專業與目前點數：{ [key] = { cur, max } }；all 為真時連草藥、剝皮、釣魚也算
+local function learnedProfs(all)
   local out = {}
   if GetProfessions and GetProfessionInfo then
     local n = select("#", GetProfessions())
@@ -87,7 +92,7 @@ local function learnedProfs()
       local idx = list[i]
       if idx then
         local ok, name, _, cur, mx, _, _, line = pcall(GetProfessionInfo, idx)
-        local p = ok and (PROF_BY_LINE[line] or PROF_BY_NAME[name])
+        local p = ok and (PROF_BY_LINE[line] or PROF_BY_NAME[name] or (all and (EXTRA_BY_LINE[line] or EXTRA_BY_NAME[name])))
         if p then out[p.key] = { cur = cur or 1, max = mx or 300 } end
       end
     end
@@ -95,11 +100,43 @@ local function learnedProfs()
   if not next(out) and GetNumSkillLines and GetSkillLineInfo then -- 經典版的讀法
     for i = 1, GetNumSkillLines() do
       local name, isHeader, _, rank, _, _, maxRank = GetSkillLineInfo(i)
-      local p = not isHeader and PROF_BY_NAME[name]
+      local p = not isHeader and (PROF_BY_NAME[name] or (all and EXTRA_BY_NAME[name]))
       if p then out[p.key] = { cur = rank or 1, max = maxRank or 300 } end
     end
   end
   return out
+end
+
+-- ── 升階提示 ───────────────────────────────────────────────────────────────
+local TRAIN = ProfLevel_Trainers or {}
+-- 下一階的資料：上限 150 要學專家、225 要學大師；其他上限回傳 nil
+local function nextRank(key, L)
+  local t = L and TRAIN[key]
+  local rk = t and ((L.max == 150 and "expert") or (L.max == 225 and "master"))
+  if rk and t[rk] then return t[rk], rk == "expert" and "專家" or "大師" end
+end
+-- 一行說明，例如「下一階 大師：斯通納德 羅格瓦爾（35 級、技能 200、5 金）」；第二個回傳值：角色等級還不夠
+local function rankText(key, L)
+  local R, label = nextRank(key, L)
+  if not R then return end
+  local a = R.at[1]
+  local need = {}
+  if R.level then need[#need + 1] = R.level .. " 級" end
+  need[#need + 1] = "技能 " .. R.skill
+  if R.cost >= 10000 then need[#need + 1] = (R.cost / 10000) .. " 金" elseif R.cost > 0 then need[#need + 1] = (R.cost / 100) .. " 銀" end
+  local how = (R.book and ("　買《" .. R.book .. "》")) or (R.quest and ("　任務「" .. R.quest .. "」")) or ""
+  return string.format("下一階 %s：%s %s%s（%s）", label, a.place, a.name, how, table.concat(need, "、")),
+    (R.level or 0) > (UnitLevel("player") or 0), R
+end
+local function goTo(a)
+  if not (a and a.map) then return end
+  local api = WaypointUIAPI and WaypointUIAPI.Navigation
+  if api and type(api.NewUserNavigation) == "function"
+    and pcall(api.NewUserNavigation, { name = a.name, mapID = a.map, x = a.x, y = a.y, flags = "ShengProfession" }) then return end
+  pcall(function()
+    C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(a.map, a.x / 100, a.y / 100))
+    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+  end)
 end
 
 local function auctionator()
@@ -943,6 +980,21 @@ local function refreshImpl()
   local hasAct = frame.act1:IsShown() or frame.atrBtn:IsShown()
   frame:SetHeight(TOP + shown * ROW_H + ((hasAct or frame.foot:GetText() ~= "") and 44 or 18))
   autoFit(cols)
+  -- 升階提示（點數到上限前 10 點或已夠升階時才出現）
+  local tr, low, R = rankText(p.key, L)
+  if tr and L.cur < math.min(L.max - 10, R.skill) then tr = nil end
+  frame.status:ClearAllPoints()
+  if tr then
+    frame.train:SetText(tr); frame.train:Show()
+    if low then frame.train:SetTextColor(.5, .5, .5) else frame.train:SetTextColor(1, .82, 0) end
+    frame.goBtn.R = R; frame.goBtn:SetShown(R.at[1].map ~= nil)
+    local anchor = frame.goBtn:IsShown() and frame.goBtn or frame.train
+    frame.status:SetPoint("LEFT", anchor, "RIGHT", 10, 0)
+    frame.status:SetWidth(math.max(1, frame:GetWidth() - 38 - measure(frame.train) - (frame.goBtn:IsShown() and frame.goBtn:GetWidth() + 6 or 0)))
+  else
+    frame.train:Hide(); frame.goBtn:Hide(); frame.goBtn.R = nil
+    frame.status:SetPoint("TOPLEFT", 14, -66); frame.status:SetWidth(0)
+  end
 end
 
 local refreshPending = false
@@ -1036,6 +1088,23 @@ local function buildFrame()
   -- 第二、三列：價格來源、總花費
   frame.status = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   frame.status:SetPoint("TOPLEFT", 14, -66); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
+  -- 升階提示：快到上限時佔掉價格來源那行的開頭，「去」設航點
+  frame.train = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  frame.train:SetPoint("TOPLEFT", 14, -66); frame.train:SetJustifyH("LEFT"); frame.train:SetWordWrap(false); frame.train:Hide()
+  frame.goBtn = button(frame, 20, "去", function(self) goTo(self.R and self.R.at[1]) end)
+  frame.goBtn:SetHeight(20); frame.goBtn:SetPoint("LEFT", frame.train, "RIGHT", 6, 0); frame.goBtn:Hide()
+  frame.goBtn:SetScript("OnEnter", function(self)
+    local R = self.R
+    if not R then return end
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    for i, a in ipairs(R.at) do
+      if i == 1 then GameTooltip:AddLine(a.place .. " " .. a.name)
+      else GameTooltip:AddDoubleLine(a.place .. " " .. a.name, a.map and string.format("%.1f, %.1f", a.x, a.y) or "", 1, 1, 1, .6, .6, .6) end
+    end
+    if R.note then GameTooltip:AddLine(R.note, .8, .8, .8, true) end
+    GameTooltip:Show()
+  end)
+  frame.goBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.total = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   frame.total:SetPoint("TOPLEFT", 14, -88); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
   -- 分頁與購物清單按鈕
@@ -1355,6 +1424,24 @@ SlashCmdList.PROFLEVEL = function(input)
     else msg("用法：/sprof scale 1.2（0.5～2，目前 " .. (db.scale or 1) .. "）") end
   elseif cmd == "guild" then
     NS.guildSlash((input or ""):match("^%s*%S+%s+(.-)%s*$"))
+  elseif cmd == "train" then
+    local learned = learnedProfs(true)
+    local n = 0
+    for _, list in ipairs({ PROFS, { MINING }, EXTRA }) do
+      for _, p in ipairs(list) do
+        local L = learned[p.key]
+        if L then
+          n = n + 1
+          local tr, low, R = rankText(p.key, L)
+          local a = R and R.at[1]
+          local where = (a and a.map) and string.format("　|cffffff00|Hworldmap:%d:%d:%d|h[%s %.1f, %.1f]|h|r", a.map, math.floor(a.x * 100 + 0.5), math.floor(a.y * 100 + 0.5), a.place, a.x, a.y) or ""
+          local line = tr and ((low and "|cff808080" or "") .. tr .. (low and "|r" or "") .. where)
+            or (L.max >= 300 and "已是大師") or (L.max <= 75 and "下一階：任一訓練師（10 級、技能 50）") or "沒有資料"
+          msg(string.format("%s %d/%d　%s", p.name, L.cur, L.max, line))
+        end
+      end
+    end
+    if n == 0 then msg("沒偵測到專業") end
   elseif cmd == "track" then
     if ProfLevel_Track then ProfLevel_Track((input or ""):match("track%s+(%S+)")) end
   elseif cmd == "debug" then
@@ -1388,7 +1475,7 @@ SlashCmdList.PROFLEVEL = function(input)
       msg("專業視窗 API：沒有")
     end
   else
-    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
+    msg("/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果")
   end
 end
 
@@ -1415,7 +1502,7 @@ local function queueScan()
   end)
 end
 local REFRESH_EVENTS = { SKILL_LINES_CHANGED = true, BAG_UPDATE_DELAYED = true,
-  GET_ITEM_INFO_RECEIVED = true, AUCTION_HOUSE_CLOSED = true, CHAT_MSG_SKILL = true }
+  GET_ITEM_INFO_RECEIVED = true, AUCTION_HOUSE_CLOSED = true, CHAT_MSG_SKILL = true, PLAYER_LEVEL_UP = true }
 ev:SetScript("OnEvent", function(_, e, a1, ...)
   if e == "ADDON_LOADED" and a1 == ADDON then
     ensureDB()
