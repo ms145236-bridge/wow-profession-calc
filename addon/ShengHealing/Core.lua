@@ -1917,19 +1917,36 @@ local function buildFrame()
     return row
   end
   frame.anaSets = {
-    single = presetRow({ { "小怪", 3000, 250, 1.5, 45 }, { "王戰", 5000, 450, 2, 180 }, { "單練", nil, 120, 2, 60 }, { "省水", 3000, 120, 2, 60 } }, function(p)
-      local hpMax = p[2]
-      if not hpMax then -- 單練：坦克就是自己
+    -- 預設情境依角色等級 L 換算（估計值：同等級副本坦克與菁英怪的大概數字；60 級時接近一般五人本）
+    --   坦克生命 ≈ 1.2L²＋35L、隊員生命 ≈ 0.7L²＋25L、菁英怪每下 ≈ 4.5L、首領每下 ≈ 7L、野外普通怪每下 ≈ 2.2L
+    -- p[2] 是情境代號，數值在套用時才算，所以升級後再點一次就會跟著變
+    single = presetRow({ { "小怪", "trash" }, { "王戰", "boss" }, { "單練", "solo" }, { "省水", "easy" } }, function(p)
+      local L = UnitLevel("player") or 60
+      local tank = math.floor((1.2 * L * L + 35 * L) / 100 + 0.5) * 100
+      local hp, hit, gap, fight
+      if p[2] == "trash" then hp, hit, gap, fight = tank, 4.5 * L, 1, 30 -- 兩隻菁英怪同時打坦克
+      elseif p[2] == "boss" then hp, hit, gap, fight = tank, 7 * L, 2, 90
+      elseif p[2] == "easy" then hp, hit, gap, fight = tank, 4.5 * L, 2, 30 -- 一隻菁英怪
+      else -- 單練：坦克就是自己，野外普通怪
         local ok, v = pcall(UnitHealthMax, "player")
-        hpMax = (ok and not (issecretvalue and issecretvalue(v)) and type(v) == "number") and v or db.anaHp
-        hpMax = math.max(500, math.min(20000, math.floor(hpMax / 100 + 0.5) * 100))
+        hp = (ok and not (issecretvalue and issecretvalue(v)) and type(v) == "number") and v or tank
+        hit, gap, fight = 2.2 * L, 2, 30
       end
-      db.anaHp, db.anaHit, db.anaGap, db.fight = hpMax, p[3], p[4], p[5]
+      db.anaHp = math.max(500, math.min(20000, math.floor(hp / 100 + 0.5) * 100))
+      db.anaHit = math.max(50, math.floor(hit / 10 + 0.5) * 10)
+      db.anaGap, db.fight = gap, fight
     end),
-    -- { 名稱, 人數, 成員生命, 坦克生命, 範圍每次傷害, 範圍間隔, 範圍命中（0＝全員）, 坦克每次傷害, 坦克間隔, 戰鬥長度 }
-    group = presetRow({ { "群怪", 5, 3200, 5500, 120, 3, 0, 350, 2, 45 }, { "全團技", 5, 3200, 5500, 500, 20, 0, 250, 2, 90 },
-      { "範圍", 5, 3200, 5500, 100, 2, 0, 0, 2, 60 }, { "點名", 5, 3200, 5500, 600, 5, 1, 350, 2, 60 } }, function(p)
-      db.gN, db.gHp, db.gTankHp, db.gAoe, db.gAoeGap, db.gAoeK, db.gTankHit, db.gTankGap, db.gFight = p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10]
+    group = presetRow({ { "群怪", "trash" }, { "全團技", "boss" }, { "範圍", "aoe" }, { "點名", "pick" } }, function(p)
+      local L = UnitLevel("player") or 60
+      local r10 = function(v) return math.max(10, math.floor(v / 10 + 0.5) * 10) end
+      local tank = math.floor((1.2 * L * L + 35 * L) / 100 + 0.5) * 100
+      local member = math.floor((0.7 * L * L + 25 * L) / 100 + 0.5) * 100
+      -- { 範圍每次傷害, 範圍間隔, 範圍命中（0＝全員）, 坦克每次傷害, 坦克間隔, 戰鬥長度 }
+      local v = ({ trash = { 2.5 * L, 3, 0, 4.5 * L, 1.5, 45 }, boss = { 9 * L, 20, 0, 5 * L, 2, 90 },
+        aoe = { 1.8 * L, 2, 0, 0, 2, 60 }, pick = { 10 * L, 5, 1, 5 * L, 2, 60 } })[p[2]]
+      db.gN, db.gHp, db.gTankHp = 5, math.max(500, member), math.max(500, tank)
+      db.gAoe, db.gAoeGap, db.gAoeK = r10(v[1]), v[2], v[3]
+      db.gTankHit, db.gTankGap, db.gFight = v[4] > 0 and r10(v[4]) or 0, v[5], v[6]
     end),
   }
   frame.anaDetailBtn = button(frame.ana, 40, "詳細", function() db.anaDetail = not db.anaDetail; frame.anaOff = 0; HealHPS_Refresh() end)
