@@ -750,8 +750,8 @@ local function fitText(fs, maxW, full, short)
   fs:SetText(table.concat(ch, "", 1, lo) .. "…")
 end
 
--- 採集分頁列出的技能（烹飪、急救也留在專業切換裡，衝級路線照舊）
-local GATHER = { MINING, EXTRA[1], EXTRA[2], EXTRA[3], PROF_BY_KEY.cooking, PROF_BY_KEY["first-aid"] }
+-- 採集分頁列出的技能：採礦、草藥、剝皮、釣魚（烹飪、急救不是採集，下一階提示在專業切換的狀態列）
+local GATHER = { MINING, EXTRA[1], EXTRA[2], EXTRA[3] }
 
 local function profList(learned)
   local list = {}
