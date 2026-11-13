@@ -148,7 +148,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('hc.' + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
 };
 const SPEC_DEF = { level: '60', heal: '300', healPct: '0', absorbPct: '0', manaReduce: '0', castReduce: '0',
-  oath: false, rgHotCoeff: '0', vigilShock: true };
+  oath: false, vigilShock: true };
 // 聖光誓約（遊戲內實測，33 級聖騎）：加成＝60 級上限 × 等級 ÷ 60（小數捨去）；再乘治療加成 %；
 // 比例＝1 −（角色等級 − 學會等級 − 12）× 5%：比技能高 12 級內拿全部，之後每級少 5%（33、34 級實測）
 const OATH_MAX = { hl: 400, fol: 115, hs: 230 };
@@ -192,7 +192,6 @@ function compute() {
   const manaReduce = clamp(num(p.manaReduce, 0), 0, 50) / 100;
   const castReduce = Math.max(0, num(p.castReduce, 0));
   const targetsWanted = clamp(Math.floor(num(view.targets, 5)), 1, 5);
-  const rgHotCoeff = clamp(num(p.rgHotCoeff, 0), 0, 2);
 
   const rows = SPELLS.filter(s => s.specs.includes(spec)).map(s => {
     const down = view.applyDownrank ? foreverDownrank(level, s.learnLevel) : 1;
@@ -203,7 +202,7 @@ function compute() {
     if (p.oath && spec === 'paladin_holy' && OATH_MAX[s.id] != null) oathAdd = oathAt(s.id, level) * oathRatio(s.learnLevel, level);
     // 誓約固定量跟基礎量一起乘治療加成 %，不受降級影響
     let perHeal = (avg + oathAdd + healing * coeffEff) * mult;
-    if (s.id === 'rgh') perHeal += ((s.hotBase || 0) + healing * rgHotCoeff * down) * mult;
+    if (s.id === 'rgh') perHeal += ((s.hotBase || 0) + healing * (s.hotCoeff || 0) * down) * mult;
 
     const tCap = Math.min(targetsWanted, s.maxTargets);
     let totalHeal = perHeal, targetsUsed = 1;
@@ -276,8 +275,7 @@ function renderControls() {
   $('groupRow').innerHTML = view.mode === 'group'
     ? numField('v', 'targets', '有效目標數（1～5，治療鏈最多 3）', 'min="1" max="5"') + `<div class="segs"><div class="lab">群補數值<div class="seg">${seg('groupMetric', [['per', '每人／首跳'], ['total', '總量']])}</div></div></div>` : '';
   $('specHint').textContent = SPEC_OPTIONS.find(s => s.value === spec).hint;
-  $('advNums').innerHTML = numField('p', 'manaReduce', '法力降低 %', 'min="0" max="50"') + numField('p', 'castReduce', '施法縮短（秒）', 'min="0" step="0.1"')
-    + (spec === 'druid_resto' ? numField('p', 'rgHotCoeff', '愈合 HoT 係數（待核）', 'min="0" max="2" step="0.01"') : '');
+  $('advNums').innerHTML = numField('p', 'manaReduce', '法力降低 %', 'min="0" max="50"') + numField('p', 'castReduce', '施法縮短（秒）', 'min="0" step="0.1"');
   $('advToggles').innerHTML = toggle('v', 'applyDownrank', '降級衰減（學會後超過 17 級，每級 −5%；社群 Beta 觀察）')
     + toggle('v', 'onlyAvail', '只顯示目前等級學得到的技能') + toggle('v', 'includeTalent', '含天賦技能')
     + toggle('v', 'includeHot', '含 HoT／引導') + (isPriest ? toggle('v', 'includeAbsorb', '含吸收（真言術：盾）') : '')
