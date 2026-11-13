@@ -228,7 +228,7 @@ NS.locales.enUS = {
   ["追蹤提醒：關"] = "Tracking reminder: Off",
 
   -- 採集路線
-  ["採集路線"] = "Gathering routes",
+  ["採集路線"] = "Routes",
   ["礦"] = "Ore",
   ["草"] = "Herb",
   ["雙"] = "Both",
