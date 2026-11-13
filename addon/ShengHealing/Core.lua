@@ -4,7 +4,7 @@
 
 local ADDON = ...
 local D = HealHPS_Data
-local DEFAULTS = { mode = "single", tipLevel = 3, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
+local DEFAULTS = { mode = "single", tipLevel = 3, fight = 120, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25 }
 local LOGO = "Interface\\AddOns\\ShengHealing\\Media\\Logo"
 local db
@@ -437,6 +437,10 @@ local function compute()
   ctx.descIncl = descIncludesBonus()
   ctx.class = class
   ctx.spirit = (UnitStat and select(2, UnitStat("player", 5))) or 0
+  -- 每秒回藍：遊戲已把精神、MP5、施法中保留回藍的天賦都算好；idle＝停手滿 5 秒後，active＝施法中（5 秒內）
+  local okR, idle, active = pcall(GetManaRegen)
+  ctx.regenIdle, ctx.regenActive = okR and idle or 0, okR and active or 0
+  ctx.maxMana = UnitPowerMax and UnitPowerMax("player", 0) or 0
   ctx.ripKnown = scan.families.ript and scan.families.ript.maxRank > 0 or false
   local tal = scanTalents(class)
   ctx.healPct = (db.pct or tal.heal) / 100
@@ -584,6 +588,18 @@ local function filterRows(rows, mode)
   local k = db.sort == "heal" and "shown" or db.sort
   table.sort(list, function(a, b) return a[k] > b[k] end)
   return list
+end
+-- 整場戰鬥（db.fight 秒）只用這招、補量全部吃進去時能補多少：
+-- 一直施法時每秒耗藍 S＝HPS÷HPM，施法中回藍 a；藍不夠就在中間停手一次，停手前 5 秒回 a、之後回 i。
+-- 藍夠用 → 一直施法；不夠 → 施法 C 秒，C 由「花掉的藍＝藍量＋施法與停手時回的藍」解出。回傳 總補量、施法秒數
+local function fightTotal(r)
+  local ctx, F = scan.ctx, db.fight or 120
+  if not ctx or r.hps <= 0 or r.hpm <= 0 then return 0, 0 end
+  local S, a, i = r.hps / r.hpm, ctx.regenActive, ctx.regenIdle
+  if S <= a then return r.hps * F, F end
+  local C = (ctx.maxMana + 5 * a + i * math.max(0, F - 5)) / (S - a + i)
+  if C >= F then return r.hps * F, F end
+  return r.hps * C, C
 end
 -- 最佳 HPS、最佳 HPM（在同一類：單補跟單補比、群補跟群補比）
 local function bests(list)
@@ -780,7 +796,7 @@ local function refreshImpl()
   local th = frame.how.GetStringHeight and frame.how:GetStringHeight()
   th = (type(th) == "number" and th > 0) and th or 40
   frame.tgtBtn:ClearAllPoints(); frame.tgtBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(10 + th + 12))
-  frame.opts:SetHeight(10 + th + 12 + (isPal and 3 or 2) * 30 + 8)
+  frame.opts:SetHeight(10 + th + 12 + (isPal and 4 or 3) * 30 + 8)
   frame.info:SetText(string.format("%d 級 · 治療效果 %d", ctx.level, ctx.bonus))
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" }, { frame.cdModeBtn, "cd" } }) do
     local on = db.mode == m[2]
@@ -788,6 +804,8 @@ local function refreshImpl()
   end
   frame.tipBtn:SetText("技能提示：" .. (not db.tip and "關" or ({ "精簡", "標準", "完整" })[db.tipLevel]))
   frame.tgtLabel:SetText("群補人數 " .. (db.targets or 5))
+  frame.fightLabel:SetText("戰鬥 " .. (db.fight or 120) .. " 秒")
+  if frame.fightSlider:GetValue() ~= (db.fight or 120) then frame.fightSlider:SetValue(db.fight or 120) end
   if frame.tgtSlider:GetValue() ~= (db.targets or 5) then frame.tgtSlider:SetValue(db.targets or 5) end
   for _, h in ipairs(frame.heads) do
     local on = h.key == db.sort
@@ -828,11 +846,26 @@ local function refreshImpl()
     foot = (bh and bm) and string.format("|cffffd100★ HPS最高|r %s 等級%d　　|cff66ff66★ HPM最高|r %s 等級%d", bh.label, bh.rank, bm.label, bm.rank)
       or "目前沒有可比較的治療技能（吸收盾不參加比較）"
     if #list > MAXLINES then foot = foot .. "　|cff9a9282（滾輪看更多）|r" end
+    if db.mode ~= "cd" then
+      local best, bt, bc
+      for _, r in ipairs(list) do
+        if r.f.kind ~= "absorb" then
+          local t, c = fightTotal(r)
+          if not best or t > bt then best, bt, bc = r, t, c end
+        end
+      end
+      local F = db.fight or 120
+      if best then
+        foot = foot .. string.format("\n|cff8cc4ff整場 %d 秒最划算|r %s 等級%d：約 %s（%s）", F, best.label, best.rank, fint(bt),
+          bc < F and string.format("施法 %d 秒、停手 %d 秒", math.floor(bc + .5), math.floor(F - bc + .5)) or "一直施法也不會沒藍")
+      end
+    end
   end
   frame.foot:SetText(foot)
   frame.foot:ClearAllPoints()
   frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 10))
-  frame:SetHeight(TOP + n * ROW_H + 40)
+  local fh = frame.foot.GetStringHeight and frame.foot:GetStringHeight()
+  frame:SetHeight(TOP + n * ROW_H + 24 + ((type(fh) == "number" and fh > 0) and fh or 16))
   autoFit()
 end
 
@@ -873,6 +906,30 @@ autoFit = function()
 end
 
 function HealHPS_Refresh() safe("比較表", refreshImpl) end
+
+-- 設定裡的滑桿：label 右邊接一條滑桿；沒有 OptionsSliderTemplate 就自己畫軌道
+local function slider(holder, label, min, max, step, value, set)
+  local ok, sl = pcall(CreateFrame, "Slider", nil, holder, "OptionsSliderTemplate")
+  if ok and sl then
+    for _, k in ipairs({ "Low", "High", "Text" }) do if type(sl[k]) == "table" and sl[k].SetText then sl[k]:SetText("") end end
+  else
+    sl = CreateFrame("Slider", nil, holder)
+    sl:SetOrientation("HORIZONTAL")
+    local track = sl:CreateTexture(nil, "BACKGROUND")
+    track:SetColorTexture(.35, .29, .15, 1); track:SetPoint("LEFT"); track:SetPoint("RIGHT"); track:SetHeight(4)
+    sl:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+  end
+  sl:SetPoint("LEFT", label, "RIGHT", 12, 0); sl:SetPoint("RIGHT", holder, "RIGHT", -6, 0); sl:SetHeight(16)
+  sl:SetMinMaxValues(min, max); sl:SetValueStep(step)
+  if sl.SetObeyStepsOnDrag then sl:SetObeyStepsOnDrag(true) end
+  sl:SetValue(value)
+  local last = value
+  sl:SetScript("OnValueChanged", function(_, v)
+    v = math.floor(v / step + 0.5) * step
+    if v ~= last then last = v; set(v); HealHPS_Refresh() end
+  end)
+  return sl
+end
 
 local function buildFrame()
   frame = CreateFrame("Frame", "HealHPSFrame", UIParent, "BasicFrameTemplateWithInset")
@@ -926,31 +983,19 @@ local function buildFrame()
   frame.tgtBtn:SetSize(250, 26)
   frame.tgtLabel = frame.tgtBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   frame.tgtLabel:SetPoint("LEFT", 4, 0)
-  local ok, sl = pcall(CreateFrame, "Slider", nil, frame.tgtBtn, "OptionsSliderTemplate")
-  if ok and sl then
-    for _, k in ipairs({ "Low", "High", "Text" }) do if type(sl[k]) == "table" and sl[k].SetText then sl[k]:SetText("") end end
-  else -- 沒有這個樣板就自己畫軌道
-    sl = CreateFrame("Slider", nil, frame.tgtBtn)
-    sl:SetOrientation("HORIZONTAL")
-    local track = sl:CreateTexture(nil, "BACKGROUND")
-    track:SetColorTexture(.35, .29, .15, 1); track:SetPoint("LEFT"); track:SetPoint("RIGHT"); track:SetHeight(4)
-    sl:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
-  end
-  sl:SetPoint("LEFT", frame.tgtLabel, "RIGHT", 12, 0); sl:SetPoint("RIGHT", frame.tgtBtn, "RIGHT", -6, 0); sl:SetHeight(16)
-  sl:SetMinMaxValues(2, 10); sl:SetValueStep(1)
-  if sl.SetObeyStepsOnDrag then sl:SetObeyStepsOnDrag(true) end
-  sl:SetValue(db.targets or 5)
-  sl:SetScript("OnValueChanged", function(_, v)
-    v = math.floor(v + 0.5)
-    if v ~= db.targets then db.targets = v; HealHPS_Refresh() end
-  end)
-  frame.tgtSlider = sl
+  frame.tgtSlider = slider(frame.tgtBtn, frame.tgtLabel, 2, 10, 1, db.targets or 5, function(v) db.targets = v end)
   frame.tipBtn = button(frame.opts, 250, "", function()
     -- 完整 → 標準 → 精簡 → 關 → 完整
     if not db.tip then db.tip, db.tipLevel = true, 3 elseif db.tipLevel <= 1 then db.tip = false else db.tipLevel = db.tipLevel - 1 end
     HealHPS_Refresh()
   end)
-  frame.tipBtn:SetHeight(26); frame.tipBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
+  -- 戰鬥長度：算「整場最划算」用（藍會不會不夠、要不要停手回藍）
+  frame.fightBtn = CreateFrame("Frame", nil, frame.opts)
+  frame.fightBtn:SetSize(250, 26); frame.fightBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
+  frame.fightLabel = frame.fightBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  frame.fightLabel:SetPoint("LEFT", 4, 0)
+  frame.fightSlider = slider(frame.fightBtn, frame.fightLabel, 30, 600, 10, db.fight or 120, function(v) db.fight = v end)
+  frame.tipBtn:SetHeight(26); frame.tipBtn:SetPoint("TOP", frame.fightBtn, "BOTTOM", 0, -4)
   frame.oathBtn = button(frame.opts, 250, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
   frame.oathBtn:SetHeight(26); frame.oathBtn:SetPoint("TOP", frame.tipBtn, "BOTTOM", 0, -4)
   frame.oathBtn:SetScript("OnEnter", function(self)
@@ -995,6 +1040,12 @@ local function buildFrame()
       GameTooltip:AddLine(r.label .. " 等級" .. r.rank)
       local detail = breakdown(r)
       if detail and db.tipLevel >= 2 then GameTooltip:AddLine(detail, .8, .8, .8, true) end
+      if db.tipLevel >= 2 and r.f.kind ~= "absorb" and db.mode ~= "cd" then
+        local t, c = fightTotal(r)
+        local F = db.fight or 120
+        GameTooltip:AddLine(string.format("整場 %d 秒只用這招：約 %s（%s）", F, fint(t),
+          c < F and string.format("施法 %d 秒就沒藍", math.floor(c + .5)) or "藍夠用"), .55, .75, 1, true)
+      end
       if r.f.kind == "absorb" and db.tipLevel >= 2 then GameTooltip:AddLine("吸收量不是治療量，不參加 HPS／HPM 最高的比較", .55, .75, 1, true) end
       if db.tipLevel < 3 then GameTooltip:Show(); return end
       GameTooltip:AddDoubleLine("學習等級", tostring(r.learn), .8, .8, .8, 1, 1, 1)
