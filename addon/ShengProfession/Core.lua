@@ -1311,7 +1311,7 @@ local function refreshImpl()
           for _, m in ipairs(rec.mats) do if bagCount(m[1]) < m[2] * q.count then miss = miss + 1 end end
           matTxt = miss == 0 and ("|cff9fd18b" .. L["齊了"] .. "|r") or ("|cffff9d5c" .. string.format(L["缺 %d 種"], miss) .. "|r")
         end
-        vals = { name, "×" .. q.count, pn, matTxt, rec and canMakeNow(rec) or "—" }
+        vals = { name, "", pn, matTxt, rec and canMakeNow(rec) or "—" } -- 次數：輸入框（l.cnt）
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.prep then
         local c = e.prep
@@ -1354,7 +1354,7 @@ local function refreshImpl()
   local warnW = frame.warn:IsShown() and frame.warn:GetWidth() + 6 or 0
   frame.total:SetText(totalFull or "")
   local cap = maxContentW()
-  local fw = math.max(autoFit(cols) + (db.tab == "queue" and 22 or 0) + 28, rowEnd(tabs) + 14, rowEnd(row2) + 14, rowEnd(row3) + 14,
+  local fw = math.max(autoFit(cols) + ((db.tab == "queue" or db.tab == "profit") and 22 or 0) + 28, rowEnd(tabs) + 14, rowEnd(row2) + 14, rowEnd(row3) + 14,
     totalFull and (math.min(math.ceil(measure(frame.total)) + warnW, cap) + 28) or 0)
   fw = setFrameWidth(fw)
   local avail = fw - 28
@@ -1363,6 +1363,10 @@ local function refreshImpl()
     local l = frame.lines[i]
     l:SetWidth(avail); l:ClearAllPoints(); l:SetPoint("TOPLEFT", 14, -top - (i - 1) * ROW_H)
     l.del:SetShown(l.used and l.e.queue ~= nil)
+    l.add:SetShown(l.used and l.e.recipe ~= nil)
+    l.cnt:SetShown(l.used and l.e.queue ~= nil)
+    l.cnt:ClearAllPoints(); l.cnt:SetPoint("RIGHT", l.c[2], "RIGHT", 2, 0)
+    if l.cnt:IsShown() and not l.cnt:HasFocus() then l.cnt:SetText(tostring(l.e.queue.count)) end
   end
   local usedW = 0
   if totalFull then
@@ -1692,6 +1696,30 @@ local function buildFrame()
       for k, x in ipairs(db.queue) do if x == q then table.remove(db.queue, k); break end end
       ProfLevel_Refresh()
     end)
+    -- 利潤頁：每列右端「＋」加入佇列（右鍵減 1、Shift 一次 5 個）；滑到它上面只出小提示，不出物品浮窗
+    l.add = CreateFrame("Button", nil, l); l.add:SetSize(18, 18); l.add:SetPoint("RIGHT", -2, 0); l.add:Hide()
+    UI.box(l.add, UI.C.BRONZE, { 0, 0, 0, .3 })
+    l.add.label = UI.text(l.add, 15, UI.C.GOLD, "CENTER"); l.add.label:SetPoint("CENTER", 0, 1); l.add.label:SetText("+")
+    l.add:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    l.add:SetScript("OnEnter", function(self)
+      UI.edge(self, UI.C.GOLD); l.hov:Show()
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine(L["加入佇列"])
+      GameTooltip:AddLine(L["左鍵加入佇列、Shift+左鍵加 5、右鍵減 1"], 1, 1, 1, true); GameTooltip:Show()
+    end)
+    l.add:SetScript("OnLeave", function(self) UI.edge(self, UI.C.BRONZE); l.hov:Hide(); GameTooltip:Hide() end)
+    l.add:SetScript("OnClick", function(_, btn)
+      local e = l.e; if not (e and e.recipe) then return end
+      local d = (btn == "RightButton") and -1 or 1
+      if IsShiftKeyDown and IsShiftKeyDown() then d = d * 5 end
+      queueAdd(e.prof, e.id, e.recipe.out, recipeName(nil, e.recipe), d); ProfLevel_Refresh()
+    end)
+    -- 佇列頁：次數直接輸入（0 或清空＝移除）
+    l.cnt = numBox(l, function(n)
+      local q = l.e and l.e.queue
+      if not (q and n) then return end
+      if n <= 0 then for k, x in ipairs(db.queue) do if x == q then table.remove(db.queue, k); break end end else q.count = n end
+    end)
+    l.cnt:SetHeight(18); l.cnt:Hide()
     l.icon = l:CreateTexture(nil, "ARTWORK"); l.icon:SetSize(20, 20)
     l.c = {}
     for c = 1, NCOL do
@@ -1709,8 +1737,7 @@ local function buildFrame()
     l:SetScript("OnEnter", function(self)
       local e = self.e; if not e then return end
       self.hov:Show()
-      if e.recipe and e.queued == 0 then self.c[8]:SetText("|cff8c8c8c+|r") end -- 佇列欄是 0：滑過出現淡色「+」（點一下加入）
-      GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+      GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT", 24, -12) -- 跟著滑鼠（列很寬，貼列右邊會離滑鼠太遠）
       if e.recipe or e.queue then
         local rec = e.recipe or (e.queue.id and db.recipes[e.queue.prof] and db.recipes[e.queue.prof][e.queue.id])
         local out = (e.recipe and e.recipe.out) or (e.queue and e.queue.out)
@@ -1784,7 +1811,6 @@ local function buildFrame()
     end)
     l:SetScript("OnLeave", function(self)
       self.hov:Hide(); GameTooltip:Hide()
-      if self.e and self.e.recipe and self.e.queued == 0 then self.c[8]:SetText("") end
     end)
     frame.lines[i] = l
   end
