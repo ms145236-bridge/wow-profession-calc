@@ -184,5 +184,8 @@ HealHPS_Locales.deDE = {
     ["顯示小地圖按鈕"] = "Minikartenknopf anzeigen",
     ["介面語言"] = "Sprache der Oberfläche",
     ["跟隨客戶端"] = "Wie Spielclient",
+    ["重新載入"] = "Neu laden",
+    ["稍後"] = "Später",
+    ["介面語言改成 %s，重新載入介面後生效。"] = "Sprache auf %s gestellt. Oberfläche neu laden, um sie zu übernehmen.",
   },
 }

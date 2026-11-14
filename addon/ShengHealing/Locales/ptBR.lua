@@ -184,5 +184,8 @@ HealHPS_Locales.ptBR = {
     ["顯示小地圖按鈕"] = "Mostrar botão do minimapa",
     ["介面語言"] = "Idioma da interface",
     ["跟隨客戶端"] = "Igual ao cliente",
+    ["重新載入"] = "Recarregar",
+    ["稍後"] = "Depois",
+    ["介面語言改成 %s，重新載入介面後生效。"] = "Idioma definido como %s. Recarregue a interface para aplicar.",
   },
 }
