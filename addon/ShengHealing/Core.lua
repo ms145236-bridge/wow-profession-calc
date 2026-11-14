@@ -1767,6 +1767,8 @@ local function refreshImpl()
     end
     local best = list[1]
     local conc = inCombat and L["戰鬥中不分析"] or (res and res.err) or (res and not best and (g and L["沒有可以補的技能"] or L["沒有可以單補的技能"]))
+      -- 有結果時下面的「最省藍／最穩定」表格已經說了，只有詳細模式才另外寫結論
+      or (byMana[1] and not db.anaDetail and "")
       or (byMana[1] and (string.format(L["|cffffd100最省藍：|r%s"], byMana[1].name) .. "\n" .. string.format(L["|cffffd100最穩定：|r%s"], byMin[1].name)))
       or (best and best.group and string.format(L["|cffff6b6b都撐不住：|r最好 %s（%s）"], best.name,
         best.wiped and string.format(L["%d 秒滅團"], math.floor(best.wiped + 0.5)) or string.format(L["倒 %d 人"], best.deaths)))
@@ -1830,7 +1832,7 @@ local function refreshImpl()
     -- 結論可換行（方案名稱不截），排名列接在它下面
     frame.anaConc:SetWidth(total)
     local ch = frame.anaConc:GetStringHeight()
-    local top = concTop + math.ceil(type(ch) == "number" and ch > 0 and ch or 14) + 12
+    local top = conc == "" and concTop + 2 or concTop + math.ceil(type(ch) == "number" and ch > 0 and ch or 14) + 12 -- 沒有結論文字就不留空
     for i, l in ipairs(frame.anaLines) do l:ClearAllPoints(); l:SetPoint("TOPLEFT", 0, -(top + (i - 1) * ROW_H)) end
     if db.anaDetail and not inCombat then UI.scroll(frame.sb, frame.ana, 7, -top, n * ROW_H, frame.anaOff or 0, #list, #frame.anaLines) end
     frame.ana:SetHeight(top + n * ROW_H)
