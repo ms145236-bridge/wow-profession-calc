@@ -79,10 +79,33 @@ local function ensureDB()
   db = ProfLevelCharDB
   ShengProfessionDB = ShengProfessionDB or {}
   ShengProfessionDB.shop = ShengProfessionDB.shop or {} -- 各角色衝級材料要買的（「全部角色」合併看）
+  -- 佇列整個帳號共用：db.queue 指向帳號存檔那份（登出前拿掉，角色存檔不留副本）；舊版角色自己的佇列併進來一次
+  local acct = ShengProfessionDB
+  acct.queue = acct.queue or {}
+  acct.recipes = acct.recipes or {} -- 各角色學會的配方（佇列裡別隻角色排的，看得到材料）
+  if not db.queueShared then
+    for _, q in ipairs(db.queue or {}) do
+      local hit
+      for _, x in ipairs(acct.queue) do if x.prof == q.prof and ((q.id and x.id == q.id) or (q.out and x.out == q.out)) then hit = x end end
+      if hit then hit.count = hit.count + q.count else acct.queue[#acct.queue + 1] = q end
+    end
+    db.queueShared = true
+  end
+  db.queue = acct.queue
+  for prof, book in pairs(db.recipes) do
+    acct.recipes[prof] = acct.recipes[prof] or {}
+    for id, rec in pairs(book) do acct.recipes[prof][id] = rec end
+  end
   NS.applyLang(db.lang); NS.relabel() -- /sprof lang：存檔讀到後才套用
   if (db.dockV or 0) < 2 then db.dock = false; db.dockV = 2 end -- 自動開改成預設關閉（點了才打開）
   if db.tabV ~= 1 then db.tab = "profit"; db.tabV = 1 end -- 主體改成利潤與佇列，衝級變成其中一個分頁
   return db
+end
+-- 登出前把共用佇列從角色存檔拿掉（帳號存檔那份才是正本）
+do
+  local f = CreateFrame("Frame")
+  f:RegisterEvent("PLAYER_LOGOUT")
+  f:SetScript("OnEvent", function() if db and db.queueShared then db.queue = nil end end)
 end
 
 -- 金錢：12金34銀56銅（100 金以上不顯示銅）
@@ -602,7 +625,12 @@ local function scanRecipes()
       end
     end
   end
-  if n > 0 then db.recipes[p.key] = out; NS.guildRecipesChanged() end
+  if n > 0 then
+    db.recipes[p.key] = out; NS.guildRecipesChanged()
+    local shared = ShengProfessionDB.recipes
+    shared[p.key] = shared[p.key] or {}
+    for id, rec in pairs(out) do shared[p.key][id] = rec end
+  end
 end
 
 local function bagCount(id) -- 製作只能用背包裡的
@@ -698,11 +726,17 @@ local function queueRoute()
   if added > 0 then flashLabel("route", L["已加入"]) end
 end
 
+-- 佇列項目的配方：這隻角色學會的，沒有就看帳號裡其他角色記下的（佇列跨角色共用）
+local function queueRec(q)
+  if not q.id then return nil end
+  local own, shared = db.recipes[q.prof], ShengProfessionDB.recipes[q.prof]
+  return (own and own[q.id]) or (shared and shared[q.id])
+end
 -- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
 local function queueNeeds(learned)
   local need, made, order, unknown = {}, {}, {}, 0
   for _, q in ipairs(db.queue) do
-    local rec = q.id and db.recipes[q.prof] and db.recipes[q.prof][q.id]
+    local rec = queueRec(q)
     if rec then
       for _, m in ipairs(rec.mats) do
         if not need[m[1]] then need[m[1]] = 0; table.insert(order, m[1]) end
@@ -1301,7 +1335,8 @@ local function refreshImpl()
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.queue then
         local q = e.queue
-        local rec = q.id and db.recipes[q.prof] and db.recipes[q.prof][q.id]
+        local rec = queueRec(q)
+        local mine = q.id and db.recipes[q.prof] and db.recipes[q.prof][q.id] -- 這隻角色會做才算可做
         local name, icon, col
         if q.out then name, icon, col = info("i", q.out) else name, icon, col = info("s", q.id or 0); name = q.name or name end
         l.icon:SetTexture(icon); l.icon:Show()
@@ -1311,7 +1346,7 @@ local function refreshImpl()
           for _, m in ipairs(rec.mats) do if bagCount(m[1]) < m[2] * q.count then miss = miss + 1 end end
           matTxt = miss == 0 and ("|cff9fd18b" .. L["齊了"] .. "|r") or ("|cffff9d5c" .. string.format(L["缺 %d 種"], miss) .. "|r")
         end
-        vals = { name, "", pn, matTxt, rec and canMakeNow(rec) or "—" } -- 次數：輸入框（l.cnt）
+        vals = { name, "", pn, matTxt, mine and canMakeNow(mine) or "—" } -- 次數：輸入框（l.cnt）
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.prep then
         local c = e.prep
@@ -1737,7 +1772,7 @@ local function buildFrame()
       self.hov:Show()
       GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT", 24, -12) -- 跟著滑鼠（列很寬，貼列右邊會離滑鼠太遠）
       if e.recipe or e.queue then
-        local rec = e.recipe or (e.queue.id and db.recipes[e.queue.prof] and db.recipes[e.queue.prof][e.queue.id])
+        local rec = e.recipe or queueRec(e.queue)
         local out = (e.recipe and e.recipe.out) or (e.queue and e.queue.out)
         if out then pcall(GameTooltip.SetItemByID, GameTooltip, out) elseif e.id or (e.queue and e.queue.id) then pcall(GameTooltip.SetSpellByID, GameTooltip, e.id or e.queue.id) end
         GameTooltip:AddLine(" ")
