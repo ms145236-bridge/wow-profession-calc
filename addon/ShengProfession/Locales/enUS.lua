@@ -305,4 +305,7 @@ NS.locales.enUS = {
   ["阿聖專業幫手 全部角色"] = "Sheng Profession All characters",
   ["介面語言"] = "Interface language",
   ["跟隨客戶端"] = "Follow client",
+  ["重新載入"] = "Reload",
+  ["稍後"] = "Later",
+  ["介面語言改成 %s，重新載入介面後生效。"] = "Interface language set to %s. Reload the interface to apply.",
 }

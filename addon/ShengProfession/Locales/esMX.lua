@@ -305,4 +305,7 @@ NS.locales.esMX = {
   ["阿聖專業幫手 全部角色"] = "Sheng Profession: todos los personajes",
   ["介面語言"] = "Idioma de la interfaz",
   ["跟隨客戶端"] = "Igual que el cliente",
+  ["重新載入"] = "Recargar",
+  ["稍後"] = "Más tarde",
+  ["介面語言改成 %s，重新載入介面後生效。"] = "Idioma cambiado a %s. Recarga la interfaz para aplicarlo.",
 }

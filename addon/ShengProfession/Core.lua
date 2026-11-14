@@ -1510,14 +1510,16 @@ local function buildFrame()
   opt(L["分享我的配方給公會"], function() return NS.guildSharing() end, function(v) NS.guildShare(v) end)
   opt(L["採集追蹤提醒"], function() return NS.trackOn() end, function() NS.trackToggle() end)
   opt(L["自動開啟採集追蹤"], function() return NS.trackAutoOn() end, function() NS.trackAutoToggle() end)
-  -- 介面語言：載入時決定，選好後要 /reload（插件不能自己重新載入，會被遊戲擋下）
+  -- 介面語言：載入時決定，選好後跳出確認框重新載入
   local o = frame.opts
   o.langRow = CreateFrame("Frame", nil, o); o.langRow:SetHeight(24)
   o.langLabel = o.langRow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   o.langLabel:SetPoint("LEFT", 0, 0); o.langLabel:SetText(L["介面語言"])
   o.langBtn = UI.Button(o.langRow, "", function(self)
     local es = {}
-    for _, x in ipairs(langOpts()) do es[#es + 1] = { x.name, function() if not x.on then db.lang = x.code; msg(string.format(L["介面語言：%s（/reload 後生效）"], x.name)); ProfLevel_Refresh() end end, x.on } end
+    for _, x in ipairs(langOpts()) do es[#es + 1] = { x.name, function() if not x.on then db.lang = x.code; ProfLevel_Refresh()
+      local t = string.format(L["介面語言改成 %s，重新載入介面後生效。"], x.name)
+      if not UI.ReloadPrompt("ShengProfessionReloadPopup", t, L["重新載入"], L["稍後"]) then msg(t) end end end, x.on } end
     UI.Menu(self, es)
   end)
   o.langBtn:SetPoint("LEFT", o.langLabel, "RIGHT", 8, 0)

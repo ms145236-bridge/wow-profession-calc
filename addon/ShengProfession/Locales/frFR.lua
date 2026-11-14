@@ -305,4 +305,7 @@ NS.locales.frFR = {
   ["阿聖專業幫手 全部角色"] = "Sheng Profession : tous les personnages",
   ["介面語言"] = "Langue de l’interface",
   ["跟隨客戶端"] = "Comme le client",
+  ["重新載入"] = "Recharger",
+  ["稍後"] = "Plus tard",
+  ["介面語言改成 %s，重新載入介面後生效。"] = "Langue réglée sur %s. Recharge l’interface pour l’appliquer.",
 }

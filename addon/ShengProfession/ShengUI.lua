@@ -243,6 +243,37 @@ function UI.Menu(anchor, entries)
   m:Show()
 end
 
+-- 改了要重新載入才生效：跳出確認框。「重新載入」是安全按鈕，執行 /reload（插件直接呼叫重新載入會被遊戲擋下）。
+-- name 是框的全域名稱（Esc 關閉用，各插件不同）；戰鬥中建立不了安全按鈕，回傳 false 讓呼叫的地方改用聊天框提示
+function UI.ReloadPrompt(name, msgText, okLabel, laterLabel)
+  if InCombatLockdown() then return false end
+  local p = UI.reloadPop
+  if not p then
+    p = CreateFrame("Frame", name, UIParent)
+    p:SetFrameStrata("FULLSCREEN_DIALOG"); p:EnableMouse(true); p:SetPoint("CENTER", 0, 120)
+    UI.box(p, C.EDGE2)
+    p.text = UI.text(p, 13, C.TEXT, "CENTER"); p.text:SetWordWrap(true); p.text:SetWidth(280); p.text:SetPoint("TOP", 0, -16)
+    local ok = CreateFrame("Button", nil, p, "SecureActionButtonTemplate")
+    ok:SetAttribute("type", "macro"); ok:SetAttribute("macrotext", "/reload"); ok:RegisterForClicks("AnyUp", "AnyDown")
+    ok:SetHeight(22); UI.box(ok, C.BRONZE, { 0, 0, 0, .3 })
+    ok.label = UI.text(ok, 13, C.GOLD, "CENTER"); ok.label:SetPoint("CENTER", 0, 0)
+    local hl = ok:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetPoint("TOPLEFT", 1, -1); hl:SetPoint("BOTTOMRIGHT", -1, 1); hl:SetColorTexture(C.GOLD[1], C.GOLD[2], C.GOLD[3], .12)
+    ok:SetPoint("BOTTOMRIGHT", p, "BOTTOM", -4, 14)
+    p.ok = ok
+    p.later = UI.Button(p, "", function() p:Hide() end)
+    p.later:SetPoint("BOTTOMLEFT", p, "BOTTOM", 4, 14)
+    if name then table.insert(UISpecialFrames, name) end
+    UI.reloadPop = p
+  end
+  p.text:SetText(msgText); p.ok.label:SetText(okLabel); p.later:SetText(laterLabel)
+  local bw = math.ceil(math.max(UI.measure(p.ok.label), UI.measure(p.later.label))) + 28
+  p.ok:SetWidth(bw); p.later:SetWidth(bw)
+  p:SetSize(312, math.ceil(p.text:GetStringHeight()) + 16 + 16 + 22 + 14)
+  p:Show()
+  return true
+end
+
 function UI.hover(row)
   local t = row:CreateTexture(nil, "BORDER", nil, 1)
   t:SetAllPoints(); t:SetColorTexture(1, 1, 1, .06); t:Hide()
