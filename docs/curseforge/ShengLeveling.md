@@ -1,7 +1,7 @@
 **專案名稱：** 阿聖練等幫手 ShengLeveling
 **授權（License）：** GPL-3.0（路線資料使用 Questie／QuestieDB 的資料，必須是 GPL-3.0）
 **系列：** 阿聖 Sheng（另有 阿聖治療幫手 ShengHealing、阿聖專業幫手 ShengProfession）
-**摘要（Summary，一行）：** 魔獸世界：永恆部落 1–60 練等路線：一次只顯示一步，任務一變就自動對齊，自動接交、選怪巨集、地圖標點與導航，照著走就能升級。
+**摘要（Summary，一行）：** 魔獸世界：永恆部落與聯盟 1–60 練等路線：一次只顯示一步，任務一變就自動對齊，自動接交、選怪巨集、地圖標點與導航，照著走就能升級。
 **分類：** Quests & Leveling、Map & Minimap
 **語言：** 英文（enUS）、繁體中文（zhTW），依遊戲語言自動切換
 **選用相依（Optional dependency）：** Questie（地圖標點）、WaypointUI（箭頭導航）
@@ -10,7 +10,7 @@
 
 # ShengLeveling (WoW Forever)
 
-Horde 1–60 leveling route. No guide to look up, no guessing where to go next: the step bar tells you what to do now and moves on when it is done.
+Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where to go next: the step bar tells you what to do now and moves on when it is done.
 
 ## Features
 
@@ -70,14 +70,15 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 
 ## Notes
 
-- Horde only for now.
+- The addon loads only your own faction's route. Skyborne characters count as Horde until they pick a faction; /reload after choosing.
+- The Alliance route is built on the quest order of the TUGs Guidelime guide and has not been played through in game yet; reports are welcome.
 - Route order follows the WoW Forever leveling videos by Bilibili creator 奇怪小鸭, refined with other public routes. Quest, NPC and coordinate data from Questie / QuestieDB (GPL-3.0).
 
 ---
 
 # 阿聖練等幫手（魔獸世界：永恆）
 
-部落 1–60 練等路線。不用自己查攻略、不用想下一步去哪：步驟列只告訴你現在做什麼，做完自動跳下一步。
+部落與聯盟 1–60 練等路線。不用自己查攻略、不用想下一步去哪：步驟列只告訴你現在做什麼，做完自動跳下一步。
 
 ## 功能
 
@@ -137,6 +138,7 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 
 ## 注意
 
-- 目前路線只有部落。
+- 插件只載入自己陣營的路線。天裔精靈選陣營前算部落，選好後 /reload。
+- 聯盟路線以 TUGs Guidelime 攻略的任務順序為骨架，還沒有在遊戲裡完整走過，歡迎回報問題。
 - 路線站序參考 Bilibili UP 主「奇怪小鸭」的《魔兽世界无限》練級路線影片，並參考其他公開練級路線優化；任務、NPC、座標資料取自 Questie／QuestieDB（GPL-3.0）。
 
