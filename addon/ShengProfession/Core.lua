@@ -781,7 +781,7 @@ local frame, offset = nil, 0
 local TABS = {
   steps = { { "等級", 80, "RIGHT" }, { "製作", 220, "LEFT", true }, { "次數", 56, "RIGHT" }, { "來源", 140, "LEFT" }, { "回本", 80, "RIGHT" } },
   profit = { { "配方", 220, "LEFT", true }, { "成本", 80, "RIGHT", nil, "cost" }, { "售價", 80, "RIGHT", nil, "sell" }, { "利潤", 90, "RIGHT", nil, "profit" },
-    { "利潤%", 60, "RIGHT", nil, "pct" }, { "在架", 50, "RIGHT", nil, "listed" }, { "可做", 44, "RIGHT", nil, "can" }, { "佇列", 44, "RIGHT", nil, "queued" } },
+    { "利潤%", 60, "RIGHT", nil, "pct" }, { "在架", 50, "RIGHT", nil, "listed" }, { "可做", 44, "RIGHT", nil, "can" }, { "佇列", 44, "CENTER", nil, "queued" } },
   queue = { { "製作", 220, "LEFT", true }, { "次數", 50, "RIGHT" }, { "專業", 60, "LEFT" }, { "材料", 110, "LEFT" }, { "可做", 50, "RIGHT" } },
   shop = { { "物品", 220, "LEFT", true }, { "需要", 52, "RIGHT" }, { "已有", 52, "RIGHT" }, { "要買", 52, "RIGHT" }, { "單價", 90, "RIGHT" }, { "小計", 100, "RIGHT" } },
 }
@@ -949,7 +949,7 @@ local function autoFit(cols)
       for i = 1, MAXLINES do
         local l = frame.lines[i]
         l.c[c]:ClearAllPoints(); l.c[c]:SetPoint("LEFT", l, "LEFT", x + iconW, 0); l.c[c]:SetWidth(w - iconW); l.c[c]:SetJustifyH(col[3]); l.c[c]:Show()
-        if col[4] then l.icon:ClearAllPoints(); l.icon:SetPoint("LEFT", l, "LEFT", x, 0) end
+        if col[4] then l.icon:ClearAllPoints(); l.icon:SetPoint("LEFT", l, "LEFT", x, 0); l.nameHit:ClearAllPoints(); l.nameHit:SetPoint("LEFT", l, "LEFT", x, 0); l.nameHit:SetSize(w, ROW_H) end
       end
       x = x + w + GAP
     else
@@ -1297,7 +1297,7 @@ local function refreshImpl()
         local pf = e.profit and ((e.profit >= 0 and "|cff9fd18b" or "|cffff7b7b") .. (e.profit >= 0 and "" or "-") .. money(math.abs(e.profit)) .. "|r") or "—"
         local pc = e.pct and string.format("%s%d%%|r", e.pct >= 0 and "|cff9fd18b" or "|cffff7b7b", math.floor(e.pct + 0.5)) or "—"
         vals = { name, e.cost and money(e.cost) or ("|cffff9d5c" .. L["沒價格"] .. "|r"), e.sell and money(e.sell) or "—", pf, pc,
-          e.listed and tostring(e.listed) or "—", e.can > 0 and e.can or "0", e.queued > 0 and ("|cffffd100" .. e.queued .. "|r") or "" }
+          e.listed and tostring(e.listed) or "—", e.can > 0 and e.can or "0", "" } -- 佇列欄：按鈕（l.add）
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.queue then
         local q = e.queue
@@ -1354,7 +1354,7 @@ local function refreshImpl()
   local warnW = frame.warn:IsShown() and frame.warn:GetWidth() + 6 or 0
   frame.total:SetText(totalFull or "")
   local cap = maxContentW()
-  local fw = math.max(autoFit(cols) + ((db.tab == "queue" or db.tab == "profit") and 22 or 0) + 28, rowEnd(tabs) + 14, rowEnd(row2) + 14, rowEnd(row3) + 14,
+  local fw = math.max(autoFit(cols) + (db.tab == "queue" and 22 or 0) + 28, rowEnd(tabs) + 14, rowEnd(row2) + 14, rowEnd(row3) + 14,
     totalFull and (math.min(math.ceil(measure(frame.total)) + warnW, cap) + 28) or 0)
   fw = setFrameWidth(fw)
   local avail = fw - 28
@@ -1364,6 +1364,11 @@ local function refreshImpl()
     l:SetWidth(avail); l:ClearAllPoints(); l:SetPoint("TOPLEFT", 14, -top - (i - 1) * ROW_H)
     l.del:SetShown(l.used and l.e.queue ~= nil)
     l.add:SetShown(l.used and l.e.recipe ~= nil)
+    if l.add:IsShown() then -- 佇列欄正中：還沒排是「+」，排了寫幾次
+      l.add.label:SetText(l.e.queued > 0 and tostring(l.e.queued) or "+")
+      l.add:SetWidth(math.max(18, math.ceil(measure(l.add.label)) + 10))
+      l.add:ClearAllPoints(); l.add:SetPoint("CENTER", l.c[8], "CENTER", 0, 0)
+    end
     l.cnt:SetShown(l.used and l.e.queue ~= nil)
     l.cnt:ClearAllPoints(); l.cnt:SetPoint("RIGHT", l.c[2], "RIGHT", 2, 0)
     if l.cnt:IsShown() and not l.cnt:HasFocus() then l.cnt:SetText(tostring(l.e.queue.count)) end
@@ -1696,22 +1701,18 @@ local function buildFrame()
       for k, x in ipairs(db.queue) do if x == q then table.remove(db.queue, k); break end end
       ProfLevel_Refresh()
     end)
-    -- 利潤頁：每列右端「＋」加入佇列（右鍵減 1、Shift 一次 5 個）；滑到它上面只出小提示，不出物品浮窗
-    l.add = CreateFrame("Button", nil, l); l.add:SetSize(18, 18); l.add:SetPoint("RIGHT", -2, 0); l.add:Hide()
+    -- 利潤頁：佇列欄的「＋」加入佇列（數量到佇列頁改）
+    l.add = CreateFrame("Button", nil, l); l.add:SetSize(18, 18); l.add:Hide()
     UI.box(l.add, UI.C.BRONZE, { 0, 0, 0, .3 })
     l.add.label = UI.text(l.add, 15, UI.C.GOLD, "CENTER"); l.add.label:SetPoint("CENTER", 0, 1); l.add.label:SetText("+")
-    l.add:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     l.add:SetScript("OnEnter", function(self)
       UI.edge(self, UI.C.GOLD); l.hov:Show()
-      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine(L["加入佇列"])
-      GameTooltip:AddLine(L["左鍵加入佇列、Shift+左鍵加 5、右鍵減 1"], 1, 1, 1, true); GameTooltip:Show()
+      GameTooltip:SetOwner(self, "ANCHOR_RIGHT"); GameTooltip:AddLine(L["加入佇列"]); GameTooltip:Show()
     end)
     l.add:SetScript("OnLeave", function(self) UI.edge(self, UI.C.BRONZE); l.hov:Hide(); GameTooltip:Hide() end)
-    l.add:SetScript("OnClick", function(_, btn)
+    l.add:SetScript("OnClick", function()
       local e = l.e; if not (e and e.recipe) then return end
-      local d = (btn == "RightButton") and -1 or 1
-      if IsShiftKeyDown and IsShiftKeyDown() then d = d * 5 end
-      queueAdd(e.prof, e.id, e.recipe.out, recipeName(nil, e.recipe), d); ProfLevel_Refresh()
+      queueAdd(e.prof, e.id, e.recipe.out, recipeName(nil, e.recipe), 1); ProfLevel_Refresh()
     end)
     -- 佇列頁：次數直接輸入（0 或清空＝移除）
     l.cnt = numBox(l, function(n)
@@ -1727,14 +1728,11 @@ local function buildFrame()
       l.c[c] = fs
     end
     l:EnableMouse(true); l.sprofRow = true
-    l:SetScript("OnMouseUp", function(self, btn)
-      local e = self.e; if not e then return end
-      local d = (btn == "RightButton") and -1 or 1
-      if IsShiftKeyDown and IsShiftKeyDown() then d = d * 5 end
-      if e.recipe then queueAdd(e.prof, e.id, e.recipe.out, recipeName(nil, e.recipe), d); ProfLevel_Refresh()
-      elseif e.queue then queueAdd(e.queue.prof, e.queue.id, e.queue.out, e.queue.name, d); ProfLevel_Refresh() end
-    end)
-    l:SetScript("OnEnter", function(self)
+    -- 浮窗只在圖示和名稱上出現（l.nameHit 蓋住名稱欄，位置在 autoFit 排）；整列只有滑過高亮
+    l.nameHit = CreateFrame("Frame", nil, l); l.nameHit:EnableMouse(true); l.nameHit:SetSize(1, ROW_H)
+    l:SetScript("OnEnter", function(self) if self.e then self.hov:Show() end end)
+    l.nameHit:SetScript("OnEnter", function()
+      local self = l
       local e = self.e; if not e then return end
       self.hov:Show()
       GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT", 24, -12) -- 跟著滑鼠（列很寬，貼列右邊會離滑鼠太遠）
@@ -1809,8 +1807,9 @@ local function buildFrame()
       end
       GameTooltip:Show()
     end)
-    l:SetScript("OnLeave", function(self)
-      self.hov:Hide(); GameTooltip:Hide()
+    l:SetScript("OnLeave", function(self) self.hov:Hide() end)
+    l.nameHit:SetScript("OnLeave", function()
+      l.hov:Hide(); GameTooltip:Hide()
     end)
     frame.lines[i] = l
   end
