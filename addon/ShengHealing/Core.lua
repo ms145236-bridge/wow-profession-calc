@@ -2052,13 +2052,13 @@ local function buildFrame()
     HealHPS_Refresh()
   end)
   frame.oathBtn = UI.Check(frame.opts, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
-  -- 介面語言：選了就重新載入（語言在載入時決定）
+  -- 介面語言：載入時決定，選好後要 /reload（插件不能自己重新載入，會被遊戲擋下）
   frame.langRow = CreateFrame("Frame", nil, frame.opts); frame.langRow:SetHeight(24)
   frame.langLabel = frame.langRow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   frame.langLabel:SetPoint("LEFT", 0, 0); frame.langLabel:SetText(L["介面語言"])
   frame.langBtn = UI.Button(frame.langRow, "", function(self)
     local es = {}
-    for _, o in ipairs(langOpts(db.lang)) do es[#es + 1] = { o.name, function() if not o.on then db.lang = o.code; ReloadUI() end end, o.on } end
+    for _, o in ipairs(langOpts(db.lang)) do es[#es + 1] = { o.name, function() if not o.on then db.lang = o.code; msg(string.format(L["介面語言：%s（/reload 後生效）"], o.name)); HealHPS_Refresh() end end, o.on } end
     UI.Menu(self, es)
   end)
   frame.langBtn:SetPoint("LEFT", frame.langLabel, "RIGHT", 8, 0)
