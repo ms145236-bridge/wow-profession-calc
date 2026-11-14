@@ -1212,11 +1212,14 @@ local function refreshImpl()
   frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
   frame.allBtn:SetCheck(db.shopAll); frame.allBtn:SetShown(db.tab == "shop" and #others > 0)
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
+  -- 佇列跨專業：不顯示專業切換，勾選框移到第二列，內容往上提一列
+  local isQ = db.tab == "queue"
+  for _, w in ipairs({ frame.prevBtn, frame.profBtn, frame.nextBtn }) do w:SetShown(not isQ) end
   local prevR
   for _, c in ipairs({ frame.allBtn, frame.bankBtn, frame.bagBtn, frame.decBtn }) do
     if c:IsShown() then
       c:ClearAllPoints()
-      if prevR then c:SetPoint("RIGHT", prevR, "LEFT", -14, 0) else c:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -89) end
+      if prevR then c:SetPoint("RIGHT", prevR, "LEFT", -14, 0) else c:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, isQ and -61 or -89) end
       prevR = c
     end
   end
@@ -1225,7 +1228,9 @@ local function refreshImpl()
   -- 由上往下：升階提示／價格警告那行（有才佔位）、總計那行（利潤頁沒有）、表頭、表格
   local tr, low, R, short = rankText(p.key, sk)
   if tr and sk.cur < math.min(sk.max - 10, R.skill) then tr = nil end
-  local lineY, y = -116, -116
+  if isQ then tr = nil end -- 佇列頁不看單一專業：不提示升階
+  local lineY = isQ and -88 or -116
+  local y = lineY
   if tr or statusFull then y = y - 22 end
   frame.total:SetShown(totalFull ~= nil)
   if totalFull then frame.total:ClearAllPoints(); frame.total:SetPoint("TOPLEFT", 14, y - 2); y = y - 28 end
