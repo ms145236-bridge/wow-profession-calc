@@ -32,11 +32,11 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 **Gathering tab**
 - Mining, Herbalism, Skinning and Fishing skill levels.
 - Where to learn the next rank: Expert and Artisan trainer, level and skill requirement, cost; the book or quest for Cooking, First Aid and Fishing. **Go** sets a waypoint.
-- Tracking reminder: turns on Find Minerals / Find Herbs when you forget, or shows a button to click.
+- Tracking reminder: turns on Find Minerals / Find Herbs when you forget, or shows a small icon by the minimap to click.
 
 **Recommended gathering routes**
 - Horde Mining, Herbalism and dual-gathering loops (41 routes), matched to your current skill.
-- Pick one to draw the full loop on the world map and a trail on the minimap; **Go to start** sets a waypoint.
+- Pick one to draw the full loop on the world map and a trail on the minimap; the selected route has a **Go** button that sets a waypoint to its start.
 - Tooltips show suggested character level, skill range, yields, lap time and danger spots.
 
 **Guild crafters**
@@ -45,6 +45,9 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 
 **Profession window**
 - The helper can open next to the profession window so you can queue recipes straight from it.
+
+**Settings**
+- The gear in the title bar opens settings: open with the profession window, minimap button, guild sharing and gathering tracking.
 
 **Language**
 - English, Traditional and Simplified Chinese, German, French, Spanish (Spain / Mexico), Russian, Korean and Portuguese, following your client language. Item, recipe and zone names follow the game language.
@@ -97,11 +100,11 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 **採集分頁**
 - 採礦、草藥學、剝皮、釣魚的點數。
 - 下一階去哪學：專家、大師訓練師、等級與技能門檻、費用；烹飪、急救、釣魚列出技能書或任務。按**去**設導航點。
-- 採集追蹤提醒：忘了開尋找礦物／尋找草藥時自動開啟，或出現按鈕讓你點。
+- 採集追蹤提醒：忘了開尋找礦物／尋找草藥時自動開啟，或在小地圖旁出現小圖示讓你點。
 
 **推薦採集路線**
 - 部落採礦、採草、雙採路線共 41 條，依你目前的點數推薦。
-- 選一條就在世界地圖畫出整圈、小地圖畫出路徑；**去起點**設導航點。
+- 選一條就在世界地圖畫出整圈、小地圖畫出路徑；選中的路線那列有**去**，設導航點到起點。
 - 滑鼠提示列出建議等級、技能範圍、產出、一圈時間與危險地點。
 
 **公會誰會做**
@@ -110,6 +113,9 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 
 **專業視窗**
 - 可以跟專業視窗一起打開，直接把配方加進佇列。
+
+**設定**
+- 標題列的齒輪打開設定：跟專業視窗一起開、小地圖按鈕、公會分享、採集追蹤。
 
 **語言**
 - 英文、繁體中文、簡體中文、德文、法文、西班牙文（西班牙／墨西哥）、俄文、韓文、葡萄牙文介面，依遊戲語言自動切換；物品、配方、地區名稱跟著遊戲語言。
