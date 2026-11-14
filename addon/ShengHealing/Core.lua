@@ -2,7 +2,8 @@
 -- 盡量從遊戲讀取：技能與階級（法術書）、法力、施法時間、冷卻、學習等級、基礎治療量（技能說明）、治療效果、天賦。
 -- 遊戲讀不到的欄位才用 Data.lua（由網頁資料產生）。治療係數遊戲不會顯示，一律用資料表。
 
-local ADDON = ...
+local ADDON, NS = ...
+local UI = NS.UI -- 系列共用外觀（ShengUI.lua）
 local D = HealHPS_Data
 -- ── 語言 ─────────────────────────────────────────────────────────────────────
 -- 每個語言一個檔（Locales\*.lua），登記在 HealHPS_Locales[語言代碼]：
@@ -29,7 +30,7 @@ local function applyLang(lang)
   end
 end
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
-  includeCd = false, pct = nil, absorb = nil, minimapAngle = 225, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
+  includeCd = false, pct = nil, absorb = nil, minimapAngle = 250, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
   -- 團刷分析：人數、成員／坦克生命、坦克每次傷害與間隔、範圍每次傷害與間隔、範圍命中（0＝全員）、戰鬥長度
   anaGroup = false, gN = 5, gHp = 3200, gTankHp = 5500, gTankHit = 400, gTankGap = 2, gAoe = 150, gAoeGap = 3, gAoeK = 0, gFight = 45, lang = "auto" }
 local LOGO = "Interface\\AddOns\\ShengHealing\\Media\\Logo"
@@ -1492,16 +1493,19 @@ local function hookTooltips()
 end
 
 -- ── 比較表視窗 ─────────────────────────────────────────────────────────────
--- 比較表：一列一個技能等級；★ 與等級各自一欄，數字一律靠右對齊
+-- 比較表：一列一個技能等級，數字一律靠右對齊；HPS／HPM 最高的那一格數字前面放星號圖示
 local W = 520        -- 內容寬度
 local ROW_H = 24
-local MAXLINES = 18  -- 最多顯示幾列（多的用滾輪捲動）
+local MAXLINES = 18  -- 最多顯示幾列（多的用滾輪捲動，右緣有捲動條）
 local TOP = 120      -- 第一列的位置
 local ANA_TOP = 92   -- 分析頁從這裡開始（資訊列下面）
+-- 排序箭頭、星號用貼圖（所有語系一樣；英文等字型沒有 ▼★）
+local ARROW = "|TInterface\\Buttons\\UI-SortArrow:8:9:0:0:16:16:0:9:0:16|t "
+local STAR_H = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:13:13:0:0:16:16:0:16:0:16|t "
+local STAR_M = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_1:13:13:0:0:16:16:0:16:0:16:110:255:110|t "
 -- { 標題, x, 寬, 對齊, 排序鍵 }
 local COLS = {
-  { "",     0,   24, "CENTER" },
-  { "技能", 16,  160, "LEFT" },
+  { "技能", 0,  160, "LEFT" },
   { "等級", 150, 44,  "RIGHT" },
   { "有效量", 184, 72, "RIGHT", "heal" },
   { "法力", 240, 56,  "RIGHT" },
@@ -1609,8 +1613,7 @@ end
 local function setLabel(b, text, minW) b:SetText(text); fitButton(b, minW) end
 
 local function button(parent, w, label, onClick)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w + 16, 26); b:SetScript("OnClick", onClick)
+  local b = UI.Button(parent, "", onClick)
   setLabel(b, label, w + 16)
   return b
 end
@@ -1660,23 +1663,23 @@ local function refreshImpl()
   local sit = SIT[cls]
   local has = (cls == "PALADIN" and o ~= nil) or ((cls == "PRIEST" or cls == "DRUID") and tal.sitLearned) or (cls == "SHAMAN" and ctx.ripKnown)
   if cls == "DRUID" and has then frame.talTxt = frame.talTxt .. (frame.talTxt ~= "" and "\n" or "") .. L["綻放：每次 HoT 結束 +"] .. fint(ctx.spirit) end
-  if sit then setLabel(frame.oathBtn, L[sit.label] .. L["："] .. (not has and L["沒學"] or (db.oath and L["計入"] or L["不計入"])), 266) end
-  local isPal = sit ~= nil -- 有情境加成的職業才顯示這個按鈕（四個治療職業都有）
+  local isPal = sit ~= nil -- 有情境加成的職業才顯示這個勾選框（四個治療職業都有）
+  if sit then frame.oathBtn:Relabel(L[sit.label] .. (not has and (L["："] .. L["沒學"]) or "")); frame.oathBtn:SetCheck(has and db.oath) end
   frame.oathBtn:SetShown(isPal)
   frame.sitHelp = sit and L[sit.help] or ""
-  setLabel(frame.tipBtn, L["技能提示："] .. (not db.tip and L["關"] or ({ L["精簡"], L["標準"], L["完整"] })[db.tipLevel]), 266)
+  frame.mmCheck:SetCheck(not db.minimapHide)
+  setLabel(frame.tipBtn, L["技能提示："] .. (not db.tip and L["關"] or ({ L["精簡"], L["標準"], L["完整"] })[db.tipLevel]), 0)
   -- 群補人數：標籤用最大的人數量一次寬度，滑桿固定 150 寬，標籤再長也不會把滑桿擠短
   frame.tgtLabel:SetText(L["群補人數 "] .. 10)
   local lw = math.ceil(measure(frame.tgtLabel)) + 4
   frame.tgtLabel:SetWidth(lw); frame.tgtLabel:SetText(L["群補人數 "] .. (db.targets or 5))
-  frame.tgtBtn:SetWidth(4 + lw + 12 + 150 + 6)
-  -- 設定面板寬＝最寬的按鈕／滑桿列＋左右邊距，說明文字跟著面板寬換行
-  local pw = math.max(290, frame.tipBtn:GetWidth() + 24, isPal and frame.oathBtn:GetWidth() + 24 or 0, frame.tgtBtn:GetWidth() + 24)
-  frame.opts:SetWidth(pw); frame.how:SetWidth(pw - 24)
-  local th = frame.how.GetStringHeight and frame.how:GetStringHeight()
-  th = (type(th) == "number" and th > 0) and th or 40
-  frame.tgtBtn:ClearAllPoints(); frame.tgtBtn:SetPoint("TOP", frame.opts, "TOP", 0, -(10 + th + 12))
-  frame.opts:SetHeight(10 + th + 12 + (isPal and 3 or 2) * 30 + 8)
+  frame.tgtBtn:SetWidth(lw + 12 + 150 + 6)
+  -- 設定面板（齒輪）：由上而下 小地圖按鈕、群補人數、技能提示、情境加成；寬＝最寬的一列＋左右邊距
+  local y = -10
+  for _, w in ipairs({ { frame.mmCheck, 24 }, { frame.tgtBtn, 30 }, { frame.tipBtn, 28 }, { frame.oathBtn, 24 } }) do
+    if w[1]:IsShown() then w[1]:ClearAllPoints(); w[1]:SetPoint("TOPLEFT", frame.opts, "TOPLEFT", 12, y); y = y - w[2] end
+  end
+  frame.opts:SetSize(math.max(200, frame.mmCheck:GetWidth(), frame.tgtBtn:GetWidth(), frame.tipBtn:GetWidth(), isPal and frame.oathBtn:GetWidth() or 0) + 24, -y + 8)
   -- 精神與回藍（每 5 秒，跟角色面板一樣）：停手 5 秒後／施法中；讀不到（秘密值）就不顯示
   local secret = issecretvalue or function() return false end
   local info = string.format(L["%d 級 · 治療效果 %d"], ctx.level, ctx.bonus)
@@ -1688,30 +1691,33 @@ local function refreshImpl()
   frame.infoFull = info
   frame.info:SetText(info)
   for _, m in ipairs({ { frame.singleBtn, "single" }, { frame.groupBtn, "group" }, { frame.cdModeBtn, "cd" }, { frame.anaBtn, "analysis" } }) do
-    local on = db.mode == m[2]
-    m[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
+    m[1]:SetOn(db.mode == m[2])
   end
   if frame.tgtSlider:GetValue() ~= (db.targets or 5) then frame.tgtSlider:SetValue(db.targets or 5) end
   local ana = db.mode == "analysis"
-  frame.ana:SetShown(ana); frame.head:SetShown(not ana); frame.foot:SetShown(not ana); frame.more:SetShown(false)
+  frame.ana:SetShown(ana); frame.head:SetShown(not ana); frame.foot:SetShown(not ana); frame.sb:Hide()
   if ana then
     for i = 1, MAXLINES do frame.lines[i]:Hide(); frame.lines[i].row = nil end
     local g = db.anaGroup and true or false
-    for _, m in ipairs(frame.anaModeBtns) do
-      local on = m.on == g
-      m.b:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
-    end
+    for _, m in ipairs(frame.anaModeBtns) do m.b:SetOn(m.on == g) end
     local set = g and frame.anaSets.group or frame.anaSets.single
-    for _, row in pairs(frame.anaSets) do for _, b in ipairs(row) do b:SetShown(row == set) end end
-    frame.anaDetailBtn:ClearAllPoints(); frame.anaDetailBtn:SetPoint("LEFT", set[#set], "RIGHT", 12, 0)
+    for _, row in pairs(frame.anaSets) do
+      for _, b in ipairs(row) do
+        b:SetShown(row == set)
+        UI.look(b, db.anaPreset == b.preset and "applied" or nil) -- 套用中的預設：金框；動過滑桿就取消
+      end
+    end
+    frame.anaDetailBtn:ClearAllPoints(); frame.anaDetailBtn:SetPoint("LEFT", set[#set], "RIGHT", 16, 0)
+    frame.anaDetailBtn:SetCheck(db.anaDetail)
     frame.anaOathBtn:SetShown(cls == "PALADIN" and not g)
-    local presetW = frame.anaModeW + set.w + 12 + frame.anaDetailBtn:GetWidth() + (frame.anaOathBtn:IsShown() and frame.anaOathBtn:GetWidth() + 2 or 0)
+    frame.anaOathBtn:SetCheck(db.oath)
+    local presetW = frame.anaModeW + set.w + 16 + frame.anaDetailBtn:GetWidth() + (frame.anaOathBtn:IsShown() and frame.anaOathBtn:GetWidth() + 12 or 0)
     local inputs = g and frame.anaGInputs or frame.anaInputs
     for _, s2 in ipairs({ frame.anaInputs, frame.anaGInputs }) do for _, inp in ipairs(s2) do inp.holder:SetShown(s2 == inputs) end end
     for _, inp in ipairs(inputs) do
       local d, v = inp.def, db[inp.def[1]]
       inp.fs:SetText(v == 0 and d[7] or string.format(d[2], v))
-      if inp.sl:GetValue() ~= v then inp.sl:SetValue(v) end
+      if inp.sl:GetValue() ~= v then inp.sl.lock = true; inp.sl:SetValue(v); inp.sl.lock = false end
     end
     local concTop = 30 + inputs.rows * 28 + 6
     frame.anaConc:ClearAllPoints(); frame.anaConc:SetPoint("TOPLEFT", 0, -concTop)
@@ -1733,8 +1739,6 @@ local function refreshImpl()
         if C_Timer and C_Timer.After then C_Timer.After(0.2, go) else go() end
       end
     end
-    frame.anaDetailBtn:GetFontString():SetTextColor(db.anaDetail and 1 or .55, db.anaDetail and .82 or .52, db.anaDetail and 0 or .45)
-    frame.anaOathBtn:GetFontString():SetTextColor(db.oath and 1 or .55, db.oath and .82 or .52, db.oath and 0 or .45)
     local res = frame.anaRes
     if res and (res.group or false) ~= g then res = nil end -- 剛切換模式、還沒算完：不顯示另一個模式的結果
     local list = res and res.list or {}
@@ -1828,13 +1832,14 @@ local function refreshImpl()
     local ch = frame.anaConc:GetStringHeight()
     local top = concTop + math.ceil(type(ch) == "number" and ch > 0 and ch or 14) + 12
     for i, l in ipairs(frame.anaLines) do l:ClearAllPoints(); l:SetPoint("TOPLEFT", 0, -(top + (i - 1) * ROW_H)) end
+    if db.anaDetail and not inCombat then UI.scroll(frame.sb, frame.ana, 7, -top, n * ROW_H, frame.anaOff or 0, #list, #frame.anaLines) end
     frame.ana:SetHeight(top + n * ROW_H)
     frame:SetHeight(ANA_TOP + top + n * ROW_H + 16)
     return
   end
   for _, h in ipairs(frame.heads) do
     local on = h.key == db.sort
-    h.fs:SetText((on and L["▼"] or "") .. h.label) -- 箭頭放左邊，右邊緣才會跟數字對齊
+    h.fs:SetText((on and ARROW or "") .. h.label) -- 箭頭放左邊，右邊緣才會跟數字對齊
     h.fs:SetTextColor(unpack(on and GOLD or DIM))
   end
   local bh, bm = bests(list)
@@ -1853,13 +1858,13 @@ local function refreshImpl()
       elseif r.f.key == "bh" then amt = fint(r.perHeal) .. "×2"
       elseif r.hotPart then amt = fint(r.directPart) .. "+" .. fint(r.hotPart)
       else amt = fint(r.perHeal) end
-      local star = (isH and ("|cffffd100" .. L["★"] .. "|r") or "") .. (isM and ("|cff66ff66" .. L["★"] .. "|r") or "")
       local name = (r.f.kind == "absorb" and ("|cff8cc4ff" .. r.label .. L["（吸收）|r"]) or r.label)
         .. (r.down < 0.9995 and string.format(" |cffff9d5c%d%%|r", math.floor(r.down * 100 + .5)) or "")
-      local vals = { star, name, r.rank, amt, fint(r.manaEff), fmt1(r.time), fmt1(r.hps), fmt2(r.hpm) }
+      -- 星號放在最高的那一格數字前面（位置就說明是哪一項第一，不只靠顏色）
+      local vals = { name, r.rank, amt, fint(r.manaEff), fmt1(r.time), (isH and STAR_H or "") .. fmt1(r.hps), (isM and STAR_M or "") .. fmt2(r.hpm) }
       for c = 1, #COLS do l.c[c]:SetText(vals[c]) end
-      l.c[7]:SetTextColor(unpack(isH and GOLD or { 1, 1, 1 }))
-      l.c[8]:SetTextColor(unpack(isM and GREEN or { 1, 1, 1 }))
+      l.c[6]:SetTextColor(unpack(isH and GOLD or { 1, 1, 1 }))
+      l.c[7]:SetTextColor(unpack(isM and GREEN or { 1, 1, 1 }))
       if isH then l.hl:SetColorTexture(1, .82, 0, .14); l.hl:Show()
       elseif isM then l.hl:SetColorTexture(.3, 1, .3, .11); l.hl:Show()
       else l.hl:Hide() end
@@ -1867,18 +1872,18 @@ local function refreshImpl()
       l:Show()
     else l:Hide(); l.row = nil end
   end
-  -- 底部：HPS 最高、HPM 最高各一行（會換行、名稱不截），「滾輪看更多」獨立放在下面靠右
-  frame.footLines = #list == 0 and { L["這一頁沒有你學會的技能。"] }
-    or (bh and bm) and { string.format(L["|cffffd100★ HPS最高|r %s 等級%d"], bh.label, bh.rank), string.format(L["|cff66ff66★ HPM最高|r %s 等級%d"], bm.label, bm.rank) }
-    or { L["目前沒有可比較的治療技能（吸收盾不參加比較）"] }
+  -- 底部只在沒有結果時說明（有結果時，最高的那兩格已經有星號和高亮）；多的列用滾輪捲動，右緣捲動條
+  frame.footLines = #list == 0 and { L["這一頁沒有你學會的技能。"] } or not (bh and bm) and { L["目前沒有可比較的治療技能（吸收盾不參加比較）"] } or {}
   frame.foot:ClearAllPoints()
   frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 10))
   autoFit()
-  local fh = frame.foot:GetStringHeight()
-  fh = math.ceil((type(fh) == "number" and fh > 0) and fh or 16)
-  frame.more:SetShown(#list > vis)
-  frame.more:ClearAllPoints(); frame.more:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -(TOP + n * ROW_H + 10 + fh + 4))
-  frame:SetHeight(TOP + n * ROW_H + 24 + fh + (frame.more:IsShown() and 18 or 0))
+  local fh = 0
+  if #frame.footLines > 0 then
+    fh = frame.foot:GetStringHeight()
+    fh = math.ceil((type(fh) == "number" and fh > 0) and fh or 16) + 10
+  end
+  UI.scroll(frame.sb, frame.head, 7, -26, n * ROW_H, offset, #list, vis)
+  frame:SetHeight(TOP + n * ROW_H + 14 + fh)
 end
 
 autoFit = function()
@@ -1932,9 +1937,15 @@ local function slider(holder, label, min, max, step, value, set)
   if sl.SetObeyStepsOnDrag then sl:SetObeyStepsOnDrag(true) end
   sl:SetValue(value)
   local last = value
-  sl:SetScript("OnValueChanged", function(_, v)
+  sl:SetScript("OnValueChanged", function(self, v)
     v = math.floor(v / step + 0.5) * step
+    if self.lock then last = v; return end -- 重整時照存檔設回去：不算玩家改的
     if v ~= last then last = v; set(v); HealHPS_Refresh() end
+  end)
+  -- 滑鼠滾輪：在滑桿上一格 ±1 步（滑桿吃掉滾輪，表格不跟著捲）
+  sl:EnableMouseWheel(true)
+  sl:SetScript("OnMouseWheel", function(self, delta)
+    self:SetValue(math.max(min, math.min(max, last + (delta > 0 and step or -step))))
   end)
   return sl
 end
@@ -1960,39 +1971,35 @@ local function levelTable()
   return { tank = col(2), cloth = col(3), elite = col(4), boss = col(5), solo = col(6), soloSec = col(7), big = col(8), dot = col(9), pick = col(10) }
 end
 
+local mmBtn -- 小地圖按鈕（建立在下面，設定面板要開關它）
 local function buildFrame()
-  frame = CreateFrame("Frame", "HealHPSFrame", UIParent, "BasicFrameTemplateWithInset")
+  frame = CreateFrame("Frame", "HealHPSFrame", UIParent)
   frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1); placeTopLeft()
   frame:SetClampedToScreen(true) -- 撐寬時不跑出螢幕
+  -- 系列外框：標題列、齒輪（設定面板）、關閉（直接隱藏，戰鬥中也關得掉）；層級 HIGH、點到就移到最上面
+  UI.Window(frame, L["阿聖治療幫手"], LOGO, function() frame.opts:SetShown(not frame.opts:IsShown()) end, L["設定"])
   addResizeGrip(frame)
-  -- 右上角的關閉鈕：範本預設走 HideUIPanel，戰鬥中可能被擋而關不掉；改成直接隱藏（一般視窗隨時都能關）
-  local close = frame.CloseButton or _G[frame:GetName() .. "CloseButton"]
-  if close then close:SetScript("OnClick", function() frame:Hide() end) end
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); saveTopLeft() end)
-  frame:SetFrameStrata("DIALOG")
   tinsert(UISpecialFrames, "HealHPSFrame") -- 按 Esc 關閉
-  if not frame.TitleText then
-    frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    frame.TitleText:SetPoint("TOP", 0, -5)
+  -- 第一列：底線分頁 單補／群補／冷卻／分析
+  local function tab(label, onClick, prev)
+    local b = UI.Tab(frame, label, onClick)
+    if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", 10, -28) end
+    return b
   end
-  frame.TitleText:SetText(L["阿聖治療幫手"])
-  local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(LOGO); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
-  -- 第一列：單補／群補、設定
-  frame.singleBtn = button(frame, 52, L["單補"], function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
-  frame.singleBtn:SetPoint("TOPLEFT", 12, -30)
-  frame.groupBtn = button(frame, 52, L["群補"], function() db.mode = "group"; offset = 0; HealHPS_Refresh() end)
-  frame.groupBtn:SetPoint("LEFT", frame.singleBtn, "RIGHT", 2, 0)
-  frame.cdModeBtn = button(frame, 52, L["冷卻"], function() db.mode = "cd"; offset = 0; HealHPS_Refresh() end)
-  frame.cdModeBtn:SetPoint("LEFT", frame.groupBtn, "RIGHT", 2, 0)
-  frame.anaBtn = button(frame, 52, L["分析"], function() db.mode = "analysis"; frame.anaKey = nil; HealHPS_Refresh() end)
-  frame.anaBtn:SetPoint("LEFT", frame.cdModeBtn, "RIGHT", 2, 0)
-  frame.gearBtn = button(frame, 52, L["設定"], function() if frame.opts:IsShown() then frame.opts:Hide() else frame.opts:Show() end end)
-  frame.gearBtn:SetPoint("TOPRIGHT", -12, -30)
-  -- 第一列按鈕的總寬（含間距）：內容寬度至少要這麼寬，按鈕才不會疊在一起（英文字比較寬）
-  frame.topW = frame.singleBtn:GetWidth() + frame.groupBtn:GetWidth() + frame.cdModeBtn:GetWidth() + frame.anaBtn:GetWidth()
-    + frame.gearBtn:GetWidth() + 14
+  frame.singleBtn = tab(L["單補"], function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
+  frame.groupBtn = tab(L["群補"], function() db.mode = "group"; offset = 0; HealHPS_Refresh() end, frame.singleBtn)
+  frame.cdModeBtn = tab(L["冷卻"], function() db.mode = "cd"; offset = 0; HealHPS_Refresh() end, frame.groupBtn)
+  frame.anaBtn = tab(L["分析"], function() db.mode = "analysis"; frame.anaKey = nil; HealHPS_Refresh() end, frame.cdModeBtn)
+  local tabLine = frame:CreateTexture(nil, "ARTWORK")
+  tabLine:SetColorTexture(UI.C.EDGE2[1], UI.C.EDGE2[2], UI.C.EDGE2[3], 1); tabLine:SetHeight(1)
+  tabLine:SetPoint("TOPLEFT", 12, -54); tabLine:SetPoint("TOPRIGHT", -12, -54)
+  -- 分頁列的總寬（含間距）：內容寬度至少要這麼寬，分頁才不會疊在一起（英文字比較寬）
+  frame.topW = frame.singleBtn:GetWidth() + frame.groupBtn:GetWidth() + frame.cdModeBtn:GetWidth() + frame.anaBtn:GetWidth() + 6
+  -- 捲動條（比較表、分析的詳細列表共用一條）
+  frame.sb = UI.Scrollbar(frame)
   -- 資訊列：等級與治療效果；天賦加成滑鼠移上去才顯示
   frame.info = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   frame.info:SetPoint("TOPLEFT", 14, -66); frame.info:SetWidth(W); frame.info:SetJustifyH("LEFT"); frame.info:SetWordWrap(false)
@@ -2005,32 +2012,25 @@ local function buildFrame()
     GameTooltip:Show()
   end)
   infoHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  -- 設定：平常收起來
-  frame.opts = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-  frame.opts:SetSize(290, 150); frame.opts:SetPoint("TOPRIGHT", frame.gearBtn, "BOTTOMRIGHT", 0, -2)
-  frame.opts:SetFrameLevel(frame:GetFrameLevel() + 20)
-  if frame.opts.SetBackdrop then
-    frame.opts:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1 })
-    frame.opts:SetBackdropColor(.08, .07, .05, .97); frame.opts:SetBackdropBorderColor(.35, .29, .15, 1)
-  end
-  local how = frame.opts:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  how:SetPoint("TOPLEFT", 12, -10); how:SetWidth(266); how:SetJustifyH("LEFT"); how:SetSpacing(3)
-  how:SetText(L["HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r"])
-  frame.how = how
+  -- 設定面板（標題列齒輪、小地圖按鈕右鍵）：平常收起來；排版在重整時依內容寬度
+  frame.opts = UI.Panel(frame)
+  frame.mmCheck = UI.Check(frame.opts, L["顯示小地圖按鈕"], function()
+    db.minimapHide = not db.minimapHide
+    if mmBtn then mmBtn:SetShown(not db.minimapHide) end
+    HealHPS_Refresh()
+  end)
   -- 群補人數：滑桿 2–10（群補技能還受技能本身的人數上限；持續治療受持續時間與公共冷卻限制）
   frame.tgtBtn = CreateFrame("Frame", nil, frame.opts)
   frame.tgtBtn:SetSize(250, 26)
   frame.tgtLabel = frame.tgtBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  frame.tgtLabel:SetPoint("LEFT", 4, 0); frame.tgtLabel:SetJustifyH("LEFT"); frame.tgtLabel:SetWordWrap(false)
+  frame.tgtLabel:SetPoint("LEFT", 0, 0); frame.tgtLabel:SetJustifyH("LEFT"); frame.tgtLabel:SetWordWrap(false)
   frame.tgtSlider = slider(frame.tgtBtn, frame.tgtLabel, 2, 10, 1, db.targets or 5, function(v) db.targets = v end)
-  frame.tipBtn = button(frame.opts, 250, "", function()
+  frame.tipBtn = button(frame.opts, 0, "", function()
     -- 完整 → 標準 → 精簡 → 關 → 完整
     if not db.tip then db.tip, db.tipLevel = true, 3 elseif db.tipLevel <= 1 then db.tip = false else db.tipLevel = db.tipLevel - 1 end
     HealHPS_Refresh()
   end)
-  frame.tipBtn:SetHeight(26); frame.tipBtn:SetPoint("TOP", frame.tgtBtn, "BOTTOM", 0, -4)
-  frame.oathBtn = button(frame.opts, 250, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
-  frame.oathBtn:SetHeight(26); frame.oathBtn:SetPoint("TOP", frame.tipBtn, "BOTTOM", 0, -4)
+  frame.oathBtn = UI.Check(frame.opts, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
   frame.oathBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     local sit = SIT[playerClass()]
@@ -2054,6 +2054,14 @@ local function buildFrame()
       b:SetPoint("LEFT", head, "LEFT", col[2], 0); b:SetSize(col[3], 18)
       frame.headBtns[#frame.headFs] = b
       b:SetScript("OnClick", function() db.sort = col[5]; offset = 0; HealHPS_Refresh() end)
+      if col[5] == "hps" then -- HPS 怎麼算：放在 HPS 欄名的滑鼠提示
+        b:SetScript("OnEnter", function(self)
+          GameTooltip:SetOwner(self, "ANCHOR_TOP")
+          GameTooltip:AddLine(L["HPS＝治療量÷施法時間\n|cff9a9282瞬發算 1.5 秒\n持續治療用持續時間算；群補時算能輪流鋪給幾人\n冷卻技能另列一頁，照施放時算|r"], 1, 1, 1, true)
+          GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+      end
       table.insert(frame.heads, { fs = fs, key = col[5], label = L[col[1]] })
     end
   end
@@ -2097,27 +2105,27 @@ local function buildFrame()
   end)
   frame.foot = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   frame.foot:SetWidth(W); frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(true)
-  frame.more = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable"); frame.more:SetText(L["（滾輪看更多）"]); frame.more:Hide()
   -- 分析頁：預設組合、四條滑桿、結論、排名（只在「分析」顯示）
   frame.ana = CreateFrame("Frame", nil, frame)
   frame.ana:SetPoint("TOPLEFT", 14, -ANA_TOP); frame.ana:SetSize(W, 200)
-  -- 單坦／團刷切換，接著是該模式的預設組合、詳細（聖騎在單坦多一個聖光誓約）
+  -- 單坦／團刷（子分頁），接著是該模式的預設組合（套用中的有金框）、詳細（聖騎在單坦多一個聖光誓約）
   frame.anaModeBtns, frame.anaModeW = {}, 0
   local prev
   for i, m in ipairs({ { L["單坦"], false }, { L["團刷"], true } }) do
-    local b = button(frame.ana, 40, m[1], function() db.anaGroup = m[2]; frame.anaOff = 0; HealHPS_Refresh() end)
-    if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", frame.ana, "TOPLEFT", 0, 0) end
+    local b = UI.Tab(frame.ana, m[1], function() db.anaGroup = m[2]; frame.anaOff = 0; HealHPS_Refresh() end, true)
+    if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", frame.ana, "TOPLEFT", -6, 0) end
     frame.anaModeBtns[i] = { b = b, on = m[2] }
     frame.anaModeW = frame.anaModeW + b:GetWidth() + 2
     prev = b
   end
   local modeLast = prev
-  local function presetRow(list, apply)
+  local function presetRow(kind, list, apply)
     local row, last = { w = 0 }, modeLast
     for _, p in ipairs(list) do
-      local b = button(frame.ana, 40, p[1], function() apply(p); HealHPS_Refresh() end)
-      b:SetPoint("LEFT", last, "RIGHT", last == modeLast and 12 or 2, 0)
-      row.w = row.w + b:GetWidth() + (last == modeLast and 12 or 2)
+      local b = button(frame.ana, 0, p[1], function(self) apply(p); db.anaPreset = self.preset; HealHPS_Refresh() end)
+      b.preset = kind .. ":" .. p[2]
+      b:SetPoint("LEFT", last, "RIGHT", last == modeLast and 12 or 4, 0)
+      row.w = row.w + b:GetWidth() + (last == modeLast and 12 or 4)
       row[#row + 1], last = b, b
     end
     return row
@@ -2126,7 +2134,7 @@ local function buildFrame()
     -- 預設情境依角色等級查表（tools/verify-combat-numbers.md，Codex 依永恆資料與正式服紀錄估的實收值；中間等級線性內插）
     -- 傷害都是打在身上的實收：菁英、首領是每 2 秒一下的等效值；兩隻菁英＝同一值改每 1 秒
     -- p[2] 是情境代號，數值在套用時才算，所以升級後再點一次就會跟著變
-    single = presetRow({ { L["小怪"], "trash" }, { L["王戰"], "boss" }, { L["單練"], "solo" }, { L["省水"], "easy" } }, function(p)
+    single = presetRow("single", { { L["小怪"], "trash" }, { L["王戰"], "boss" }, { L["單練"], "solo" }, { L["省水"], "easy" } }, function(p)
       local t = levelTable()
       local hp, hit, gap, fight
       if p[2] == "trash" then hp, hit, gap, fight = t.tank, t.elite, 1, 30 -- 兩隻菁英同時打坦克
@@ -2141,7 +2149,7 @@ local function buildFrame()
       db.anaHit = math.max(10, math.floor(hit / 10 + 0.5) * 10)
       db.anaGap, db.fight = gap, math.floor(fight / 5 + 0.5) * 5
     end),
-    group = presetRow({ { L["群怪"], "trash" }, { L["全團技"], "boss" }, { L["範圍"], "aoe" }, { L["點名"], "pick" } }, function(p)
+    group = presetRow("group", { { L["群怪"], "trash" }, { L["全團技"], "boss" }, { L["範圍"], "aoe" }, { L["點名"], "pick" } }, function(p)
       local t = levelTable()
       local r10 = function(v) return math.max(10, math.floor(v / 10 + 0.5) * 10) end
       -- { 範圍每次傷害, 範圍間隔, 範圍命中（0＝全員）, 坦克每次傷害, 坦克間隔, 戰鬥長度 }
@@ -2154,10 +2162,30 @@ local function buildFrame()
       db.gTankHit, db.gTankGap, db.gFight = v[4] > 0 and r10(v[4]) or 0, v[5], v[6]
     end),
   }
-  frame.anaDetailBtn = button(frame.ana, 40, L["詳細"], function() db.anaDetail = not db.anaDetail; frame.anaOff = 0; HealHPS_Refresh() end)
+  frame.anaDetailBtn = UI.Check(frame.ana, L["詳細"], function() db.anaDetail = not db.anaDetail; frame.anaOff = 0; HealHPS_Refresh() end)
   -- 聖騎：坦克就是誓約目標時，分析要不要算聖光誓約的加成（和設定裡的同一個開關）
-  frame.anaOathBtn = button(frame.ana, 70, L["聖光誓約"], function() db.oath = not db.oath; HealHPS_Refresh() end)
-  frame.anaOathBtn:SetPoint("LEFT", frame.anaDetailBtn, "RIGHT", 2, 0)
+  frame.anaOathBtn = UI.Check(frame.ana, L["聖光誓約"], function() db.oath = not db.oath; HealHPS_Refresh() end)
+  frame.anaOathBtn:SetPoint("LEFT", frame.anaDetailBtn, "RIGHT", 12, 0)
+  -- 點滑桿的文字（含數字）→ 變成輸入框：Enter 套用、Esc 或點別處取消；套用的值對齊滑桿的間隔、限制在範圍內
+  local edit = CreateFrame("EditBox", nil, frame.ana)
+  UI.box(edit, UI.C.GOLD, { .02, .022, .028, 1 })
+  edit:SetFontObject(GameFontHighlight); edit:SetAutoFocus(false); edit:SetMaxLetters(7); edit:SetTextInsets(4, 4, 0, 0)
+  edit:SetFrameLevel(frame.ana:GetFrameLevel() + 10); edit:Hide()
+  local function closeEdit(apply)
+    local inp = edit.inp
+    if not inp then return end
+    edit.inp = nil
+    local d, v = inp.def, tonumber(edit:GetText())
+    edit:ClearFocus(); edit:Hide(); inp.fs:SetAlpha(1)
+    if apply and v then
+      db[d[1]] = math.max(d[3], math.min(d[4], math.floor(v / d[5] + 0.5) * d[5]))
+      db.anaPreset = nil -- 手動改了數值：預設不再算「套用中」
+    end
+    HealHPS_Refresh()
+  end
+  edit:SetScript("OnEnterPressed", function() closeEdit(true) end)
+  edit:SetScript("OnEscapePressed", function() closeEdit(false) end)
+  edit:SetScript("OnEditFocusLost", function() closeEdit(false) end)
   -- 滑桿組：cols 欄，同一欄的標籤同寬（用最長的值量），數字變長時滑桿不會跟著跳
   -- { 設定鍵, 文字, 最小, 最大, 間隔, 最長的值（量寬度用）, 值為 0 時的文字 }
   local function inputSet(defs, cols, sliderW)
@@ -2172,8 +2200,20 @@ local function buildFrame()
       local w = measure(fs)
       if v[7] then fs:SetText(v[7]); w = math.max(w, measure(fs)) end
       colW[c] = math.max(colW[c] or 0, w)
-      local sl = slider(holder, fs, v[3], v[4], v[5], db[v[1]], function(x) db[v[1]] = x end)
-      set[i] = { def = v, fs = fs, sl = sl, holder = holder, col = c, row = math.floor((i - 1) / cols) }
+      -- 滑桿手動改（拖、滾輪）：預設不再算「套用中」
+      local sl = slider(holder, fs, v[3], v[4], v[5], db[v[1]], function(x) db[v[1]] = x; db.anaPreset = nil end)
+      local inp = { def = v, fs = fs, sl = sl, holder = holder, col = c, row = math.floor((i - 1) / cols) }
+      local hit = CreateFrame("Button", nil, holder)
+      hit:SetAllPoints(fs)
+      local hl = hit:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, .06)
+      hit:SetScript("OnClick", function()
+        if InCombatLockdown and InCombatLockdown() then return end
+        if edit.inp then closeEdit(false) end
+        edit.inp = inp
+        edit:ClearAllPoints(); edit:SetPoint("LEFT", fs, "LEFT", -4, 0); edit:SetSize(math.max(60, fs:GetWidth() + 8), 22)
+        edit:SetText(tostring(db[v[1]])); fs:SetAlpha(0); edit:Show(); edit:SetFocus(); edit:HighlightText()
+      end)
+      set[i] = inp
     end
     local x, xs = 0, {}
     for c = 1, cols do xs[c] = x; x = x + math.ceil(colW[c]) + 4 + sliderW + GAP end
@@ -2259,9 +2299,8 @@ local function toggleWindow()
 end
 
 -- ── 小地圖按鈕 ─────────────────────────────────────────────────────────────
-local mmBtn
 local function placeMinimap()
-  local a = math.rad(db.minimapAngle or 225)
+  local a = math.rad(db.minimapAngle or 250)
   local r = (Minimap:GetWidth() / 2) + 5
   mmBtn:ClearAllPoints()
   mmBtn:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
@@ -2416,6 +2455,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
   elseif e == "PLAYER_LOGIN" then
     ensureDB()
     if not db.scaleV then if db.scale == 1 then db.scale = 1.25 end; db.scaleV = 1 end -- 舊預設值改成新的預設大小（只遷移一次，之後尊重玩家設定）
+    if not db.mmV then if db.minimapAngle == 225 then db.minimapAngle = 250 end; db.mmV = 1 end -- 小地圖按鈕舊預設 225° 改成新預設 250°（三個阿聖插件錯開；拖過的不動，只遷移一次）
     if isHealerClass() then
       safe("掛上滑鼠提示", hookTooltips)
       safe("小地圖按鈕", buildMinimapButton)

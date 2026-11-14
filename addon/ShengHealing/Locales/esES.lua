@@ -181,5 +181,6 @@ HealHPS_Locales.esES = {
     ["設定已重設"] = "Ajustes restablecidos",
     ["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|stress|auto（stress＝版面壓力測試，英文加長 35%）　/shps debug　/shps reset"] =
       "/shps mostrar u ocultar la ventana  /shps pct <n>|auto  /shps absorb <n>|auto  /shps targets 2-10  /shps tip  /shps scale 1.2  /shps minimap  /shps downrank  /shps desc incl|base|auto  /shps lang en|zh|stress|auto (stress = prueba de diseño, inglés un 35 % más largo)  /shps debug  /shps reset",
+    ["顯示小地圖按鈕"] = "Mostrar botón del minimapa",
   },
 }
