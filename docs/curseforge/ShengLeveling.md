@@ -70,7 +70,7 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 
 ## Notes
 
-- The addon loads only your own faction's route. Skyborne characters count as Horde until they pick a faction; /reload after choosing.
+- The addon loads only your own faction's route.
 - The Alliance route is built on the quest order of the TUGs Guidelime guide and has not been played through in game yet; reports are welcome.
 - Route order follows the WoW Forever leveling videos by Bilibili creator 奇怪小鸭, refined with other public routes. Quest, NPC and coordinate data from Questie / QuestieDB (GPL-3.0).
 
@@ -138,7 +138,7 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 
 ## 注意
 
-- 插件只載入自己陣營的路線。天裔精靈選陣營前算部落，選好後 /reload。
+- 插件只載入自己陣營的路線。
 - 聯盟路線以 TUGs Guidelime 攻略的任務順序為骨架，還沒有在遊戲裡完整走過，歡迎回報問題。
 - 路線站序參考 Bilibili UP 主「奇怪小鸭」的《魔兽世界无限》練級路線影片，並參考其他公開練級路線優化；任務、NPC、座標資料取自 Questie／QuestieDB（GPL-3.0）。
 
