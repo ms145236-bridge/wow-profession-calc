@@ -299,4 +299,8 @@ NS.locales.enUS = {
   ["Shift＋拖曳：移動"] = "Shift-drag: move",
   ["目前追蹤：%s"] = "Tracking: %s",
   ["還沒開啟%s"] = "%s is off",
+  ["全部角色"] = "All characters",
+  ["全部角色　花費 %s"] = "All characters  Cost %s",
+  ["清除其他角色"] = "Clear other characters",
+  ["阿聖專業幫手 全部角色"] = "Sheng Profession All characters",
 }

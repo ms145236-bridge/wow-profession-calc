@@ -77,6 +77,8 @@ local function ensureDB()
   ProfLevelCharDB = ProfLevelCharDB or {}
   for k, v in pairs(DEFAULTS) do if ProfLevelCharDB[k] == nil then ProfLevelCharDB[k] = type(v) == "table" and {} or v end end
   db = ProfLevelCharDB
+  ShengProfessionDB = ShengProfessionDB or {}
+  ShengProfessionDB.shop = ShengProfessionDB.shop or {} -- 各角色衝級材料要買的（「全部角色」合併看）
   NS.applyLang(db.lang); NS.relabel() -- /sprof lang：存檔讀到後才套用
   if (db.dockV or 0) < 2 then db.dock = false; db.dockV = 2 end -- 自動開改成預設關閉（點了才打開）
   if db.tabV ~= 1 then db.tab = "profit"; db.tabV = 1 end -- 主體改成利潤與佇列，衝級變成其中一個分頁
@@ -1000,6 +1002,18 @@ local function layoutOpts()
 end
 
 -- 清空佇列：兩段式。第一下按鈕變紅字「再按一次清空」，3 秒內再按才清
+-- 清掉其他角色存的材料清單（要按兩次）
+local function clearOthers()
+  if frame.altArm then
+    frame.altArm = nil
+    for _, c in ipairs(frame.others or {}) do ShengProfessionDB.shop[c.name .. "-" .. c.realm] = nil end
+    db.shopAll = false
+    return
+  end
+  local token = {}
+  frame.altArm = token
+  C_Timer.After(3, function() if frame.altArm == token then frame.altArm = nil; ProfLevel_Refresh() end end)
+end
 local function clearQueue()
   if frame.clearArm then frame.clearArm = nil; wipe(db.queue); return end
   local token = {}
@@ -1106,6 +1120,40 @@ local function refreshImpl()
   if db.decompose then r = decompose(r, learned) end
   current = { prof = p, S = S, T = T, route = route, r = r }
   local pbTotal, stepVal = payback(route, r)
+  -- 跨角色：這隻角色衝級材料要買的存進帳號存檔；材料頁勾「全部角色」時合併同伺服器、同陣營其他角色的
+  local shop, realm, faction = ShengProfessionDB.shop, GetRealmName() or "", UnitFactionGroup("player")
+  local me = (UnitName("player") or "?") .. "-" .. realm
+  if isLv then
+    local items = {}
+    for _, it in ipairs(r.list) do if it.buy > 0 and it.kind ~= "craft" then items[#items + 1] = { id = it.id, kind = it.kind, qty = it.qty, have = it.have, buy = it.buy } end end
+    shop[me] = #items > 0 and { realm = realm, faction = faction, name = UnitName("player"), class = select(2, UnitClass("player")), prof = p.key, S = S, T = T, items = items } or nil
+  end
+  local others = {}
+  for k, c in pairs(shop) do if k ~= me and c.realm == realm and c.faction == faction then others[#others + 1] = c end end
+  table.sort(others, function(a, b) return a.name < b.name end)
+  frame.others = others
+  if db.tab == "shop" and db.shopAll and #others > 0 then
+    local list, byKey, total, missing = {}, {}, 0, 0
+    local function put(it, who)
+      local k = it.kind .. it.id
+      local m = byKey[k]
+      if not m then m = { id = it.id, kind = it.kind, qty = 0, have = 0, buy = 0, unit = price(it.id), who = {} }; byKey[k] = m; list[#list + 1] = m end
+      m.qty, m.have, m.buy = m.qty + it.qty, m.have + it.have, m.buy + it.buy
+      if it.buy > 0 then m.who[#m.who + 1] = { who, it.buy } end
+    end
+    for _, it in ipairs(r.list) do if it.kind == "craft" then list[#list + 1] = it else put(it, UnitName("player")) end end
+    for _, c in ipairs(others) do for _, it in ipairs(c.items) do put(it, c.name) end end
+    for _, it in ipairs(list) do
+      if it.kind ~= "craft" then if it.unit then total = total + it.unit * it.buy elseif it.buy > 0 then missing = missing + 1 end end
+    end
+    local order = { recipe = 1, tool = 2, craft = 3, mat = 3 }
+    table.sort(list, function(a, b)
+      if order[a.kind] ~= order[b.kind] then return order[a.kind] < order[b.kind] end
+      return (a.unit or 0) * a.buy > (b.unit or 0) * b.buy
+    end)
+    r = { list = list, total = total, missing = missing, all = true }
+    current.r = r
+  end
   local qr
   if db.tab == "queue" then qr = queueNeeds(learned); current.r = qr; current.queue = true end
   -- 價格來源那行（status）：有 Auctionator 時不顯示（「從 N 條路線選出最省的」放進總計那行的滑鼠提示），沒有才出琥珀警告；
@@ -1136,21 +1184,23 @@ local function refreshImpl()
     if r.saved and r.saved > 0.5 then totalTip[#totalTip + 1] = "|cff9fd18b" .. string.format(L["自製中間材料省 %s"], money(r.saved)) .. "|r" end
     if r.missing > 0 then warns[#warns + 1] = string.format(L["%d 項沒有價格"], r.missing) end
     emptyTxt = L["這個範圍不需要製作任何東西"]
+    if r.all then totalShort = string.format(L["全部角色　花費 %s"], money(r.total)); totalFull = totalShort end
   end
   frame.warn.lines = warns; frame.warn:SetShown(#warns > 0 and totalFull ~= nil)
   -- 第三列：左邊衝級的子分頁（步驟／材料），右邊開關（勾選框，靠右對齊）
   frame.decBtn:SetCheck(db.decompose); frame.bagBtn:SetCheck(db.useBag); frame.bankBtn:SetCheck(db.useBank)
   frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
+  frame.allBtn:SetCheck(db.shopAll); frame.allBtn:SetShown(db.tab == "shop" and #others > 0)
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
   local prevR
-  for _, c in ipairs({ frame.bankBtn, frame.bagBtn, frame.decBtn }) do
+  for _, c in ipairs({ frame.allBtn, frame.bankBtn, frame.bagBtn, frame.decBtn }) do
     if c:IsShown() then
       c:ClearAllPoints()
       if prevR then c:SetPoint("RIGHT", prevR, "LEFT", -14, 0) else c:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -89) end
       prevR = c
     end
   end
-  local row3 = { { frame.stepsBtn, 8 }, { frame.shopBtn, 2 }, { frame.decBtn, 24 }, { frame.bagBtn, 14 }, { frame.bankBtn, 14 } }
+  local row3 = { { frame.stepsBtn, 8 }, { frame.shopBtn, 2 }, { frame.decBtn, 24 }, { frame.bagBtn, 14 }, { frame.bankBtn, 14 }, { frame.allBtn, 14 } }
   frame.atrBtn:SetShown(api ~= nil and api.CreateShoppingList ~= nil)
   -- 由上往下：升階提示／價格警告那行（有才佔位）、總計那行（利潤頁沒有）、表頭、表格
   local tr, low, R, short = rankText(p.key, sk)
@@ -1319,6 +1369,9 @@ local function refreshImpl()
   UI.look(frame.act2, nil)
   if db.tab == "steps" then
     setLabel(frame.act1, fl.route and fl.route.text or L["全部加入製作佇列"], 140); frame.act1.fn = queueRoute; frame.act1:Show()
+  elseif db.tab == "shop" and current.r.all then
+    setLabel(frame.act1, frame.altArm and L["再按一次清空"] or L["清除其他角色"], 110); frame.act1.fn = clearOthers; frame.act1:Show()
+    if frame.altArm then UI.look(frame.act1, "danger") end
   elseif db.tab == "queue" then
     setLabel(frame.act1, L["製作下一個"], 120); frame.act1.fn = craftNext; frame.act1:Show()
     setLabel(frame.act2, frame.clearArm and L["再按一次清空"] or L["清空佇列"], 90); frame.act2.fn = clearQueue; frame.act2:Show()
@@ -1393,7 +1446,7 @@ local function createShoppingList()
     end
   end
   if #terms == 0 then flashNote(L["沒有要在拍賣行買的東西"]); return end
-  local listName = current.queue and L["阿聖專業幫手 製作佇列"] or string.format(L["阿聖專業幫手 %s %d-%d"], current.prof.name, current.S, current.T)
+  local listName = current.queue and L["阿聖專業幫手 製作佇列"] or current.r.all and L["阿聖專業幫手 全部角色"] or string.format(L["阿聖專業幫手 %s %d-%d"], current.prof.name, current.S, current.T)
   if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then flashLabel("list", L["已建立"]) end -- 成功：按鈕短暫寫「已建立」
 end
 
@@ -1510,6 +1563,18 @@ local function buildFrame()
   -- 佇列：材料要不要扣掉背包、銀行已有的（衝級路線也照這個設定）
   frame.bagBtn = UI.Check(main, L["扣背包"], function() db.useBag = not db.useBag; ProfLevel_Refresh() end)
   frame.bankBtn = UI.Check(main, L["扣銀行"], function() db.useBank = not db.useBank; ProfLevel_Refresh() end)
+  -- 材料頁：合併同伺服器、同陣營其他角色要買的（有其他角色的清單才出現）
+  frame.allBtn = UI.Check(main, L["全部角色"], function() db.shopAll = not db.shopAll; offset = 0; ProfLevel_Refresh() end)
+  frame.allBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["全部角色"])
+    for _, c in ipairs(frame.others or {}) do
+      local pp = PROF_BY_KEY[c.prof]
+      GameTooltip:AddDoubleLine(c.name, (pp and pp.name or "") .. " " .. c.S .. "–" .. c.T, 1, 1, 1, .8, .8, .8)
+    end
+    GameTooltip:Show()
+  end)
+  frame.allBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第四列起（位置在重整時依內容往下排）：升階提示／價格警告、總計、表頭、表格
   frame.status = main:CreateFontString(nil, "OVERLAY", "GameFontDisable")
   frame.status:SetPoint("TOPLEFT", 14, -116); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
@@ -1668,6 +1733,10 @@ local function buildFrame()
       else
         pcall(GameTooltip.SetItemByID, GameTooltip, e.item.id)
         local c = e.item
+        if c.who and #c.who > 0 then
+          GameTooltip:AddLine(" ")
+          for _, w in ipairs(c.who) do GameTooltip:AddDoubleLine(w[1], "×" .. w[2], 1, 1, 1, 1, 1, 1) end
+        end
         if c.kind == "craft" then
           GameTooltip:AddLine(" ")
           GameTooltip:AddLine(string.format(L["比價：直接買每個 %s，自己做每個 %s → 自己做"], c.buyUnit and money(c.buyUnit) or L["沒價格"], money(c.unit or 0)), .55, .75, 1, true)

@@ -299,4 +299,8 @@ NS.locales.frFR = {
   ["Shift＋拖曳：移動"] = "Maj + glisser : déplacer",
   ["目前追蹤：%s"] = "Pistage : %s",
   ["還沒開啟%s"] = "%s est désactivé",
+  ["全部角色"] = "Tous les personnages",
+  ["全部角色　花費 %s"] = "Tous les personnages Coût %s",
+  ["清除其他角色"] = "Effacer les autres personnages",
+  ["阿聖專業幫手 全部角色"] = "Sheng Profession : tous les personnages",
 }

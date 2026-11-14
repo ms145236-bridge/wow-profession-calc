@@ -299,4 +299,8 @@ NS.locales.esMX = {
   ["Shift＋拖曳：移動"] = "Shift + arrastrar: mover",
   ["目前追蹤：%s"] = "Rastreo: %s",
   ["還沒開啟%s"] = "%s está desactivado",
+  ["全部角色"] = "Todos los personajes",
+  ["全部角色　花費 %s"] = "Todos los personajes Costo %s",
+  ["清除其他角色"] = "Borrar otros personajes",
+  ["阿聖專業幫手 全部角色"] = "Sheng Profession: todos los personajes",
 }

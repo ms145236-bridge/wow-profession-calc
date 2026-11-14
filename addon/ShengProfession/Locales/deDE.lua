@@ -299,4 +299,8 @@ NS.locales.deDE = {
   ["Shift＋拖曳：移動"] = "Shift + Ziehen: verschieben",
   ["目前追蹤：%s"] = "Suche: %s",
   ["還沒開啟%s"] = "%s ist aus",
+  ["全部角色"] = "Alle Charaktere",
+  ["全部角色　花費 %s"] = "Alle Charaktere Kosten %s",
+  ["清除其他角色"] = "Andere Charaktere leeren",
+  ["阿聖專業幫手 全部角色"] = "Sheng Profession: alle Charaktere",
 }
