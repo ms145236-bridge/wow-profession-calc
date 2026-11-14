@@ -303,4 +303,6 @@ NS.locales.ptBR = {
   ["全部角色　花費 %s"] = "Todos os personagens Custo %s",
   ["清除其他角色"] = "Limpar outros personagens",
   ["阿聖專業幫手 全部角色"] = "Sheng Profession: todos os personagens",
+  ["介面語言"] = "Idioma da interface",
+  ["跟隨客戶端"] = "Igual ao cliente",
 }

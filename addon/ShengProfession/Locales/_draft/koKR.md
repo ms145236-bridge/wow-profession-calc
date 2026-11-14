@@ -1,0 +1,240 @@
+# ShengProfession UI koKR 翻譯草稿
+
+- 共 234 個原始鍵，保留順序、格式參數及指令。
+- 職業名稱、專業等級與採集追蹤術語參照永恆 1.60.1.70938 語系資料。 [SkillLine](https://wago.tools/db2/SkillLine?build=1.60.1.70938) · [GlobalStrings](https://wago.tools/db2/GlobalStrings?build=1.60.1.70938) · [SpellName](https://wago.tools/db2/SpellName?build=1.60.1.70938)
+
+鍵｜English｜翻譯
+`|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r `｜`|cff4fc3f7Sheng|r|cffd9b25fProfession|r `｜`|cff4fc3f7Sheng|r|cffd9b25fProfession|r `
+`阿聖專業幫手`｜`Sheng Profession`｜`Sheng Profession`
+`%s出錯：`｜`%s error: `｜`%s 오류: `
+`　請把這行回報給開發者`｜`  Please report this line to the author`｜`  이 줄을 작성자에게 보고해 주세요.`
+`比較表`｜`Table`｜`표`
+`動作`｜`Action`｜`동작`
+`建立購物清單`｜`Shopping list`｜`구매 목록`
+`專業視窗`｜`Profession window`｜`전문 기술 창`
+`讀取配方`｜`Recipe scan`｜`제작법 검색`
+`小地圖按鈕`｜`Minimap button`｜`미니맵 버튼`
+`　`｜`  `｜`  `
+`、`｜`, `｜`, `
+`：`｜`: `｜`: `
+`…`｜`...`｜`...`
+`▼`｜`v `｜`v `
+`▲`｜`^ `｜`^ `
+`%s（%s）`｜`%s (%s)`｜`%s (%s)`
+`金`｜`g`｜`g`
+`銀`｜`s`｜`s`
+`銅`｜`c`｜`c`
+`開`｜`On`｜`켜기`
+`關`｜`Off`｜`끄기`
+`有`｜`yes`｜`예`
+`沒有`｜`no`｜`아니요`
+`鍊金術`｜`Alchemy`｜`연금술`
+`鍛造`｜`Blacksmithing`｜`대장기술`
+`附魔`｜`Enchanting`｜`마법부여`
+`工程學`｜`Engineering`｜`기계공학`
+`製皮`｜`Leatherworking`｜`가죽세공`
+`裁縫`｜`Tailoring`｜`재봉술`
+`烹飪`｜`Cooking`｜`요리`
+`急救`｜`First Aid`｜`응급치료`
+`採礦`｜`Mining`｜`채광`
+`草藥學`｜`Herbalism`｜`약초채집`
+`剝皮`｜`Skinning`｜`무두질`
+`釣魚`｜`Fishing`｜`낚시`
+`專家`｜`Expert`｜`숙련`
+`大師`｜`Artisan`｜`전문`
+`%d 級`｜`level %d`｜`%d 레벨`
+`技能 %d`｜`skill %d`｜`숙련도 %d`
+`%s 金`｜`%sg`｜`%sg`
+`%s 銀`｜`%ss`｜`%ss`
+`　買《%s》`｜`, buy %s`｜`, %s 구매`
+`　任務「%s」`｜`, quest: %s`｜`, 퀘스트: %s`
+`下一階 %s：%s%s`｜`Next rank %s: %s%s`｜`다음 등급 %s: %s%s`
+`已是大師`｜`Already Artisan`｜`이미 전문 등급`
+`下一階：任一訓練師（10 級、技能 50）`｜`Next rank: any trainer (level 10, skill 50)`｜`다음 등급: 아무 전문 기술 전문가 (10 레벨, 숙련도 50)`
+`去`｜`Go`｜`이동`
+`沒有資料`｜`no data`｜`데이터 없음`
+`沒偵測到專業`｜`No professions detected`｜`감지된 전문 기술 없음`
+`利潤`｜`Profit`｜`수익`
+`佇列`｜`Queue`｜`대기열`
+`衝級`｜`Leveling`｜`숙련도 올리기`
+`採集`｜`Gathering`｜`채집`
+`步驟`｜`Steps`｜`단계`
+`材料`｜`Materials`｜`재료`
+`從`｜`From`｜`시작`
+`到`｜`To`｜`목표`
+`目前`｜`Current`｜`현재`
+`起點改回目前的專業點數`｜`Reset the start to your current skill`｜`현재 숙련도를 시작점으로 설정`
+`拆中間材料：開`｜`Craft intermediates: On`｜`중간 재료 제작: 켜기`
+`拆中間材料：關`｜`Craft intermediates: Off`｜`중간 재료 제작: 끄기`
+`扣背包：開`｜`Use bags: On`｜`가방 재고 반영: 켜기`
+`扣背包：關`｜`Use bags: Off`｜`가방 재고 반영: 끄기`
+`扣銀行：開`｜`Use bank: On`｜`은행 재고 반영: 켜기`
+`扣銀行：關`｜`Use bank: Off`｜`은행 재고 반영: 끄기`
+`拆中間材料`｜`Craft intermediates`｜`중간 재료 제작`
+`開：每個中間材料都比較「直接買」和「買原料自己做」，便宜的那個才列進清單。只拆你學過、點數也夠的配方（冶煉要有採礦）。`｜`On: for each intermediate material, compare buying it with buying the raw materials and crafting it, and list the cheaper one. Only recipes you know with enough skill are used (smelting needs Mining).`｜`중간 재료를 사는 비용과 직접 만드는 비용 중 저렴한 쪽을 고릅니다. 배웠고 숙련도가 충분한 제작법만 사용합니다. 제련에는 채광이 필요합니다.`
+`全部加入製作佇列`｜`Queue all`｜`모두 대기열에 추가`
+`製作下一個`｜`Craft next`｜`다음 제작`
+`清空佇列`｜`Clear queue`｜`대기열 비우기`
+`建立 Auctionator 購物清單`｜`Create Auctionator list`｜`Auctionator 목록 만들기`
+`數量%s；商人販售的物品不列入。在拍賣行打開 Auctionator 的購物分頁就能用。`｜`Quantities: %s. Vendor items are left out. Open Auctionator's Shopping tab at the auction house to use it.`｜`수량: %s. 상인 판매 아이템은 제외됩니다. 경매장에서 Auctionator의 구매 탭을 여세요.`
+`拖曳調整視窗大小`｜`Drag to resize the window`｜`드래그하여 창 크기 조정`
+`（%d）`｜` (%d)`｜` (%d)`
+`（沒學）`｜` (not learned)`｜` (미습득)`
+`等級`｜`Skill`｜`숙련도`
+`製作`｜`Craft`｜`제작`
+`次數`｜`Count`｜`횟수`
+`來源`｜`Source`｜`출처`
+`回本`｜`Resale`｜`판매 회수액`
+`配方`｜`Recipe`｜`제작법`
+`成本`｜`Cost`｜`비용`
+`售價`｜`Sell`｜`판매가`
+`利潤%`｜`Profit %`｜`수익률 %`
+`在架`｜`Listed`｜`판매 등록`
+`可做`｜`Can make`｜`제작 가능`
+`專業`｜`Profession`｜`전문 기술`
+`物品`｜`Item`｜`아이템`
+`需要`｜`Need`｜`필요`
+`已有`｜`Have`｜`보유`
+`要買`｜`Buy`｜`구매`
+`單價`｜`Unit`｜`단가`
+`小計`｜`Subtotal`｜`소계`
+`訓練師`｜`Trainer`｜`전문가`
+`商人`｜`Vendor`｜`상인`
+`拍賣行`｜`Auction house`｜`경매`
+`%s（商人）`｜`%s (vendor)`｜`%s (상인)`
+`價格：Auctionator　從 %d 條路線選出最省的`｜`Prices: Auctionator  cheapest of %d routes`｜`가격: Auctionator. %d개 경로 중 최저가`
+`價格：Auctionator`｜`Prices: Auctionator`｜`가격: Auctionator`
+`沒有 Auctionator`｜`No Auctionator`｜`Auctionator 없음`
+`沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）`｜`Auctionator not found: only vendor items have prices (default route)`｜`Auctionator를 찾을 수 없습니다. 상인 판매가만 표시하며 기본 경로를 사용합니다.`
+`製作佇列 %d 項（共 %d 次）　材料花費 %s`｜`Queued: %d (crafts: %d)  Materials %s`｜`대기열 %d개 (제작 %d회)  재료비 %s`
+`%d 項沒有價格`｜`No price: %d`｜`가격 없음: %d`
+`%d 項還不知道材料（打開那個專業視窗一次）`｜`Unknown materials: %d (open that profession once)`｜`재료 미확인 %d개. 해당 전문 기술 창을 한 번 여세요.`
+`%s 已記下 %d 個配方`｜`%s recipes known: %d`｜`%s: 배운 제작법 %d개`
+`打開%s的專業視窗一次，插件就會記下你學會的配方`｜`Open your %s window once to record the recipes you know`｜`%s 창을 한 번 열어 배운 제작법을 기록하세요.`
+`%s %d–%d　花費 %s`｜`%s %d–%d  Cost %s`｜`%s %d–%d 비용 %s`
+`　|cff9fd18b回本 %s|r　淨花費 %s`｜`  |cff9fd18bResale %s|r  Net %s`｜`  |cff9fd18b판매 회수액 %s|r  순비용 %s`
+`自製中間材料省 %s`｜`Crafting intermediates saves %s`｜`중간 재료를 직접 제작하면 %s 절약`
+`已扣掉背包和銀行裡的數量`｜`bags and bank already subtracted`｜`가방과 은행 재고 반영`
+`已扣掉背包裡的數量（不扣銀行）`｜`bags subtracted (bank not)`｜`가방 재고만 반영`
+`已扣掉銀行裡的數量（不扣背包）`｜`bank subtracted (bags not)`｜`은행 재고만 반영`
+`沒有扣掉背包和銀行裡的數量`｜`bags and bank not subtracted`｜`가방과 은행 재고 미반영`
+`沒價格`｜`No price`｜`가격 없음`
+`不知道材料`｜`Unknown`｜`알 수 없음`
+`齊了`｜`Ready`｜`준비 완료`
+`缺 %d 種`｜`Missing %d`｜`%d종 부족`
+`準備`｜`Prep`｜`준비`
+`自己做（%s）`｜`Craft (%s)`｜`직접 제작 (%s)`
+`（配方）`｜` (recipe)`｜` (제작법)`
+`（商人）`｜` (vendor)`｜` (상인)`
+`（自己做 ×%d）`｜` (craft ×%d)`｜` (직접 제작 ×%d)`
+`自製 %s`｜`Craft %s`｜`%s 제작`
+`省 %s`｜`Save %s`｜`%s 절약`
+`佇列是空的：從「利潤」或「衝級」加入`｜`The queue is empty: add from Profit or Leveling`｜`대기열이 비었습니다. 수익 또는 숙련도 올리기에서 추가하세요.`
+`這個範圍不需要製作任何東西`｜`Nothing to craft in this range`｜`이 구간에서는 제작할 필요가 없습니다.`
+`共 %d 列，用滾輪捲動`｜`Rows: %d, scroll with the mouse wheel`｜`%d줄. 마우스 휠로 스크롤하세요.`
+`共 %d 列`｜`Rows: %d`｜`%d줄`
+`背包 %d`｜`Bags %d`｜`가방 %d`
+`售價 %s（已扣拍賣行 5%% 手續費）`｜`Sells for %s (after the 5%% AH cut)`｜`판매가 %s (경매 수수료 5%% 차감)`
+`拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到，平均在架 %d 個`｜`AH: %d listed in the last scan; seen on %d of the last 14 days, %d listed on average`｜`경매: 최근 검색 %d개, 최근 14일 중 %d일 등록, 평균 %d개 등록`
+`（只代表有多少人在賣，不代表賣得掉：賣不掉的也會一直重新上架。遊戲沒有成交量資料）`｜`(This shows how many are for sale, not how many sell: unsold items keep getting relisted. The game has no sales data.)`｜`(판매량이 아닌 판매 수량을 나타냅니다. 판매되지 않은 항목이 계속 재등록됩니다. 게임에는 판매 데이터가 없습니다.)`
+`拍賣場：Auctionator 沒有這個成品的掃描紀錄`｜`AH: Auctionator has no scan data for this item`｜`경매: Auctionator에 이 아이템의 검색 기록이 없습니다.`
+`左鍵加入佇列、Shift+左鍵加 5、右鍵減 1`｜`Left-click to queue, Shift-click +5, right-click -1`｜`왼쪽 클릭: 대기열에 추가, Shift+클릭 +5, 오른쪽 클릭 -1`
+`左鍵 +1、右鍵 −1（Shift 一次 5）`｜`Left-click +1, right-click -1 (Shift: 5 at a time)`｜`왼쪽 클릭 +1, 오른쪽 클릭 -1 (Shift: 한 번에 5개)`
+`自己做 %d 次（共 %d 個，已有 %d）`｜`Crafts: %d (%d total, have %d)`｜`제작 %d회 (총 %d개, %d개 보유)`
+`材料：`｜`Materials: `｜`재료: `
+`直接買每個 %s，自己做每個 %s`｜`Buy: %s each, craft: %s each`｜`구매: 개당 %s, 제작: 개당 %s`
+`做 %d 次`｜`Crafts: %d`｜`공예: %d`
+`（其中 %d 次是多做的，留給後面步驟當材料）`｜` (%d extra, used as materials in later steps)`｜` (이후 단계에 쓸 재료로 %d회 추가 제작)`
+`做出來的成品賣掉約可回本 %s（已扣 5%% 手續費、扣掉後面步驟會用掉的）`｜`Selling the results returns about %s (after the 5%% AH cut, minus what later steps use)`｜`제작품 판매로 약 %s 회수 (경매 수수료 5%%와 이후 단계에서 쓸 물품 제외)`
+`拍賣場：最近一次在架 %d 個；最近 14 天有 %d 天看到`｜`AH: %d listed in the last scan; seen on %d of the last 14 days`｜`경매: 최근 검색 %d개, 최근 14일 중 %d일 등록`
+`難度：`｜`Difficulty: `｜`난이도: `
+`比價：直接買每個 %s，自己做每個 %s → 自己做`｜`Buy: %s each, craft: %s each, so craft it`｜`구매: 개당 %s, 제작: 개당 %s. 직접 제작하세요.`
+`沒有要在拍賣行買的東西`｜`Nothing to buy at the auction house`｜`경매장에서 살 물건이 없습니다`
+`阿聖專業幫手 製作佇列`｜`Sheng Profession Queue`｜`Sheng Profession 제작 대기열`
+`阿聖專業幫手 %s %d-%d`｜`Sheng Profession %s %d-%d`｜`Sheng Profession %s %d-%d`
+`已建立 Auctionator 購物清單「%s」，共 %d 項（%s，商人物品不列入）`｜`Created Auctionator shopping list "%s" (items: %d; %s; vendor items left out)`｜`Auctionator 구매 목록 "%s" 생성 (%d개, %s, 상인 판매 아이템 제외)`
+`已把 %d 個步驟加入製作佇列`｜`Steps added to the queue: %d`｜`대기열에 추가된 단계: %d`
+`請先打開專業視窗（例如鍛造），再按「製作下一個」`｜`Open the profession window (e.g. Blacksmithing) first, then press Craft next`｜`먼저 전문 기술 창(예: 대장기술)을 열고 ‘다음 제작’을 누르세요.`
+`%s：專業視窗裡找不到這個配方（還沒學？）`｜`%s: recipe not found in the profession window (not learned yet?)`｜`%s: 전문 기술 창에서 제작법을 찾을 수 없습니다. 배웠는지 확인하세요.`
+`%s：材料不夠（只算背包裡的），先把材料準備好`｜`%s: not enough materials (bags only), gather them first`｜`%s: 가방에 재료가 부족합니다. 먼저 재료를 준비하세요.`
+`這個遊戲版本不支援從插件製作`｜`This game version doesn't support crafting from addons`｜`이 게임 버전에서는 애드온으로 아이템을 제작할 수 없습니다.`
+`開始製作 %s ×%d`｜`Crafting %s ×%d`｜`제작 %s ×%d`
+`佇列裡沒有%s要做的東西`｜`Nothing in the queue for %s`｜`%s 대기열에 아무것도 없습니다.`
+`關閉幫手`｜`Close helper`｜`도우미 닫기`
+`專業幫手`｜`Open helper`｜`도우미 열기`
+`利潤 %s%s|r（%d%%）`｜`Profit %s%s|r (%d%%)`｜`수익 %s%s|r (%d%%)`
+`成本 %s（沒有售價）`｜`Cost %s (no sell price)`｜`비용 %s (판매가 없음)`
+`佇列 ×%d`｜`Queued ×%d`｜`대기열 ×%d`
+`加入佇列`｜`Add to queue`｜`대기열에 추가`
+`加入製作佇列`｜`Add to the queue`｜`대기열에 추가`
+`左鍵 +1、Shift+左鍵 +5、右鍵 −1`｜`Left-click +1, Shift-click +5, right-click -1`｜`왼쪽 클릭 +1, Shift-클릭 +5, 오른쪽 클릭 -1`
+`左鍵：開關視窗`｜`Left-click: toggle window`｜`왼쪽 클릭: 창 전환`
+`拖曳：沿著小地圖移動`｜`Drag: move around the minimap`｜`드래그: 미니맵 둘레에서 버튼 이동`
+`小地圖按鈕：`｜`Minimap button: `｜`미니맵 버튼: `
+`隱藏（再輸入 /sprof minimap 顯示）`｜`hidden (type /sprof minimap to show it)`｜`숨김(표시하려면 /sprof minimap 입력)`
+`顯示`｜`shown`｜`표시됨`
+`打開專業視窗時自動顯示專業助手：`｜`Open with the profession window: `｜`전문 기술 창과 함께 열기: `
+`視窗縮放：`｜`Window scale: `｜`창 크기 비율: `
+`用法：/sprof scale 1.2（0.5～2，目前 %s）`｜`Usage: /sprof scale 1.2 (0.5 to 2, now %s)`｜`사용법: /sprof scale 1.2 (0.5~2, 현재 %s)`
+`介面語言：%s（/reload 後生效）`｜`Interface language: %s (takes effect after /reload)`｜`인터페이스 언어: %s (/reload 후 적용)`
+`用法：/sprof lang en/zh/stress/auto（目前 %s）`｜`Usage: /sprof lang en/zh/stress/auto (now %s)`｜`사용법: /sprof lang en/zh/stress/auto (현재 %s)`
+`版本 0.7.1　已學專業：`｜`Professions: `｜`전문 기술: `
+`Auctionator：`｜`Auctionator: `｜`Auctionator: `
+`沒偵測到`｜`none detected`｜`감지되지 않음`
+`專業視窗 API：新版　配方 %d 個　目前專業：%s　CraftRecipe：%s`｜`Profession API: modern  %d recipes  open: %s  CraftRecipe: %s`｜`전문 기술 API: 최신  제작법 %d개  열린 창: %s  CraftRecipe: %s`
+`未開啟`｜`none`｜`없음`
+`第一個配方 %d：%s　產物 %s　材料欄 %d　可做 %s`｜`First recipe %d: %s  output %s  reagent slots %d  can make %s`｜`첫 제작법 %d: %s  결과: %s  재료 칸: %d  제작 가능: %s`
+`專業視窗 API：舊版　配方列 %s 列`｜`Profession API: legacy  %s rows`｜`전문 기술 API: 이전 버전  %s줄`
+`專業視窗 API：沒有`｜`Profession API: none`｜`전문 기술 API: 없음`
+`/sprof 開關視窗　/sprof scale 1.2 調整視窗大小　/sprof dock 開關「跟專業視窗一起開」　/sprof minimap 隱藏小地圖按鈕　/sprof track 採集追蹤提醒　/sprof train 下一階去哪學　/sprof guild 公會誰會做（on/off 分享）　/sprof debug 列出偵測結果　/sprof lang en/zh/auto 介面語言（stress＝版面壓力測試，英文加長 35%）`｜`/sprof toggle window  /sprof scale 1.2 window size  /sprof dock open with the profession window  /sprof minimap hide minimap button  /sprof track tracking reminder  /sprof train where to train next  /sprof guild who can craft (on/off sharing)  /sprof debug detection info  /sprof lang en/zh/auto interface language (stress = layout stress test, English padded 35%)`｜`/sprof 창 켜기/끄기  /sprof scale 1.2 창 크기  /sprof dock 전문 기술 창과 함께 열기  /sprof minimap 미니맵 버튼 숨기기  /sprof track 추적 알림  /sprof train 다음 전문가 찾기  /sprof guild 길드 제작 정보 (공유 켜기/끄기)  /sprof debug 진단  /sprof lang en/zh/auto 인터페이스 언어 (stress = 배치 테스트, 영어 문구 길이 35% 증가)`
+`沒有學採集或副專業`｜`No gathering or secondary professions learned`｜`채집 또는 보조 기술을 배우지 않았습니다`
+`採集追蹤提醒`｜`Tracking reminder`｜`추적 알림`
+`學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕`｜`Shows a reminder button when you know Mining or Herbalism but Find Minerals / Find Herbs is off`｜`채광 또는 약초채집을 배웠지만 광물 찾기나 약초 찾기가 꺼져 있으면 알림 버튼을 표시합니다.`
+`/sprof track 看其他設定`｜`/sprof track for more settings`｜`/sprof track를 참조하세요.`
+`追蹤提醒：開`｜`Tracking reminder: On`｜`추적 알림: 켜기`
+`追蹤提醒：關`｜`Tracking reminder: Off`｜`추적 알림: 끄기`
+`採集路線`｜`Gathering routes`｜`채집 경로`
+`礦`｜`Ore`｜`광석`
+`草`｜`Herb`｜`약초`
+`雙`｜`Both`｜`둘 다`
+`顯示：開`｜`Show: On`｜`표시: 켜기`
+`顯示：關`｜`Show: Off`｜`표시: 끄기`
+`去起點`｜`Go to start`｜`시작점으로 이동`
+`礦 %d–%d　草 %d–%d`｜`Ore %d–%d  Herb %d–%d`｜`광석 %d–%d  약초 %d–%d`
+`建議角色 %s 級`｜`Character level %s`｜`캐릭터 레벨 %s`
+`技能 `｜`Skill `｜`숙련도 `
+`一圈約 `｜`Lap: `｜`한 바퀴: `
+`尋找礦物`｜`Find Minerals`｜`광물 찾기`
+`尋找草藥`｜`Find Herbs`｜`약초 찾기`
+`左鍵開啟　右鍵 10 分鐘內不提醒　Shift 拖曳移動`｜`Left-click: turn on  Right-click: snooze 10 min  Shift-drag: move`｜`왼쪽 클릭: 켜기  오른쪽 클릭: 10분 일시 중지  Shift+드래그: 이동`
+`|cffffd100目前追蹤：%s|r　點這裡改成%s`｜`|cffffd100Tracking: %s|r  Click to switch to %s`｜`|cffffd100추적: %s|r  클릭하면 %s(으)로 전환`
+`|cffffd100還沒開啟%s|r　點這裡開啟`｜`|cffffd100%s is off|r  Click to turn it on`｜`|cffffd100%s 꺼짐|r  클릭하면 켜짐`
+`採集追蹤提醒：10 分鐘內不再提醒（/sprof track off 可以完全關閉）`｜`Tracking reminder snoozed for 10 minutes (/sprof track off turns it off)`｜`추적 알림을 10분 동안 일시 중지했습니다 (/sprof track off: 끄기)`
+`已自動開啟%s（/sprof track auto 可以關掉自動開啟）`｜`Turned on %s automatically (/sprof track auto to disable)`｜`%s 자동 켜짐 (/sprof track auto: 자동 켜기 끄기)`
+`沒辦法自動開啟%s，請點畫面上的提醒按鈕`｜`Couldn't turn on %s automatically; click the reminder button`｜`%s 자동 켜기에 실패했습니다. 알림 버튼을 클릭하세요.`
+`採集追蹤提醒：關`｜`Tracking reminder: Off`｜`추적 알림: 끄기`
+`採集追蹤提醒：開`｜`Tracking reminder: On`｜`추적 알림: 켜기`
+`自動開啟採集追蹤：`｜`Auto-enable tracking: `｜`추적 자동 켜기: `
+`兩種都學時優先追蹤：`｜`Preferred when you know both: `｜`두 전문 기술을 모두 배웠을 때 우선 추적: `
+`提醒按鈕位置已重設`｜`Reminder button position reset`｜`알림 버튼 위치를 초기화했습니다`
+`採集追蹤　提醒：%s　自動開啟：%s%s　優先：%s　目前：%s`｜`Tracking  reminder: %s  auto: %s%s  preferred: %s  now: %s`｜`추적  알림: %s  자동: %s%s  우선: %s  현재: %s`
+`（這次登入失敗過）`｜` (failed this session)`｜` (이번 접속 중 실패)`
+`自動`｜`auto`｜`자동`
+`沒有開`｜`off`｜`꺼짐`
+`/sprof track on|off 開關提醒　/sprof track auto 開關自動開啟　/sprof track mine|herb 兩種都學時優先哪個　/sprof track reset 重設按鈕位置`｜`/sprof track on|off reminder  /sprof track auto auto-enable  /sprof track mine|herb preference  /sprof track reset button position`｜`/sprof track on|off 알림  /sprof track auto 자동 켜기  /sprof track mine|herb 우선 추적  /sprof track reset 버튼 위치`
+`%s 等 %d 人`｜`%s (%d in total)`｜`%s (총 %d)`
+`公會：`｜`Guild: `｜`길드: `
+`公會會做：`｜`Guild crafters: `｜`길드 제작 가능: `
+`剛剛`｜`just now`｜`방금 전`
+`%d 分鐘前`｜`%d min ago`｜`%d분 전`
+`%d 小時前`｜`%d h ago`｜`%d시간 전`
+`%d 天前`｜`%d d ago`｜`%d일 전`
+`分享我的配方給公會：`｜`Share my recipes with the guild: `｜`길드에 내 제작법 공유: `
+`關（仍看得到別人的）`｜`Off (you still see others')`｜`꺼짐 (다른 사람의 제작법은 계속 표시됨)`
+`沒有公會`｜`Not in a guild`｜`길드 없음`
+`沒有 %s 的資料`｜`No data for %s`｜`%s에 대한 데이터가 없습니다.`
+`%s %d（%d 個配方）`｜`%s %d (recipes: %d)`｜`%s %d (레시피: %d)`
+`沒有配方`｜`no recipes`｜`제작법 없음`
+`還沒有公會成員的資料（對方也要裝阿聖專業幫手）`｜`No guild member data yet (they need Sheng Profession too)`｜`길드원 데이터가 없습니다. 다른 길드원도 Sheng Profession을 설치해야 합니다.`
+`　（我的不分享）`｜`  (mine not shared)`｜`  (내 제작법 공유 안 함)`
+`公會 %d 人的配方資料，最近更新：%s`｜`Guild members with data: %d, last update: %s`｜`제작법 데이터가 있는 길드원: %d명, 마지막 업데이트: %s`

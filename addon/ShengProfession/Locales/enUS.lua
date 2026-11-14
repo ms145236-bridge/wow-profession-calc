@@ -303,4 +303,6 @@ NS.locales.enUS = {
   ["全部角色　花費 %s"] = "All characters  Cost %s",
   ["清除其他角色"] = "Clear other characters",
   ["阿聖專業幫手 全部角色"] = "Sheng Profession All characters",
+  ["介面語言"] = "Interface language",
+  ["跟隨客戶端"] = "Follow client",
 }

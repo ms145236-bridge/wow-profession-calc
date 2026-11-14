@@ -989,6 +989,22 @@ local function addResizeGrip(f)
 end
 
 
+-- 設定裡的介面語言：跟隨客戶端，或客戶端字型顯示得出來的語言（NS.canShow）
+local LANG_NAMES = { { "auto" }, { "zh", "繁體中文", "zhTW" }, { "zhCN", "简体中文", "zhCN" }, { "en", "English", "enUS" }, { "deDE", "Deutsch", "deDE" },
+  { "frFR", "Français", "frFR" }, { "esES", "Español (EU)", "esES" }, { "esMX", "Español (AL)", "esMX" }, { "ptBR", "Português (BR)", "ptBR" },
+  { "ruRU", "Русский", "ruRU" }, { "koKR", "한국어", "koKR" } }
+local function langOpts()
+  local cur = db.lang == "en" and "enUS" or db.lang == "zh" and "zhTW" or NS.locales[db.lang] and db.lang or nil
+  local out = {}
+  for _, x in ipairs(LANG_NAMES) do
+    local c = x[3]
+    if not c or (c == "zhTW" and NS.clientZh) or (c ~= "zhTW" and NS.locales[c] and NS.canShow(c)) then
+      out[#out + 1] = { code = x[1], name = x[2] or L["跟隨客戶端"], on = c == cur }
+    end
+  end
+  if not cur then out[1].on = true end
+  return out
+end
 -- 設定面板（標題列齒輪、小地圖按鈕右鍵）：勾選框照目前設定，由上往下排，面板寬照最寬的一列
 local function layoutOpts()
   local o = frame.opts
@@ -998,10 +1014,13 @@ local function layoutOpts()
     c:SetCheck(c.get()); c:ClearAllPoints(); c:SetPoint("TOPLEFT", o, "TOPLEFT", 12, y)
     y = y - 24; w = math.max(w, c:GetWidth())
   end
+  for _, x in ipairs(langOpts()) do if x.on then o.langBtn:SetText(x.name); o.langBtn:SetWidth(math.ceil(UI.measure(o.langBtn.label)) + 24) end end
+  o.langRow:SetWidth(math.ceil(UI.measure(o.langLabel)) + 8 + o.langBtn:GetWidth())
+  o.langRow:ClearAllPoints(); o.langRow:SetPoint("TOPLEFT", o, "TOPLEFT", 12, y - 2)
+  y = y - 30; w = math.max(w, o.langRow:GetWidth())
   o:SetSize(math.max(180, w) + 24, -y + 6)
 end
 
--- 清空佇列：兩段式。第一下按鈕變紅字「再按一次清空」，3 秒內再按才清
 -- 清掉其他角色存的材料清單（要按兩次）
 local function clearOthers()
   if frame.altArm then
@@ -1014,6 +1033,7 @@ local function clearOthers()
   frame.altArm = token
   C_Timer.After(3, function() if frame.altArm == token then frame.altArm = nil; ProfLevel_Refresh() end end)
 end
+-- 清空佇列：兩段式。第一下按鈕變紅字「再按一次清空」，3 秒內再按才清
 local function clearQueue()
   if frame.clearArm then frame.clearArm = nil; wipe(db.queue); return end
   local token = {}
@@ -1490,6 +1510,17 @@ local function buildFrame()
   opt(L["分享我的配方給公會"], function() return NS.guildSharing() end, function(v) NS.guildShare(v) end)
   opt(L["採集追蹤提醒"], function() return NS.trackOn() end, function() NS.trackToggle() end)
   opt(L["自動開啟採集追蹤"], function() return NS.trackAutoOn() end, function() NS.trackAutoToggle() end)
+  -- 介面語言：選了就重新載入（語言在載入時決定）
+  local o = frame.opts
+  o.langRow = CreateFrame("Frame", nil, o); o.langRow:SetHeight(24)
+  o.langLabel = o.langRow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  o.langLabel:SetPoint("LEFT", 0, 0); o.langLabel:SetText(L["介面語言"])
+  o.langBtn = UI.Button(o.langRow, "", function(self)
+    local es = {}
+    for _, x in ipairs(langOpts()) do es[#es + 1] = { x.name, function() if not x.on then db.lang = x.code; ReloadUI() end end, x.on } end
+    UI.Menu(self, es)
+  end)
+  o.langBtn:SetPoint("LEFT", o.langLabel, "RIGHT", 8, 0)
   -- 分頁以外的內容分兩組：main（利潤／佇列／衝級）、gather（採集），切分頁時整組顯示或隱藏
   local main = CreateFrame("Frame", nil, frame); main:SetAllPoints(); frame.main = main
   local gather = CreateFrame("Frame", nil, frame); gather:SetAllPoints(); gather:Hide(); frame.gather = gather

@@ -303,4 +303,6 @@ NS.locales.esMX = {
   ["全部角色　花費 %s"] = "Todos los personajes Costo %s",
   ["清除其他角色"] = "Borrar otros personajes",
   ["阿聖專業幫手 全部角色"] = "Sheng Profession: todos los personajes",
+  ["介面語言"] = "Idioma de la interfaz",
+  ["跟隨客戶端"] = "Igual que el cliente",
 }

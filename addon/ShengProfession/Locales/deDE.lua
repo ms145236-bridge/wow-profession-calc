@@ -303,4 +303,6 @@ NS.locales.deDE = {
   ["全部角色　花費 %s"] = "Alle Charaktere Kosten %s",
   ["清除其他角色"] = "Andere Charaktere leeren",
   ["阿聖專業幫手 全部角色"] = "Sheng Profession: alle Charaktere",
+  ["介面語言"] = "Sprache der Oberfläche",
+  ["跟隨客戶端"] = "Wie Spielclient",
 }
