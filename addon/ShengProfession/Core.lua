@@ -88,11 +88,11 @@ local function money(c)
   c = math.floor((c or 0) + 0.5)
   if c <= 0 then return "0" end
   local g, s, cu = math.floor(c / 10000), math.floor(c % 10000 / 100), c % 100
-  local t = ""
-  if g > 0 then t = t .. "|cffffd100" .. g .. L["金"] .. "|r" end
-  if s > 0 then t = t .. "|cffc7c9cc" .. s .. L["銀"] .. "|r" end
-  if cu > 0 and g < 100 then t = t .. "|cffc9814a" .. cu .. L["銅"] .. "|r" end
-  return t
+  local t = {}
+  if g > 0 then t[#t + 1] = "|cffffd100" .. g .. L["金"] .. "|r" end
+  if s > 0 then t[#t + 1] = "|cffc7c9cc" .. s .. L["銀"] .. "|r" end
+  if cu > 0 and g < 100 then t[#t + 1] = "|cffc9814a" .. cu .. L["銅"] .. "|r" end
+  return table.concat(t, " ") -- 金銀銅之間空一格比較好讀（欄寬會跟著量）
 end
 
 -- ── 遊戲資料 ───────────────────────────────────────────────────────────────

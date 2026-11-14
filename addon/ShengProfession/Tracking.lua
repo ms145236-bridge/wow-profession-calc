@@ -144,7 +144,7 @@ local function place()
   local p = DB().trackPos
   btn:ClearAllPoints()
   if p then btn:SetPoint(p[1], UIParent, p[2], p[3], p[4])
-  elseif Minimap and Minimap:GetLeft() then
+  elseif Minimap and Minimap.GetBottom and Minimap:GetLeft() and Minimap:GetBottom() then
     -- 小地圖左下；用螢幕座標掛在 UIParent（直接掛在小地圖上會讓小地圖變成受保護框架）
     local s = Minimap:GetEffectiveScale() / UIParent:GetEffectiveScale()
     btn:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", Minimap:GetLeft() * s + 2, Minimap:GetBottom() * s + 2)
