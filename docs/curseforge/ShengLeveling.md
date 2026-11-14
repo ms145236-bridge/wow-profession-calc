@@ -19,6 +19,7 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - Quests close to where you are heading are listed underneath so you can do them together.
 - Reads your quest log to work out where you are, so going out of order or to the wrong place realigns on its own. Missed quests are listed.
 - Starting zone is your choice, not tied to race; class quests only for your class.
+- When a quest needs an item from a vendor, a **Buy** step shows who sells it and how many you have.
 
 **Auto accept / turn in**
 - Quests on the route are accepted and turned in automatically. With more than one reward to choose, you pick.
@@ -36,7 +37,7 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - Detours: a nearby quest worth doing gets **Go**; the bar then shows the original step with **Back** to return to the route.
 - Leaving a zone with quests that matter later, missing prerequisites, class training, repair, new flight masters and danger areas. Opening the flight map records every flight point you already know.
 - When quest XP will not reach the next zone's level, worthwhile side quests are added back, then a grinding spot is suggested.
-- Optional quests are marked; they stay off the route unless you enable them or need the XP.
+- Optional quests are marked, including long detours with nothing else nearby; they stay off the route unless you enable them or need the XP.
 - Bag item tooltips warn when a later quest needs the item.
 
 **Dungeons**
@@ -85,6 +86,7 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - 往目的地附近可以一起做的任務列在下面。
 - 照任務日誌判斷你走到哪，跳著做、跑錯地方都會自己對齊；漏掉的任務會列出來。
 - 新手村可以自選，不綁種族；職業任務只顯示你這個職業的。
+- 任務要用的東西需要向商人買時，會有一步**買**，寫跟誰買、背包裡有幾個。
 
 **自動接交任務**
 - 路線上的任務自動接、自動交；有多個獎勵可選時由你自己挑。
@@ -102,7 +104,7 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 - 順路任務：附近值得做的任務有**去**按鈕；去了之後提示列顯示原本的步驟，按**返回**回到路線順序。
 - 離開前還有影響後續的任務、少了前置、該去學技能、修裝、還沒開的飛行點、危險區域。打開飛行地圖時會記下所有已開的鳥點。
 - 任務經驗不夠到下一區時，自動補回值得做的支線，再不夠就建議練怪地點。
-- 可跳過的任務會標出來；預設不排進路線，除非你在設定開啟或經驗不夠。
+- 可跳過的任務會標出來，包括要特地繞路、附近又沒別的任務的；預設不排進路線，除非你在設定開啟或經驗不夠。
 - 背包物品的滑鼠提示會提醒之後的任務要用，別賣。
 
 **副本**
