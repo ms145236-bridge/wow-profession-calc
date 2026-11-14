@@ -256,11 +256,16 @@ local function ago(t)
   if s < 172800 then return string.format(L["%d 小時前"], math.floor(s / 3600)) end
   return string.format(L["%d 天前"], math.floor(s / 86400))
 end
+-- 分享開關（設定面板的勾選框、/sprof guild on|off 共用）：關掉時仍收得到別人的
+function NS.guildSharing() return sharing() end
+function NS.guildShare(on)
+  NS.ensureDB().guildShare = on
+  if on then sentHash = nil; if loggedIn then scheduleHello(1) end else wipe(outq) end
+end
 function NS.guildSlash(arg)
   local sw = arg and arg:lower()
   if sw == "on" or sw == "off" then
-    NS.ensureDB().guildShare = sw == "on"
-    if sw == "on" then sentHash = nil; if loggedIn then scheduleHello(1) end else wipe(outq) end
+    NS.guildShare(sw == "on")
     NS.msg(L["分享我的配方給公會："] .. (sw == "on" and L["開"] or L["關（仍看得到別人的）"]))
     return
   end

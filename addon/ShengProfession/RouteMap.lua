@@ -1,5 +1,5 @@
 -- 專業助手：採集路線
--- 採集分頁的「採集路線」區塊（礦／草／雙、路線清單、顯示開關、去起點），以及在世界地圖畫整圈路線、小地圖畫虛線點。
+-- 採集分頁的「採集路線」區塊（礦／草／雙、路線清單、選中那列的「去」），以及在世界地圖畫整圈路線、小地圖畫虛線點。
 -- 世界地圖：在地圖畫布上用線段畫；小地圖：用 HereBeDragons-Pins（Questie 帶的）放點，沒有就不畫。戰鬥中不重畫，脫戰再補。
 
 local _, NS = ...
@@ -13,12 +13,16 @@ local COLOR = { ore = { .93, .55, .22 }, herb = { .35, .86, .35 }, both = { 1, .
 local KINDS = { { "ore", "礦" }, { "herb", "草" }, { "both", "雙" } } -- 第二欄是中文原文，顯示時查 L
 local STEP_YD, MAX_MINI = 25, 400 -- 小地圖每 25 碼一點，太長的路線放寬間距，最多 400 點
 
-local function DB() return NS.ensureDB() end
-local function selected()
-  local db = DB()
-  if db.routeShow == false then return end
-  return BY_ID[db.route]
+-- 舊版的「顯示：關」＝不畫：換成「沒選路線」（之後也不再自動選推薦路線）
+local function DB()
+  local db = NS.ensureDB()
+  if db.routeShow ~= nil then
+    if db.routeShow == false then db.route, db.routePicked = nil, true end
+    db.routeShow = nil
+  end
+  return db
 end
+local function selected() return BY_ID[DB().route] end -- 選了就畫，取消選取就不畫
 
 -- ── 世界地圖 ───────────────────────────────────────────────────────────────
 local wf, wkey -- 畫布上的框、目前畫好的是哪條路線（加上畫布尺寸）
@@ -153,7 +157,7 @@ local function drawMini()
   end
 end
 
--- 路線、顯示開關改變時呼叫：兩邊一起重畫
+-- 選的路線改變時呼叫：兩邊一起重畫
 function NS.routeRedraw()
   hookWorld()
   wkey = nil
@@ -211,45 +215,55 @@ local function build(g)
   local u = {}
   u.sep = g:CreateTexture(nil, "ARTWORK"); u.sep:SetColorTexture(1, 1, 1, .12); u.sep:SetHeight(1)
   u.title = g:CreateFontString(nil, "OVERLAY", "GameFontNormal"); u.title:SetText(L["採集路線"])
-  u.kinds = {}
+  u.kinds = {} -- 礦／草／雙：子分頁（沒學的種類不顯示）
   for i, k in ipairs(KINDS) do
-    local b = NS.button(g, 16, L[k[2]], function() DB().routeKind = k[1]; ProfLevel_Refresh() end)
-    b:SetHeight(22); b.kind = k[1]
-    if i == 1 then b:SetPoint("LEFT", u.title, "RIGHT", 8, 0) else b:SetPoint("LEFT", u.kinds[i - 1], "RIGHT", 2, 0) end
+    local b = NS.UI.Tab(g, L[k[2]], function() DB().routeKind = k[1]; ProfLevel_Refresh() end, true)
+    b.kind = k[1]
     u.kinds[i] = b
   end
-  u.show = NS.button(g, 60, "", function()
-    local db = DB(); db.routeShow = db.routeShow == false; NS.routeRedraw(); ProfLevel_Refresh()
-  end)
-  u.show:SetHeight(22); u.show:SetPoint("LEFT", u.kinds[#KINDS], "RIGHT", 16, 0)
-  u.go = NS.button(g, 50, L["去起點"], function()
+  -- 「去」：放在選中那列的右端（設航點到路線起點）
+  u.go = NS.button(g, 20, L["去"], function()
     local r = BY_ID[DB().route]
     if r then NS.goTo({ map = r.map, x = r.pts[1][1], y = r.pts[1][2], name = zoneName(r) .. " " .. loc(r, "short") }) end
   end)
-  u.go:SetHeight(22); u.go:SetPoint("LEFT", u.show, "RIGHT", 6, 0)
+  u.go:SetHeight(20); u.go:Hide()
+  u.go:SetScript("OnEnter", function(self) GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["去起點"]); GameTooltip:Show() end)
+  u.go:SetScript("OnLeave", function() GameTooltip:Hide() end)
   u.rows = {}
   g.routeUI = u
   return u
 end
 
--- 從 y（相對採集分頁頂端）往下排，回傳排完後的 y 和這個區塊需要的視窗寬（標題列、區域名＋至少 60 的路線名＋範圍）
+-- 從 y（相對採集分頁頂端）往下排，回傳排完後的 y 和這個區塊需要的視窗寬（標題列、區域名＋至少 60 的路線名＋範圍＋去）
 function NS.routeLayout(g, fw, y, all)
   local u = g.routeUI or build(g)
   local db = DB()
+  -- 只列學了的種類（雙採要兩種都學）；一種都沒學就全部列出來看
+  local avail, any = {}, false
+  for _, k in ipairs(KINDS) do
+    local ok = (k[1] == "ore" and all.mining) or (k[1] == "herb" and all.herbalism) or (k[1] == "both" and all.mining and all.herbalism)
+    avail[k[1]] = ok and true or false
+    any = any or avail[k[1]]
+  end
+  if not any then avail = { ore = true, herb = true, both = true } end
   local kind = db.routeKind
-  if kind ~= "ore" and kind ~= "herb" and kind ~= "both" then
-    kind = (all.mining and all.herbalism and "both") or (all.herbalism and "herb") or "ore"
+  if not avail[kind] then
+    kind = not any and "ore" or (avail.both and "both") or (avail.herb and "herb") or "ore"
   end
   u.sep:ClearAllPoints(); u.sep:SetPoint("TOPLEFT", g, "TOPLEFT", 14, y); u.sep:SetWidth(fw - 28)
   y = y - 8
   u.title:ClearAllPoints(); u.title:SetPoint("TOPLEFT", g, "TOPLEFT", 14, y - 4)
+  local prev, kindsW = nil, 0
   for _, b in ipairs(u.kinds) do
-    local on = b.kind == kind
-    b:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
+    b:SetShown(avail[b.kind]); b:SetOn(b.kind == kind)
+    if avail[b.kind] then
+      b:ClearAllPoints()
+      if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("LEFT", u.title, "RIGHT", 8, 0) end
+      kindsW = kindsW + (prev and 2 or 8) + b:GetWidth()
+      prev = b
+    end
   end
-  NS.setLabel(u.show, db.routeShow == false and L["顯示：關"] or L["顯示：開"], 60)
-  local need = 14 + NS.measure(u.title) + NS.rowEnd({ { u.kinds[1], 8 }, { u.kinds[2], 2 }, { u.kinds[3], 2 }, { u.show, 16 }, { u.go, 6 } }) + 14
-  u.go:SetEnabled(BY_ID[db.route] ~= nil)
+  local need = 14 + NS.measure(u.title) + kindsW + 14
   y = y - 28
   -- 目前技能符合的排前面（第一條是推薦），其他照技能區間
   local fit, rest = {}, {}
@@ -261,6 +275,11 @@ function NS.routeLayout(g, fw, y, all)
   local list = {}
   for _, r in ipairs(fit) do list[#list + 1] = r end
   for _, r in ipairs(rest) do list[#list + 1] = r end
+  -- 第一次打開、還沒選過：自動選推薦那條，地圖直接有線
+  if not db.route and not db.routePicked and fit[1] then
+    db.route, db.routePicked = fit[1].id, true
+    NS.routeRedraw()
+  end
   local rowW, zoneW, rangeW = fw - 28, 0, 0
   for i, r in ipairs(list) do
     local row = u.rows[i]
@@ -270,9 +289,9 @@ function NS.routeLayout(g, fw, y, all)
       local hl = row:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, .08)
       row.zone = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); row.zone:SetPoint("LEFT", 6, 0); row.zone:SetWordWrap(false)
       row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); row.name:SetWordWrap(false); row.name:SetJustifyH("LEFT")
-      row.range = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); row.range:SetPoint("RIGHT", -6, 0); row.range:SetWordWrap(false)
+      row.range = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); row.range:SetWordWrap(false)
       row:SetScript("OnClick", function(self)
-        local d = DB(); d.route = d.route ~= self.r.id and self.r.id or nil
+        local d = DB(); d.route = d.route ~= self.r.id and self.r.id or nil; d.routePicked = true -- 再點一次取消選取（不畫）
         NS.routeRedraw(); ProfLevel_Refresh()
       end)
       row:SetScript("OnEnter", rowTip)
@@ -283,17 +302,23 @@ function NS.routeLayout(g, fw, y, all)
     row.zone:SetText(zoneName(r)); row.range:SetText(rangeText(r))
     zoneW = math.max(zoneW, NS.measure(row.zone)); rangeW = math.max(rangeW, NS.measure(row.range))
   end
-  need = math.ceil(math.max(need, 14 + 6 + zoneW + 12 + 60 + 12 + rangeW + 6 + 14))
+  local goW = u.go:GetWidth() + 8
+  need = math.ceil(math.max(need, 14 + 6 + zoneW + 12 + 60 + 12 + rangeW + goW + 6 + 14))
+  u.go:Hide()
   for i, row in ipairs(u.rows) do
     local r = list[i]
     if r then
+      local on = r.id == db.route
       row:ClearAllPoints(); row:SetPoint("TOPLEFT", g, "TOPLEFT", 14, y); row:SetWidth(rowW); row:Show()
+      -- 選中那列：右端「去」，技能範圍往左讓
+      row.range:ClearAllPoints(); row.range:SetPoint("RIGHT", row, "RIGHT", on and -(goW + 2) or -6, 0)
+      if on then u.go:ClearAllPoints(); u.go:SetPoint("RIGHT", row, "RIGHT", -2, 0); u.go:SetFrameLevel(row:GetFrameLevel() + 2); u.go:Show() end
       row.name:ClearAllPoints(); row.name:SetPoint("LEFT", row, "LEFT", 6 + math.ceil(zoneW) + 12, 0)
-      NS.fitText(row.name, rowW - 12 - math.ceil(zoneW) - 12 - math.ceil(rangeW) - 12, loc(r, "short"))
+      NS.fitText(row.name, rowW - 12 - math.ceil(zoneW) - 12 - math.ceil(rangeW) - 12 - goW, loc(r, "short"))
       local c = (i == 1 and #fit > 0) and { 1, .82, 0 } or (i <= #fit and { 1, 1, 1 }) or { .5, .5, .5 }
       for _, fs in ipairs({ row.zone, row.name, row.range }) do fs:SetTextColor(c[1], c[2], c[3]) end
       local col = COLOR[r.kind]
-      if r.id == db.route then row.sel:SetColorTexture(col[1], col[2], col[3], .22) else row.sel:SetColorTexture(0, 0, 0, 0) end
+      if on then row.sel:SetColorTexture(col[1], col[2], col[3], .22) else row.sel:SetColorTexture(0, 0, 0, 0) end
       y = y - 20
     else
       row:Hide()

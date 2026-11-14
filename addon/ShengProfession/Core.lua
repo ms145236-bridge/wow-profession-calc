@@ -4,6 +4,7 @@
 
 local ADDON, NS = ... -- NS：跟 Guild.lua 共用
 local L, loc = NS.L, NS.loc -- 介面文字（Locale.lua）
+local UI = NS.UI -- 系列共用外觀（ShengUI.lua）
 local D = ProfLevel_Data
 local CALLER = "ProfLevel" -- 呼叫 Auctionator API 用的名稱
 local ICON = "Interface\\AddOns\\ShengProfession\\Media\\Logo"
@@ -27,7 +28,7 @@ local MINING = { key = "mining", name = "採礦", line = 186 }
 PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 200, minimapHide = false, scale = 1.25, decompose = true, useBag = true, useBank = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 225, minimapHide = false, scale = 1.25, decompose = true, useBag = true, useBank = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage(L["|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r "] .. s) end
@@ -657,6 +658,22 @@ local function findRecipe(prof, out)
   for id, rec in pairs(book) do if rec.out == out then return id end end
 end
 
+-- 視窗裡的短暫回饋（不印聊天）：失敗原因用琥珀色寫在總計那行，5 秒後清掉；成功時按鈕文字暫時換成結果，2 秒後換回
+local flash = { label = {} }
+local function flashNote(text)
+  local token = {}
+  flash.note, flash.token = text, token
+  C_Timer.After(5, function() if flash.token == token then flash.note = nil; ProfLevel_Refresh() end end)
+end
+local function flashLabel(key, text)
+  local token = {}
+  flash.label[key] = { text = text, token = token }
+  C_Timer.After(2, function()
+    local f = flash.label[key]
+    if f and f.token == token then flash.label[key] = nil; ProfLevel_Refresh() end
+  end)
+end
+
 -- 把衝級路線（含「準備」）依序加入佇列
 local function queueRoute()
   if not current then return end
@@ -676,7 +693,7 @@ local function queueRoute()
       queueAdd(current.prof.key, id, out, (info(s.k, s.id)), n); added = added + 1
     end
   end
-  msg(string.format(L["已把 %d 個步驟加入製作佇列"], added))
+  if added > 0 then flashLabel("route", L["已加入"]) end
 end
 
 -- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
@@ -711,29 +728,35 @@ local function queueNeeds(learned)
 end
 
 -- 製作下一個：佇列裡第一個「目前開著的專業」的項目，一次做完（材料夠多少做多少）
+-- 失敗原因寫在視窗總計那行（琥珀色、5 秒）；成功不說話（佇列數字自己會變）
 local function craftNext()
   local p = openProf()
-  if not p then msg(L["請先打開專業視窗（例如鍛造），再按「製作下一個」"]); return end
+  if not p then flashNote(L["先打開專業視窗"]); return end
   local T = C_TradeSkillUI
   for _, q in ipairs(db.queue) do
     if q.count > 0 and q.prof == p.key then
       q.id = q.id or findRecipe(p.key, q.out)
-      if not q.id then msg(string.format(L["%s：專業視窗裡找不到這個配方（還沒學？）"], q.name or "?")); return end
+      if not q.id then flashNote(string.format(L["找不到配方：%s"], recipeName(q))); return end
       local rec = db.recipes[p.key] and db.recipes[p.key][q.id]
       local n = math.min(q.count, rec and canMakeNow(rec) or q.count)
       if T and T.GetRecipeInfo then
         local ok, ri = pcall(T.GetRecipeInfo, q.id)
         if ok and type(ri) == "table" and type(ri.numAvailable) == "number" then n = math.min(q.count, ri.numAvailable) end
       end
-      if n <= 0 then msg(string.format(L["%s：材料不夠（只算背包裡的），先把材料準備好"], q.name or "?")); return end
+      if n <= 0 then
+        -- 寫出第一個不夠的材料（只算背包裡的）；不知道材料就寫配方名
+        local short
+        for _, m in ipairs(rec and rec.mats or {}) do if not short and bagCount(m[1]) < m[2] then short = info("i", m[1]) end end
+        flashNote(string.format(L["材料不夠：%s"], short or recipeName(q, rec)))
+        return
+      end
       if T and T.CraftRecipe then T.CraftRecipe(q.id, n)
       elseif DoTradeSkill and rec and rec.index then DoTradeSkill(rec.index, n)
-      else msg(L["這個遊戲版本不支援從插件製作"]); return end
-      msg(string.format(L["開始製作 %s ×%d"], q.name or "?", n))
+      else flashNote(L["這個遊戲版本不支援從插件製作"]) end
       return
     end
   end
-  msg(string.format(L["佇列裡沒有%s要做的東西"], p.name))
+  flashNote(string.format(L["佇列裡沒有%s要做的東西"], p.name))
 end
 
 -- 做完一次就從佇列扣掉
@@ -748,7 +771,10 @@ local function onCrafted(spellID)
 end
 
 -- ── 視窗 ───────────────────────────────────────────────────────────────────
-local W, ROW_H, MAXLINES, TOP, GAP = 600, 24, 20, 170, 16
+local W, ROW_H, MAXLINES, GAP = 600, 24, 20, 16
+-- 排序箭頭用貼圖（所有語系一樣；英文等字型沒有 ▼▲）
+local ARROW_DOWN = "|TInterface\\Buttons\\UI-SortArrow:8:9:0:0:16:16:0:9:0:16|t "
+local ARROW_UP = "|TInterface\\Buttons\\UI-SortArrow:8:9:0:0:16:16:0:9:16:0|t "
 local frame, offset = nil, 0
 local TABS = {
   steps = { { "等級", 80, "RIGHT" }, { "製作", 220, "LEFT", true }, { "次數", 56, "RIGHT" }, { "來源", 140, "LEFT" }, { "回本", 80, "RIGHT" } },
@@ -834,8 +860,7 @@ end
 local function setLabel(b, text, minW) b:SetText(text); fitButton(b, minW) end
 
 local function button(parent, w, label, onClick)
-  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-  b:SetSize(w + 16, 26); b:SetScript("OnClick", onClick)
+  local b = UI.Button(parent, "", onClick)
   setLabel(b, label, w + 16)
   return b
 end
@@ -869,8 +894,8 @@ local function setFrameWidth(w)
   frame.stableW = w; frame:SetWidth(w)
   return w
 end
-local function visibleRows()
-  return math.max(5, math.min(MAXLINES, math.floor((UIParent:GetHeight() / frame:GetScale() - TOP - 44 - 40) / ROW_H)))
+local function visibleRows(top)
+  return math.max(5, math.min(MAXLINES, math.floor((UIParent:GetHeight() / frame:GetScale() - top - 44 - 40) / ROW_H)))
 end
 
 -- 採集分頁列出的技能：採礦、草藥、剝皮、釣魚（烹飪、急救不是採集，下一階提示在專業切換的狀態列）
@@ -962,21 +987,43 @@ local function addResizeGrip(f)
 end
 
 
+-- 設定面板（標題列齒輪、小地圖按鈕右鍵）：勾選框照目前設定，由上往下排，面板寬照最寬的一列
+local function layoutOpts()
+  local o = frame.opts
+  if not o:IsShown() then return end
+  local y, w = -10, 0
+  for _, c in ipairs(o.checks) do
+    c:SetCheck(c.get()); c:ClearAllPoints(); c:SetPoint("TOPLEFT", o, "TOPLEFT", 12, y)
+    y = y - 24; w = math.max(w, c:GetWidth())
+  end
+  o:SetSize(math.max(180, w) + 24, -y + 6)
+end
+
+-- 清空佇列：兩段式。第一下按鈕變紅字「再按一次清空」，3 秒內再按才清
+local function clearQueue()
+  if frame.clearArm then frame.clearArm = nil; wipe(db.queue); return end
+  local token = {}
+  frame.clearArm = token
+  C_Timer.After(3, function() if frame.clearArm == token then frame.clearArm = nil; ProfLevel_Refresh() end end)
+end
+
 local function refreshImpl()
   if not frame or not frame:IsShown() then return end
   priceCache = {}
+  layoutOpts()
   local isLv = db.tab == "steps" or db.tab == "shop"
-  for _, t in ipairs({ { frame.stepsBtn, "steps" }, { frame.shopBtn, "shop" }, { frame.profitBtn, "profit" }, { frame.queueBtn, "queue" }, { frame.levelBtn, "level" }, { frame.gatherBtn, "gather" } }) do
-    local on = db.tab == t[2] or (t[2] == "level" and isLv)
-    t[1]:GetFontString():SetTextColor(on and 1 or .55, on and .82 or .52, on and 0 or .45)
+  for _, t in ipairs({ { frame.profitBtn, "profit" }, { frame.queueBtn, "queue" }, { frame.levelBtn, "level" }, { frame.gatherBtn, "gather" } }) do
+    t[1]:SetOn(db.tab == t[2] or (t[2] == "level" and isLv))
   end
-  -- 分頁列（含右邊的開關）有多寬：視窗至少要這麼寬
-  local tabs = { { frame.profitBtn, 12 }, { frame.queueBtn, 2 }, { frame.levelBtn, 2 }, { frame.gatherBtn, 2 } }
+  frame.stepsBtn:SetOn(db.tab == "steps"); frame.shopBtn:SetOn(db.tab == "shop")
+  -- 分頁列有多寬：視窗至少要這麼寬
+  local tabs = { { frame.profitBtn, 10 }, { frame.queueBtn, 2 }, { frame.levelBtn, 2 }, { frame.gatherBtn, 2 } }
   frame.main:SetShown(db.tab ~= "gather"); frame.gather:SetShown(db.tab == "gather")
+  frame.sb:Hide()
   if db.tab == "gather" then
     -- 採集分頁：每個採集／副專業一行（名稱、點數、下一階、去），下面是採集相關設定
     local g, all = frame.gather, learnedProfs(true)
-    setLabel(g.trackBtn, NS.trackLabel(), 60)
+    g.trackBtn:SetCheck(NS.trackOn())
     local shown, nameW = {}, 0
     for _, p in ipairs(GATHER) do
       local sk = all[p.key]
@@ -1005,8 +1052,8 @@ local function refreshImpl()
         shown[i] = r
       end
     end
-    -- 寬度下限：分頁列、追蹤按鈕、技能名稱＋至少 80 的下一階提示＋去、採集路線（上次排版量到的）；上限是螢幕
-    local fw = math.min(maxContentW() + 28, math.max(W + 28, rowEnd(tabs) + 14, rowEnd({ { g.trackBtn, 12 } }) + 14,
+    -- 寬度下限：分頁列、追蹤提醒、技能名稱＋至少 80 的下一階提示＋去、採集路線（上次排版量到的）；上限是螢幕
+    local fw = math.min(maxContentW() + 28, math.max(W + 28, rowEnd(tabs) + 14, rowEnd({ { g.trackBtn, 14 } }) + 14,
       math.ceil(nameW) + 14 + 80 + 32 + 28, frame.routeNeed or 0))
     fw = setFrameWidth(fw)
     local y = -66
@@ -1023,9 +1070,9 @@ local function refreshImpl()
     if #shown == 0 then g.empty:ClearAllPoints(); g.empty:SetPoint("TOPLEFT", 14, y - 4); y = y - 26 end
     g.sep:ClearAllPoints(); g.sep:SetPoint("TOPLEFT", 14, y - 6); g.sep:SetWidth(fw - 28)
     y = y - 14
-    g.trackBtn:ClearAllPoints(); g.trackBtn:SetPoint("TOPLEFT", 12, y)
+    g.trackBtn:ClearAllPoints(); g.trackBtn:SetPoint("TOPLEFT", 14, y - 2)
     local ry, need = nil, nil
-    if NS.routeLayout then ry, need = NS.quiet("採集路線", NS.routeLayout, g, fw, y - 34, all) end -- 採集路線（RouteMap.lua）
+    if NS.routeLayout then ry, need = NS.quiet("採集路線", NS.routeLayout, g, fw, y - 30, all) end -- 採集路線（RouteMap.lua）
     -- 路線標題列、區域名＋範圍比現在的視窗寬：記下來，馬上用新寬度重排一次（第二次一定放得下，不會一直重排）
     local grow = need and need > fw and need ~= frame.routeNeed
     frame.routeNeed = need
@@ -1061,13 +1108,13 @@ local function refreshImpl()
   local pbTotal, stepVal = payback(route, r)
   local qr
   if db.tab == "queue" then qr = queueNeeds(learned); current.r = qr; current.queue = true end
-  -- 價格來源那行（status）：說明文字，放不下用短版＋提示框；總計那行（total）只放數字結論，寬度算進視窗下限；
+  -- 價格來源那行（status）：有 Auctionator 時不顯示（「從 N 條路線選出最省的」放進總計那行的滑鼠提示），沒有才出琥珀警告；
+  -- 總計那行（total）只放數字結論，寬度算進視窗下限；利潤頁沒有總計那行
   -- 警告（沒有 Auctionator、沒有價格、不知道材料）不跟數字搶位置：放進總計後面的黃色標記，滑鼠移上去看
   local api = auctionator()
-  local statusFull = api and string.format(L["價格：Auctionator　從 %d 條路線選出最省的"], nVar)
-    or ("|cffff9d5c" .. L["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] .. "|r")
-  local statusShort = api and L["價格：Auctionator"] or ("|cffff9d5c" .. L["沒有 Auctionator"] .. "|r")
-  local warns = {}
+  local statusFull = not api and ("|cffff9d5c" .. L["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] .. "|r") or nil
+  local statusShort = not api and ("|cffff9d5c" .. L["沒有 Auctionator"] .. "|r") or nil
+  local warns, totalTip = {}, {}
   if not api then warns[1] = L["沒有偵測到 Auctionator，只有商人物品有價格（使用預設路線）"] end
   local totalFull, totalShort, emptyTxt
   if db.tab == "queue" then
@@ -1078,36 +1125,48 @@ local function refreshImpl()
     if qr.unknown > 0 then warns[#warns + 1] = string.format(L["%d 項還不知道材料（打開那個專業視窗一次）"], qr.unknown) end
     emptyTxt = L["佇列是空的：從「利潤」或「衝級」加入"]
   elseif db.tab == "profit" then
-    local book, nr = db.recipes[p.key], 0
-    if book then for _ in pairs(book) do nr = nr + 1 end end
-    totalFull = string.format(L["%s 已記下 %d 個配方"], p.name, nr) -- 怎麼加入佇列寫在列的滑鼠提示
-    emptyTxt = string.format(L["打開%s的專業視窗一次，插件就會記下你學會的配方"], p.name)
+    emptyTxt = string.format(L["打開%s的專業視窗一次，插件就會記下你學會的配方"], p.name) -- 怎麼加入佇列：列滑過時佇列欄出現「+」
   else
     totalShort = string.format(L["%s %d–%d　花費 %s"], p.name, S, T, money(r.total))
     -- 回本超過花費時改顯示淨賺（原本會顯示淨花費 0）
     totalFull = totalShort .. (pbTotal > 0.5 and (pbTotal > r.total
       and string.format(L["　|cff9fd18b回本 %s|r　|cff9fd18b淨賺 %s|r"], money(pbTotal), money(pbTotal - r.total))
       or string.format(L["　|cff9fd18b回本 %s|r　淨花費 %s"], money(pbTotal), money(r.total - pbTotal))) or "")
-    if r.saved and r.saved > 0.5 then statusFull = statusFull .. L["　"] .. "|cff9fd18b" .. string.format(L["自製中間材料省 %s"], money(r.saved)) .. "|r" end
+    if api then totalTip[#totalTip + 1] = string.format(L["價格：Auctionator　從 %d 條路線選出最省的"], nVar) end
+    if r.saved and r.saved > 0.5 then totalTip[#totalTip + 1] = "|cff9fd18b" .. string.format(L["自製中間材料省 %s"], money(r.saved)) .. "|r" end
     if r.missing > 0 then warns[#warns + 1] = string.format(L["%d 項沒有價格"], r.missing) end
     emptyTxt = L["這個範圍不需要製作任何東西"]
   end
-  frame.warn.lines = warns; frame.warn:SetShown(#warns > 0)
-  setLabel(frame.decBtn, db.decompose and L["拆中間材料：開"] or L["拆中間材料：關"], 120)
-  setLabel(frame.bagBtn, db.useBag and L["扣背包：開"] or L["扣背包：關"], 90)
-  setLabel(frame.bankBtn, db.useBank and L["扣銀行：開"] or L["扣銀行：關"], 90)
+  frame.warn.lines = warns; frame.warn:SetShown(#warns > 0 and totalFull ~= nil)
+  -- 第三列：左邊衝級的子分頁（步驟／材料），右邊開關（勾選框，靠右對齊）
+  frame.decBtn:SetCheck(db.decompose); frame.bagBtn:SetCheck(db.useBag); frame.bankBtn:SetCheck(db.useBank)
   frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
-  frame.decBtn:ClearAllPoints()
-  frame.decBtn:SetPoint("LEFT", isLv and frame.shopBtn or frame.gatherBtn, "RIGHT", isLv and 10 or 16, 0)
-  for _, t in ipairs({ { frame.stepsBtn, 16 }, { frame.shopBtn, 2 }, { frame.decBtn, isLv and 10 or 16 }, { frame.bagBtn, 6 }, { frame.bankBtn, 2 } }) do tabs[#tabs + 1] = t end
+  local prevR
+  for _, c in ipairs({ frame.bankBtn, frame.bagBtn, frame.decBtn }) do
+    if c:IsShown() then
+      c:ClearAllPoints()
+      if prevR then c:SetPoint("RIGHT", prevR, "LEFT", -14, 0) else c:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, -89) end
+      prevR = c
+    end
+  end
+  local row3 = { { frame.stepsBtn, 8 }, { frame.shopBtn, 2 }, { frame.decBtn, 24 }, { frame.bagBtn, 14 }, { frame.bankBtn, 14 } }
   frame.atrBtn:SetShown(api ~= nil and api.CreateShoppingList ~= nil)
+  -- 由上往下：升階提示／價格警告那行（有才佔位）、總計那行（利潤頁沒有）、表頭、表格
+  local tr, low, R, short = rankText(p.key, sk)
+  if tr and sk.cur < math.min(sk.max - 10, R.skill) then tr = nil end
+  local lineY, y = -116, -116
+  if tr or statusFull then y = y - 22 end
+  frame.total:SetShown(totalFull ~= nil)
+  if totalFull then frame.total:ClearAllPoints(); frame.total:SetPoint("TOPLEFT", 14, y - 2); y = y - 28 end
+  local top = -y + 26
+  frame.head:ClearAllPoints(); frame.head:SetPoint("TOPLEFT", 14, y)
   -- 內容
   local cols = TABS[db.tab]
   for c = 1, NCOL do
     local col = cols[c]
     local lbl = col and L[col[1]] or ""
-    if col and col[5] and col[5] == db.psort then lbl = (db.pdesc ~= false and L["▼"] or L["▲"]) .. lbl end
+    if col and col[5] and col[5] == db.psort then lbl = (db.pdesc ~= false and ARROW_DOWN or ARROW_UP) .. lbl end
     frame.headFs[c]:SetText(lbl)
     if col and col[5] and col[5] == db.psort then frame.headFs[c]:SetTextColor(1, .82, 0) else frame.headFs[c]:SetTextColor(.6, .57, .5) end
   end
@@ -1144,7 +1203,7 @@ local function refreshImpl()
     for _, it in ipairs(current.r.list) do table.insert(rows, { item = it }) end
   end
   -- 表格最多幾列照螢幕高度（20 列 × 1.25 倍在 768 高的介面會超出），多的用滾輪捲動
-  local vis = visibleRows()
+  local vis = visibleRows(top)
   local maxOff = math.max(0, #rows - vis)
   if offset > maxOff then offset = maxOff end
   local shown = 0
@@ -1214,71 +1273,104 @@ local function refreshImpl()
       l:Hide()
     end
   end
-  -- 視窗寬：表格、每一排橫向串接的元件（分頁列、第二列）、總計那行（數字不截，最多撐到螢幕寬）取最大
+  -- 視窗寬：表格（佇列頁每列右端多一個「×」）、每一排橫向串接的元件（分頁列、第二、三列）、總計那行（數字不截，最多撐到螢幕寬）取最大
   local row2 = { { frame.prevBtn, 12 }, { frame.profBtn, 2 }, { frame.nextBtn, 2 }, { frame.fromLbl, 12, measure(frame.fromLbl) }, { frame.fromBox, 8 },
     { frame.toLbl, 8, measure(frame.toLbl) }, { frame.toBox, 8 }, { frame.nowBtn, 6 } }
   local warnW = frame.warn:IsShown() and frame.warn:GetWidth() + 6 or 0
-  frame.total:SetText(totalFull)
+  frame.total:SetText(totalFull or "")
   local cap = maxContentW()
-  local fw = math.max(autoFit(cols) + 28, rowEnd(tabs) + 14, rowEnd(row2) + 14, math.min(math.ceil(measure(frame.total)) + warnW, cap) + 28)
+  local fw = math.max(autoFit(cols) + (db.tab == "queue" and 22 or 0) + 28, rowEnd(tabs) + 14, rowEnd(row2) + 14, rowEnd(row3) + 14,
+    totalFull and (math.min(math.ceil(measure(frame.total)) + warnW, cap) + 28) or 0)
   fw = setFrameWidth(fw)
   local avail = fw - 28
   frame.head:SetWidth(avail)
-  for i = 1, MAXLINES do frame.lines[i]:SetWidth(avail) end
-  fitTextTip(frame.total, avail - warnW, totalFull, totalShort)
-  frame.total:SetWidth(math.min(avail - warnW, math.ceil(measure(frame.total)) + 2)) -- 警告標記緊接在數字後面
+  for i = 1, MAXLINES do
+    local l = frame.lines[i]
+    l:SetWidth(avail); l:ClearAllPoints(); l:SetPoint("TOPLEFT", 14, -top - (i - 1) * ROW_H)
+    l.del:SetShown(l.used and l.e.queue ~= nil)
+  end
+  local usedW = 0
+  if totalFull then
+    -- 總計那行的滑鼠提示：被截斷時的全文、價格來源（從幾條路線選出最省的）、自製中間材料省多少
+    local cut = fitText(frame.total, avail - warnW, totalFull, totalShort)
+    if cut then table.insert(totalTip, 1, totalFull) end
+    frame.total:SetWidth(math.min(avail - warnW, math.ceil(measure(frame.total)) + 2)) -- 警告標記緊接在數字後面
+    frame.total.tip.full = table.concat(totalTip, "\n"); frame.total.tip:SetShown(#totalTip > 0)
+    usedW = frame.total:GetWidth() + warnW
+  else
+    frame.total.tip:Hide()
+  end
   -- 空的時候：說明放在表格的位置（可換行，不會因為按鈕太寬就看不到）
   local emptyH = 0
   frame.empty:SetShown(#rows == 0)
   if #rows == 0 then
+    frame.empty:ClearAllPoints(); frame.empty:SetPoint("TOPLEFT", 14, -(top + 6))
     frame.empty:SetWidth(avail); frame.empty:SetText(emptyTxt)
     local h = frame.empty:GetStringHeight()
     emptyH = math.ceil(type(h) == "number" and h > 0 and h or 14) + 12
   end
-  -- 底部動作按鈕（依分頁）
-  local y = -(TOP + shown * ROW_H + emptyH + 8)
-  frame.atrBtn:ClearAllPoints(); frame.atrBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, y)
+  UI.scroll(frame.sb, frame.head, 7, -26, shown * ROW_H, offset, #rows, vis) -- 多的列用滾輪捲動：右緣捲動條
+  -- 底部動作按鈕（依分頁）；成功時文字暫時換成結果
+  local by = -(top + shown * ROW_H + emptyH + 8)
+  local fl = flash.label
+  setLabel(frame.atrBtn, fl.list and fl.list.text or L["建立 Auctionator 購物清單"], 0)
+  frame.atrBtn:ClearAllPoints(); frame.atrBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, by)
   frame.act1:Hide(); frame.act2:Hide()
+  UI.look(frame.act2, nil)
   if db.tab == "steps" then
-    setLabel(frame.act1, L["全部加入製作佇列"], 140); frame.act1.fn = queueRoute; frame.act1:Show()
+    setLabel(frame.act1, fl.route and fl.route.text or L["全部加入製作佇列"], 140); frame.act1.fn = queueRoute; frame.act1:Show()
   elseif db.tab == "queue" then
     setLabel(frame.act1, L["製作下一個"], 120); frame.act1.fn = craftNext; frame.act1:Show()
-    setLabel(frame.act2, L["清空佇列"], 90); frame.act2.fn = function() wipe(db.queue) end; frame.act2:Show()
+    setLabel(frame.act2, frame.clearArm and L["再按一次清空"] or L["清空佇列"], 90); frame.act2.fn = clearQueue; frame.act2:Show()
+    if frame.clearArm then UI.look(frame.act2, "danger") end
   end
-  frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, y)
+  frame.act1:ClearAllPoints(); frame.act1:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, by)
   frame.act2:ClearAllPoints(); frame.act2:SetPoint("RIGHT", frame.act1, "LEFT", -6, 0)
-  -- 底部「共 N 列」：夾在左右按鈕中間，放不下用短版，再不行截斷＋提示框（不會整句消失）
   local hasAct = frame.act1:IsShown() or frame.atrBtn:IsShown()
-  frame.foot:ClearAllPoints()
-  if #rows > vis then
-    local left = frame.atrBtn:IsShown() and frame.atrBtn:GetWidth() + 10 + 12 or 14
-    frame.foot:SetPoint("LEFT", frame, "TOPLEFT", left, y - 13)
-    local footW = fw - left - rowEnd({ { frame.act1, 14 }, { frame.act2, 6 } }) - 8
-    frame.foot:SetWidth(math.max(1, footW))
-    fitTextTip(frame.foot, footW, string.format(L["共 %d 列，用滾輪捲動"], #rows), string.format(L["共 %d 列"], #rows))
+  frame:SetHeight(top + shown * ROW_H + emptyH + (hasAct and 40 or 14))
+  -- 失敗原因（琥珀色，5 秒）：寫在總計那行的數字後面；沒有總計那行（利潤頁）就寫在底部按鈕之間
+  frame.note:ClearAllPoints()
+  if flash.note then
+    local noteW
+    if totalFull then
+      frame.note:SetPoint("LEFT", frame.warn:IsShown() and frame.warn or frame.total, "RIGHT", 10, 0)
+      noteW = avail - usedW - 10
+    else
+      local left = frame.atrBtn:IsShown() and frame.atrBtn:GetWidth() + 10 or 0
+      frame.note:SetPoint("LEFT", frame, "TOPLEFT", 14 + left, by - 11)
+      noteW = avail - left - rowEnd({ { frame.act1, 0 }, { frame.act2, 6 } }) - 10
+    end
+    frame.note:SetWidth(math.max(1, noteW))
+    fitTextTip(frame.note, math.max(1, noteW), flash.note)
   else
-    frame.foot:SetText(""); frame.foot:Hide(); frame.foot.tip:Hide()
+    frame.note:Hide(); frame.note.tip:Hide()
   end
-  frame:SetHeight(TOP + shown * ROW_H + emptyH + ((hasAct or frame.foot:IsShown()) and 44 or 18))
   -- 升階提示（點數到上限前 10 點或已夠升階時才出現）：放不下先拿掉括號條件，再截斷（滑鼠移上去看全文和訓練師位置）；
-  -- 價格來源接在後面，至少留 60 寬，放不下用短版＋提示框
-  local tr, low, R, short = rankText(p.key, sk)
-  if tr and sk.cur < math.min(sk.max - 10, R.skill) then tr = nil end
+  -- 沒有 Auctionator 的警告接在後面，至少留 60 寬，放不下用短版＋提示框
   frame.status:ClearAllPoints()
   if tr then
     frame.goBtn.R, frame.goBtn.full, frame.trainHit.full = R, tr, tr
     frame.goBtn:SetShown(R.at[1].map ~= nil)
     local goW = frame.goBtn:IsShown() and frame.goBtn:GetWidth() + 6 or 0
-    fitText(frame.train, avail - goW - 70, tr, short); frame.trainHit:Show()
+    frame.train:ClearAllPoints(); frame.train:SetPoint("TOPLEFT", 14, lineY)
+    fitText(frame.train, avail - goW - (statusFull and 70 or 0), tr, short); frame.trainHit:Show()
     if low then frame.train:SetTextColor(.5, .5, .5) else frame.train:SetTextColor(1, .82, 0) end
-    local rest = avail - math.ceil(measure(frame.train)) - goW - 10
-    frame.status:SetPoint("LEFT", frame.goBtn:IsShown() and frame.goBtn or frame.train, "RIGHT", 10, 0)
-    frame.status:SetWidth(rest)
-    fitTextTip(frame.status, rest, statusFull, statusShort)
+    if statusFull then
+      local rest = avail - math.ceil(measure(frame.train)) - goW - 10
+      frame.status:SetPoint("LEFT", frame.goBtn:IsShown() and frame.goBtn or frame.train, "RIGHT", 10, 0)
+      frame.status:SetWidth(rest)
+      fitTextTip(frame.status, rest, statusFull, statusShort)
+    else
+      frame.status:Hide(); frame.status.tip:Hide()
+    end
   else
     frame.train:Hide(); frame.trainHit:Hide(); frame.goBtn:Hide(); frame.goBtn.R = nil
-    frame.status:SetPoint("TOPLEFT", 14, -96); frame.status:SetWidth(avail)
-    fitTextTip(frame.status, avail, statusFull, statusShort)
+    if statusFull then
+      frame.status:SetPoint("TOPLEFT", 14, lineY); frame.status:SetWidth(avail)
+      fitTextTip(frame.status, avail, statusFull, statusShort)
+    else
+      frame.status:Hide(); frame.status.tip:Hide()
+    end
   end
 end
 
@@ -1300,18 +1392,18 @@ local function createShoppingList()
       table.insert(terms, ok and s or ('"' .. name .. '"'))
     end
   end
-  if #terms == 0 then msg(L["沒有要在拍賣行買的東西"]); return end
+  if #terms == 0 then flashNote(L["沒有要在拍賣行買的東西"]); return end
   local listName = current.queue and L["阿聖專業幫手 製作佇列"] or string.format(L["阿聖專業幫手 %s %d-%d"], current.prof.name, current.S, current.T)
-  if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then
-    msg(string.format(L["已建立 Auctionator 購物清單「%s」，共 %d 項（%s，商人物品不列入）"], listName, #terms, haveText()))
-  end
+  if safe("建立購物清單", api.CreateShoppingList, CALLER, listName, terms) then flashLabel("list", L["已建立"]) end -- 成功：按鈕短暫寫「已建立」
 end
 
 
 
 local function numBox(parent, onSet)
-  local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-  e:SetSize(46, 24); e:SetAutoFocus(false); e:SetNumeric(true); e:SetMaxLetters(3)
+  local e = CreateFrame("EditBox", nil, parent)
+  UI.box(e, UI.C.EDGE2, { .02, .022, .028, .9 })
+  e:SetFontObject(GameFontHighlight); e:SetJustifyH("CENTER"); e:SetTextInsets(2, 2, 0, 0)
+  e:SetSize(46, 22); e:SetAutoFocus(false); e:SetNumeric(true); e:SetMaxLetters(3)
   local function commit(self) onSet(tonumber(self:GetText())); self:ClearFocus(); ProfLevel_Refresh() end
   e:SetScript("OnEnterPressed", commit)
   e:SetScript("OnEditFocusLost", function(self) onSet(tonumber(self:GetText())); ProfLevel_Refresh() end)
@@ -1319,42 +1411,53 @@ local function numBox(parent, onSet)
   return e
 end
 
+local mmBtn -- 小地圖按鈕（建立在下面，設定面板要開關它）
 local function buildFrame()
-  frame = CreateFrame("Frame", "ProfLevelFrame", UIParent, "BasicFrameTemplateWithInset")
+  frame = CreateFrame("Frame", "ProfLevelFrame", UIParent)
   frame:SetSize(W + 28, 300); frame:SetPoint("CENTER"); frame:SetScale(db.scale or 1); placeTopLeft()
   frame:SetClampedToScreen(true) -- 撐寬或貼在專業視窗右邊時不跑出螢幕
+  -- 系列外框：標題列、齒輪（設定面板）、關閉（直接隱藏，戰鬥中也關得掉）；層級 HIGH、點到就移到最上面
+  UI.Window(frame, L["阿聖專業幫手"], ICON, function() frame.opts:SetShown(not frame.opts:IsShown()); ProfLevel_Refresh() end, L["設定"])
   addResizeGrip(frame)
-  -- 右上角的關閉鈕：範本預設走 HideUIPanel，戰鬥中可能被擋而關不掉；改成直接隱藏（一般視窗隨時都能關）
-  local close = frame.CloseButton or _G[frame:GetName() .. "CloseButton"]
-  if close then close:SetScript("OnClick", function() frame:Hide() end) end
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", function() frame:StopMovingOrSizing(); saveTopLeft() end)
-  frame:SetFrameStrata("DIALOG")
   tinsert(UISpecialFrames, "ProfLevelFrame")
-  if not frame.TitleText then
-    frame.TitleText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    frame.TitleText:SetPoint("TOP", 0, -5)
+  -- 設定面板：原本只有指令能改的開關
+  frame.opts = UI.Panel(frame)
+  frame.opts.checks = {}
+  local function opt(label, get, set)
+    local c = UI.Check(frame.opts, label, function() set(not get()); ProfLevel_Refresh() end)
+    c.get = get
+    frame.opts.checks[#frame.opts.checks + 1] = c
+    return c
   end
-  frame.TitleText:SetText(L["阿聖專業幫手"])
-  local logo = frame:CreateTexture(nil, "OVERLAY"); logo:SetTexture(ICON); logo:SetSize(18, 18); logo:SetPoint("TOPLEFT", 6, -3)
+  opt(L["打開專業視窗時自動顯示"], function() return db.dock end, function(v) db.dock = v end)
+  opt(L["顯示小地圖按鈕"], function() return not db.minimapHide end, function(v) db.minimapHide = not v; if mmBtn then mmBtn:SetShown(v) end end)
+  opt(L["分享我的配方給公會"], function() return NS.guildSharing() end, function(v) NS.guildShare(v) end)
+  opt(L["採集追蹤提醒"], function() return NS.trackOn() end, function() NS.trackToggle() end)
+  opt(L["自動開啟採集追蹤"], function() return NS.trackAutoOn() end, function() NS.trackAutoToggle() end)
   -- 分頁以外的內容分兩組：main（利潤／佇列／衝級）、gather（採集），切分頁時整組顯示或隱藏
   local main = CreateFrame("Frame", nil, frame); main:SetAllPoints(); frame.main = main
   local gather = CreateFrame("Frame", nil, frame); gather:SetAllPoints(); gather:Hide(); frame.gather = gather
-  -- 第一列：分頁（右邊接衝級子分頁和開關）
-  frame.profitBtn = button(frame, 50, L["利潤"], function() db.tab = "profit"; offset = 0; ProfLevel_Refresh() end)
-  frame.queueBtn = button(frame, 50, L["佇列"], function() db.tab = "queue"; offset = 0; ProfLevel_Refresh() end)
-  frame.levelBtn = button(frame, 50, L["衝級"], function() db.tab = db.lvTab or "steps"; offset = 0; ProfLevel_Refresh() end)
-  frame.gatherBtn = button(frame, 50, L["採集"], function() db.tab = "gather"; offset = 0; ProfLevel_Refresh() end)
-  frame.profitBtn:SetPoint("TOPLEFT", 12, -30)
+  -- 第一列：底線分頁
+  frame.profitBtn = UI.Tab(frame, L["利潤"], function() db.tab = "profit"; offset = 0; ProfLevel_Refresh() end)
+  frame.queueBtn = UI.Tab(frame, L["佇列"], function() db.tab = "queue"; offset = 0; ProfLevel_Refresh() end)
+  frame.levelBtn = UI.Tab(frame, L["衝級"], function() db.tab = db.lvTab or "steps"; offset = 0; ProfLevel_Refresh() end)
+  frame.gatherBtn = UI.Tab(frame, L["採集"], function() db.tab = "gather"; offset = 0; ProfLevel_Refresh() end)
+  frame.profitBtn:SetPoint("TOPLEFT", 10, -28)
   frame.queueBtn:SetPoint("LEFT", frame.profitBtn, "RIGHT", 2, 0)
   frame.levelBtn:SetPoint("LEFT", frame.queueBtn, "RIGHT", 2, 0)
   frame.gatherBtn:SetPoint("LEFT", frame.levelBtn, "RIGHT", 2, 0)
-  -- 採集分頁：技能列在 refresh 時建立；下面是語音、追蹤提醒（之後的「採集路線」接在這組下面）
+  local tabLine = frame:CreateTexture(nil, "ARTWORK")
+  tabLine:SetColorTexture(UI.C.EDGE2[1], UI.C.EDGE2[2], UI.C.EDGE2[3], 1); tabLine:SetHeight(1)
+  tabLine:SetPoint("TOPLEFT", 12, -54); tabLine:SetPoint("TOPRIGHT", -12, -54)
+  frame.sb = UI.Scrollbar(main) -- 表格多的列用滾輪捲動：右緣捲動條
+  -- 採集分頁：技能列在 refresh 時建立；下面是追蹤提醒（之後的「採集路線」接在這組下面）
   gather.rows = {}
   gather.empty = gather:CreateFontString(nil, "OVERLAY", "GameFontDisable"); gather.empty:SetText(L["沒有學採集或副專業"])
   gather.sep = gather:CreateTexture(nil, "ARTWORK"); gather.sep:SetColorTexture(1, 1, 1, .12); gather.sep:SetHeight(1)
-  gather.trackBtn = button(gather, 60, "", function() NS.trackToggle(); ProfLevel_Refresh() end)
+  gather.trackBtn = UI.Check(gather, L["採集追蹤提醒"], function() NS.trackToggle(); ProfLevel_Refresh() end)
   gather.trackBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["採集追蹤提醒"])
     GameTooltip:AddLine(L["學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕"], 1, 1, 1, true)
@@ -1362,11 +1465,11 @@ local function buildFrame()
   end)
   gather.trackBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第二列：專業切換、起點、目標
-  frame.prevBtn = button(main, 24, "<", function() end)
-  frame.prevBtn:SetPoint("TOPLEFT", 12, -62)
+  frame.prevBtn = button(main, 8, "<", function() end)
+  frame.prevBtn:SetPoint("TOPLEFT", 12, -60)
   frame.profBtn = button(main, 130, "", function() end)
   frame.profBtn:SetPoint("LEFT", frame.prevBtn, "RIGHT", 2, 0)
-  frame.nextBtn = button(main, 24, ">", function() end)
+  frame.nextBtn = button(main, 8, ">", function() end)
   frame.nextBtn:SetPoint("LEFT", frame.profBtn, "RIGHT", 2, 0)
   local function cycle(d)
     local list = profList(learnedProfs())
@@ -1391,13 +1494,29 @@ local function buildFrame()
     GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["起點改回目前的專業點數"]); GameTooltip:Show()
   end)
   frame.nowBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  -- 第三、四列：價格來源、總花費
+  -- 第三列：衝級的子分頁（步驟／材料）、右邊開關（勾選框）
+  frame.stepsBtn = UI.Tab(main, L["步驟"], function() db.tab = "steps"; db.lvTab = "steps"; offset = 0; ProfLevel_Refresh() end, true)
+  frame.shopBtn = UI.Tab(main, L["材料"], function() db.tab = "shop"; db.lvTab = "shop"; offset = 0; ProfLevel_Refresh() end, true)
+  frame.stepsBtn:SetPoint("TOPLEFT", 8, -88)
+  frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
+  frame.decBtn = UI.Check(main, L["拆中間材料"], function() db.decompose = not db.decompose; ProfLevel_Refresh() end)
+  frame.decBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["拆中間材料"])
+    GameTooltip:AddLine(L["開：每個中間材料都比較「直接買」和「買原料自己做」，便宜的那個才列進清單。只拆你學過、點數也夠的配方（冶煉要有採礦）。"], 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  frame.decBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- 佇列：材料要不要扣掉背包、銀行已有的（衝級路線也照這個設定）
+  frame.bagBtn = UI.Check(main, L["扣背包"], function() db.useBag = not db.useBag; ProfLevel_Refresh() end)
+  frame.bankBtn = UI.Check(main, L["扣銀行"], function() db.useBank = not db.useBank; ProfLevel_Refresh() end)
+  -- 第四列起（位置在重整時依內容往下排）：升階提示／價格警告、總計、表頭、表格
   frame.status = main:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-  frame.status:SetPoint("TOPLEFT", 14, -96); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
+  frame.status:SetPoint("TOPLEFT", 14, -116); frame.status:SetJustifyH("LEFT"); frame.status:SetWordWrap(false)
   tipArea(frame.status, main)
-  -- 升階提示：快到上限時佔掉價格來源那行的開頭，「去」設航點；放不下時縮短，滑鼠移上去看完整文字
+  -- 升階提示：快到上限時佔掉價格警告那行的開頭，「去」設航點；放不下時縮短，滑鼠移上去看完整文字
   frame.train = main:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  frame.train:SetPoint("TOPLEFT", 14, -96); frame.train:SetJustifyH("LEFT"); frame.train:SetWordWrap(false); frame.train:Hide()
+  frame.train:SetPoint("TOPLEFT", 14, -116); frame.train:SetJustifyH("LEFT"); frame.train:SetWordWrap(false); frame.train:Hide()
   frame.trainHit = CreateFrame("Frame", nil, main); frame.trainHit:SetAllPoints(frame.train); frame.trainHit:EnableMouse(true); frame.trainHit:Hide()
   frame.trainHit:SetScript("OnEnter", function(self) rankTip(self, self.full, frame.goBtn.R) end)
   frame.trainHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1406,7 +1525,7 @@ local function buildFrame()
   frame.goBtn:SetScript("OnEnter", function(self) rankTip(self, self.full, self.R) end)
   frame.goBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.total = main:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  frame.total:SetPoint("TOPLEFT", 14, -116); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
+  frame.total:SetPoint("TOPLEFT", 14, -140); frame.total:SetJustifyH("LEFT"); frame.total:SetWordWrap(false)
   tipArea(frame.total, main)
   -- 警告標記：接在總計後面，滑鼠移上去看沒有價格、不知道材料等提醒
   frame.warn = CreateFrame("Frame", nil, main); frame.warn:SetSize(18, 18); frame.warn:EnableMouse(true); frame.warn:Hide()
@@ -1418,16 +1537,17 @@ local function buildFrame()
     GameTooltip:Show()
   end)
   frame.warn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  -- 「製作下一個」、購物清單失敗的原因（琥珀色，5 秒後清掉）
+  frame.note = UI.text(main, 13, UI.C.AMBER); frame.note:Hide()
+  tipArea(frame.note, main)
   -- 表格是空的時候的說明（佔表格第一列的位置，可換行）
   frame.empty = main:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-  frame.empty:SetPoint("TOPLEFT", 14, -(TOP + 6)); frame.empty:SetJustifyH("LEFT"); frame.empty:SetWordWrap(true); frame.empty:Hide()
-  -- 衝級子分頁與購物清單按鈕
-  frame.stepsBtn = button(main, 50, L["步驟"], function() db.tab = "steps"; db.lvTab = "steps"; offset = 0; ProfLevel_Refresh() end)
-  frame.shopBtn = button(main, 50, L["材料"], function() db.tab = "shop"; db.lvTab = "shop"; offset = 0; ProfLevel_Refresh() end)
+  frame.empty:SetJustifyH("LEFT"); frame.empty:SetWordWrap(true); frame.empty:Hide()
+  -- 底部動作按鈕、購物清單按鈕
   frame.act1 = button(main, 120, "", function(self) if self.fn then safe("動作", self.fn) end; ProfLevel_Refresh() end)
   frame.act2 = button(main, 90, "", function(self) if self.fn then safe("動作", self.fn) end; ProfLevel_Refresh() end)
   frame.act1:Hide(); frame.act2:Hide()
-  frame.atrBtn = button(main, 160, L["建立 Auctionator 購物清單"], function() safe("建立購物清單", createShoppingList) end)
+  frame.atrBtn = button(main, 160, L["建立 Auctionator 購物清單"], function() safe("建立購物清單", createShoppingList); ProfLevel_Refresh() end)
   frame.atrBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
     GameTooltip:AddLine(L["建立 Auctionator 購物清單"])
@@ -1436,7 +1556,7 @@ local function buildFrame()
   end)
   frame.atrBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 表頭與內容
-  local head = CreateFrame("Frame", nil, main); head:SetSize(W, 22); head:SetPoint("TOPLEFT", 14, -(TOP - 26))
+  local head = CreateFrame("Frame", nil, main); head:SetSize(W, 22); head:SetPoint("TOPLEFT", 14, -144) -- 位置在重整時依上面幾列決定
   local line = head:CreateTexture(nil, "ARTWORK"); line:SetColorTexture(1, 1, 1, .12); line:SetHeight(1)
   line:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", 0, -1); line:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, -1)
   frame.head, frame.headFs = head, {}
@@ -1453,27 +1573,22 @@ local function buildFrame()
     end)
     frame.headBtns[c] = hb
   end
-  frame.decBtn = button(main, 120, "", function() db.decompose = not db.decompose; ProfLevel_Refresh() end)
-  -- 佇列：材料要不要扣掉背包、銀行已有的（衝級路線也照這個設定）
-  frame.bagBtn = button(main, 90, "", function() db.useBag = not db.useBag; ProfLevel_Refresh() end)
-  frame.bagBtn:SetPoint("LEFT", frame.decBtn, "RIGHT", 6, 0)
-  frame.bankBtn = button(main, 90, "", function() db.useBank = not db.useBank; ProfLevel_Refresh() end)
-  frame.bankBtn:SetPoint("LEFT", frame.bagBtn, "RIGHT", 2, 0)
-  -- 衝級的子分頁：步驟／材料（接在分頁列後面）
-  frame.stepsBtn:SetPoint("LEFT", frame.gatherBtn, "RIGHT", 16, 0)
-  frame.shopBtn:SetPoint("LEFT", frame.stepsBtn, "RIGHT", 2, 0)
-  frame.decBtn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
-    GameTooltip:AddLine(L["拆中間材料"])
-    GameTooltip:AddLine(L["開：每個中間材料都比較「直接買」和「買原料自己做」，便宜的那個才列進清單。只拆你學過、點數也夠的配方（冶煉要有採礦）。"], 1, 1, 1, true)
-    GameTooltip:Show()
-  end)
-  frame.decBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   frame.lines = {}
   for i = 1, MAXLINES do
     local l = CreateFrame("Frame", nil, main)
-    l:SetSize(W, ROW_H); l:SetPoint("TOPLEFT", 14, -TOP - (i - 1) * ROW_H)
+    l:SetSize(W, ROW_H) -- 位置在重整時依表頭決定
     if i % 2 == 0 then local bg = l:CreateTexture(nil, "BACKGROUND"); bg:SetAllPoints(); bg:SetColorTexture(1, 1, 1, .035) end
+    l.hov = UI.hover(l) -- 滑過高亮：看得出列可以點
+    -- 佇列頁：每列右端「×」整項移除
+    l.del = CreateFrame("Button", nil, l); l.del:SetSize(18, 18); l.del:SetPoint("RIGHT", -2, 0); l.del:Hide()
+    l.del.label = UI.text(l.del, 15, UI.C.DIM, "CENTER"); l.del.label:SetPoint("CENTER", 0, 1); l.del.label:SetText("×")
+    l.del:SetScript("OnEnter", function(self) UI.paint(self.label, UI.C.RED); l.hov:Show() end)
+    l.del:SetScript("OnLeave", function(self) UI.paint(self.label, UI.C.DIM); l.hov:Hide() end)
+    l.del:SetScript("OnClick", function()
+      local q = l.e and l.e.queue
+      for k, x in ipairs(db.queue) do if x == q then table.remove(db.queue, k); break end end
+      ProfLevel_Refresh()
+    end)
     l.icon = l:CreateTexture(nil, "ARTWORK"); l.icon:SetSize(20, 20)
     l.c = {}
     for c = 1, NCOL do
@@ -1490,6 +1605,8 @@ local function buildFrame()
     end)
     l:SetScript("OnEnter", function(self)
       local e = self.e; if not e then return end
+      self.hov:Show()
+      if e.recipe and e.queued == 0 then self.c[8]:SetText("|cff8c8c8c+|r") end -- 佇列欄是 0：滑過出現淡色「+」（點一下加入）
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
       if e.recipe or e.queue then
         local rec = e.recipe or (e.queue.id and db.recipes[e.queue.prof] and db.recipes[e.queue.prof][e.queue.id])
@@ -1558,13 +1675,14 @@ local function buildFrame()
       end
       GameTooltip:Show()
     end)
-    l:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    l:SetScript("OnLeave", function(self)
+      self.hov:Hide(); GameTooltip:Hide()
+      if self.e and self.e.recipe and self.e.queued == 0 then self.c[8]:SetText("") end
+    end)
     frame.lines[i] = l
   end
   frame:EnableMouseWheel(true)
   frame:SetScript("OnMouseWheel", function(_, delta) offset = math.max(0, offset - delta * 3); ProfLevel_Refresh() end)
-  frame.foot = main:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-  frame.foot:SetJustifyH("LEFT"); frame.foot:SetWordWrap(false); tipArea(frame.foot, main)
   frame:SetScript("OnShow", function()
     -- 舊版存的是置中或其他錨點：第一次打開時照目前看到的位置換成左上角（貼在專業視窗旁邊時本來就是左上角，不動）
     if frame:GetPoint() ~= "TOPLEFT" then saveTopLeft() end
@@ -1674,9 +1792,8 @@ local function setupProfUI()
 end
 
 -- ── 小地圖按鈕 ─────────────────────────────────────────────────────────────
-local mmBtn
 local function placeMinimap()
-  local a = math.rad(db.minimapAngle or 200)
+  local a = math.rad(db.minimapAngle or 225)
   local r = (Minimap:GetWidth() / 2) + 5
   mmBtn:ClearAllPoints()
   mmBtn:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
@@ -1686,7 +1803,7 @@ local function buildMinimapButton()
   local b = CreateFrame("Button", "ProfLevelMinimapButton", Minimap)
   mmBtn = b
   b:SetSize(31, 31); b:SetFrameStrata("MEDIUM"); b:SetFrameLevel(8)
-  b:RegisterForClicks("LeftButtonUp"); b:RegisterForDrag("LeftButton")
+  b:RegisterForClicks("LeftButtonUp", "RightButtonUp"); b:RegisterForDrag("LeftButton")
   b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
   local bg = b:CreateTexture(nil, "BACKGROUND"); bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
   bg:SetSize(20, 20); bg:SetPoint("TOPLEFT", 7, -5)
@@ -1694,7 +1811,12 @@ local function buildMinimapButton()
   b.icon, b.Icon = icon, icon -- 小地圖按鈕收納插件會找這個欄位當圖示
   local border = b:CreateTexture(nil, "OVERLAY"); border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
   border:SetSize(53, 53); border:SetPoint("TOPLEFT")
-  b:SetScript("OnClick", toggleWindow)
+  b:SetScript("OnClick", function(_, btn)
+    if btn == "RightButton" then -- 右鍵：設定
+      if not frame then buildFrame() end
+      frame:Show(); frame.opts:Show(); ProfLevel_Refresh()
+    else toggleWindow() end
+  end)
   b:SetScript("OnDragStart", function(self)
     self:SetScript("OnUpdate", function()
       local mx, my = Minimap:GetCenter()
@@ -1708,7 +1830,8 @@ local function buildMinimapButton()
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine(L["阿聖專業幫手"])
-    GameTooltip:AddLine(L["左鍵：開關視窗"], 1, 1, 1)
+    GameTooltip:AddLine(L["左鍵：開啟／關閉"], 1, 1, 1)
+    GameTooltip:AddLine(L["右鍵：設定"], 1, 1, 1)
     GameTooltip:AddLine(L["拖曳：沿著小地圖移動"], .6, .6, .6)
     GameTooltip:Show()
   end)
@@ -1840,6 +1963,8 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
       db.voice = nil
     end
     if not db.scaleV then if db.scale == 1 then db.scale = 1.25 end; db.scaleV = 1 end -- 舊預設值改成新的預設大小（只遷移一次，之後尊重玩家設定）
+    -- 小地圖按鈕舊預設 200° 和練等幫手疊在一起：沒拖過（剛好 200）的改成新預設 225°（只遷移一次）
+    if not db.mmV then if db.minimapAngle == 200 then db.minimapAngle = 225 end; db.mmV = 1 end
     safe("小地圖按鈕", buildMinimapButton)
   elseif e == "ADDON_LOADED" and a1 == "Blizzard_Professions" then
     safe("專業視窗", setupProfUI)

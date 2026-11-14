@@ -84,34 +84,34 @@ local function wanted()
 end
 
 -- ---------- 提醒按鈕（安全按鈕：點一下等於施放追蹤法術，不會被暴雪擋） ----------
-local btn = CreateFrame("Button", "ProfLevelTrackButton", UIParent, "SecureActionButtonTemplate,BackdropTemplate")
-btn:SetSize(270, 44)
+-- 36 px 圖示鈕＋金框，預設在小地圖左下；出現時閃 3 次後常亮；怎麼用寫在滑鼠提示
+local GOLD = NS.UI.C.GOLD
+local btn = CreateFrame("Button", "ProfLevelTrackButton", UIParent, "SecureActionButtonTemplate")
+btn:SetSize(36, 36)
 btn:SetFrameStrata("HIGH")
 btn:SetClampedToScreen(true)
 btn:SetMovable(true)
 btn:RegisterForClicks("AnyUp", "AnyDown")
 btn:RegisterForDrag("LeftButton")
 btn:Hide()
-if btn.SetBackdrop then
-  btn:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-  btn:SetBackdropColor(0.08, 0.06, 0.02, 0.9)
-  btn:SetBackdropBorderColor(1, 0.82, 0)
-end
+NS.UI.box(btn, GOLD, { .02, .022, .028, .95 })
+local inner = btn:CreateTexture(nil, "BORDER") -- 金框加粗成 2 px
+inner:SetPoint("TOPLEFT", 1, -1); inner:SetPoint("BOTTOMRIGHT", -1, 1); inner:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
 btn.icon = btn:CreateTexture(nil, "ARTWORK")
-btn.icon:SetSize(32, 32)
-btn.icon:SetPoint("LEFT", 7, 0)
-btn.text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-btn.text:SetPoint("LEFT", btn.icon, "RIGHT", 8, 7)
-btn.text:SetJustifyH("LEFT")
-btn.sub = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-btn.sub:SetPoint("TOPLEFT", btn.text, "BOTTOMLEFT", 0, -3)
-btn.sub:SetTextColor(.7, .7, .7)
--- 閃爍外框
+btn.icon:SetPoint("TOPLEFT", 2, -2); btn.icon:SetPoint("BOTTOMRIGHT", -2, 2)
+btn.icon:SetTexCoord(.07, .93, .07, .93)
+local hl = btn:CreateTexture(nil, "HIGHLIGHT")
+hl:SetPoint("TOPLEFT", 2, -2); hl:SetPoint("BOTTOMRIGHT", -2, 2); hl:SetColorTexture(1, 1, 1, .15)
+-- 閃 3 次（暗→亮各一次算一下），之後停在全亮
 local pulse = btn:CreateAnimationGroup()
-pulse:SetLooping("BOUNCE")
+pulse:SetLooping("REPEAT")
 local a = pulse:CreateAnimation("Alpha")
-a:SetFromAlpha(1); a:SetToAlpha(0.55); a:SetDuration(0.8)
-btn:SetScript("OnShow", function() pulse:Play() end)
+a:SetFromAlpha(1); a:SetToAlpha(0.3); a:SetDuration(0.35)
+local b2 = pulse:CreateAnimation("Alpha")
+b2:SetFromAlpha(0.3); b2:SetToAlpha(1); b2:SetDuration(0.35); b2:SetStartDelay(0.35)
+local loops = 0
+pulse:SetScript("OnLoop", function(self) loops = loops + 1; if loops >= 3 then self:Stop() end end)
+btn:SetScript("OnShow", function() loops = 0; pulse:Play() end)
 btn:SetScript("OnHide", function() pulse:Stop() end)
 
 btn:SetScript("OnDragStart", function(self) if IsShiftKeyDown() and not InCombatLockdown() then self:StartMoving() end end)
@@ -120,13 +120,21 @@ btn:SetScript("OnDragStop", function(self)
   local p, _, rp, x, y = self:GetPoint()
   DB().trackPos = { p, rp, x, y }
 end)
+btn:SetScript("OnEnter", function(self)
+  GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+  GameTooltip:AddLine(self.title or "", 1, .82, 0)
+  GameTooltip:AddLine(string.format(L["左鍵：%s"], self.spell or ""), 1, 1, 1)
+  GameTooltip:AddLine(L["右鍵：10 分鐘內不提醒"], 1, 1, 1)
+  GameTooltip:AddLine(L["Shift＋拖曳：移動"], .6, .6, .6)
+  GameTooltip:Show()
+end)
+btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 local snoozeUntil = 0
 local update
 btn:SetScript("PostClick", function(_, button)
-  if button == "RightButton" then
+  if button == "RightButton" then -- 10 分鐘不提醒（不印聊天；/sprof track off 可以完全關閉）
     snoozeUntil = GetTime() + 600
-    msg(L["採集追蹤提醒：10 分鐘內不再提醒（/sprof track off 可以完全關閉）"])
     if not InCombatLockdown() then btn:Hide() end
   end
   if C_Timer then C_Timer.After(0.5, function() update() end) end
@@ -135,7 +143,12 @@ end)
 local function place()
   local p = DB().trackPos
   btn:ClearAllPoints()
-  if p then btn:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else btn:SetPoint("TOP", UIParent, "TOP", 0, -150) end
+  if p then btn:SetPoint(p[1], UIParent, p[2], p[3], p[4])
+  elseif Minimap and Minimap:GetLeft() then
+    -- 小地圖左下；用螢幕座標掛在 UIParent（直接掛在小地圖上會讓小地圖變成受保護框架）
+    local s = Minimap:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    btn:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", Minimap:GetLeft() * s + 2, Minimap:GetBottom() * s + 2)
+  else btn:SetPoint("TOP", UIParent, "TOP", 0, -150) end
 end
 
 -- ---------- 自動開啟 ----------
@@ -179,10 +192,8 @@ update = function()
   btn:SetAttribute("spell1", name)
   btn:SetAttribute("type2", nil)
   btn.icon:SetTexture(spellIcon(KINDS[k].spell) or "Interface\\Icons\\INV_Misc_QuestionMark")
-  btn.sub:SetText(L["左鍵開啟　右鍵 10 分鐘內不提醒　Shift 拖曳移動"])
-  btn.text:SetText(other and string.format(L["|cffffd100目前追蹤：%s|r　點這裡改成%s"], other, name)
-    or string.format(L["|cffffd100還沒開啟%s|r　點這裡開啟"], name))
-  btn:SetWidth(math.max(270, 54 + math.max(NS.measure(btn.text), NS.measure(btn.sub)) + 14))
+  btn.title = other and string.format(L["目前追蹤：%s"], other) or string.format(L["還沒開啟%s"], name) -- 滑鼠提示的第一行
+  btn.spell = name
   btn:Show()
 end
 
@@ -220,8 +231,15 @@ function ProfLevel_Track(arg)
   update()
 end
 
--- 給主視窗「採集」分頁用的開關（不在聊天視窗說話，按鈕文字就是狀態）
-function NS.trackLabel() return DB().trackRemind and L["追蹤提醒：開"] or L["追蹤提醒：關"] end
+-- 給主視窗「採集」分頁、設定面板用的開關（不在聊天視窗說話，勾選框就是狀態）
+function NS.trackOn() return DB().trackRemind end
+function NS.trackAutoOn() return DB().trackAuto end
+function NS.trackAutoToggle()
+  local db = DB()
+  db.trackAuto = not db.trackAuto
+  autoFailed = false
+  update()
+end
 function NS.trackToggle()
   local db = DB()
   db.trackRemind = not db.trackRemind
