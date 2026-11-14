@@ -182,5 +182,7 @@ HealHPS_Locales.ptBR = {
     ["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|stress|auto（stress＝版面壓力測試，英文加長 35%）　/shps debug　/shps reset"] =
       "/shps mostrar ou ocultar a janela  /shps pct <n>|auto  /shps absorb <n>|auto  /shps targets 2-10  /shps tip  /shps scale 1.2  /shps minimap  /shps downrank  /shps desc incl|base|auto  /shps lang en|zh|stress|auto (stress = teste de layout, inglês 35% mais longo)  /shps debug  /shps reset",
     ["顯示小地圖按鈕"] = "Mostrar botão do minimapa",
+    ["介面語言"] = "Idioma da interface",
+    ["跟隨客戶端"] = "Igual ao cliente",
   },
 }

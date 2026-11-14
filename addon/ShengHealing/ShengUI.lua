@@ -207,6 +207,42 @@ function UI.Panel(f)
 end
 
 -- 列表的滑過高亮（列是 Frame，自己顯示／隱藏）
+-- 下拉選單：entries = { { 文字, 動作, 目前選的（金字） } }，開在 anchor 下方；再按 anchor 或點外面就關
+function UI.Menu(anchor, entries)
+  local m = UI.menu
+  if not m then
+    m = CreateFrame("Frame", nil, UIParent)
+    UI.box(m, C.EDGE2); m:SetFrameStrata("FULLSCREEN_DIALOG"); m:EnableMouse(true); m.rows = {}; m:Hide()
+    pcall(m.RegisterEvent, m, "GLOBAL_MOUSE_DOWN")
+    m:SetScript("OnEvent", function()
+      if m:IsShown() and not m:IsMouseOver() and not (m.anchor and m.anchor:IsMouseOver()) then m:Hide() end
+    end)
+    UI.menu = m
+  end
+  if m:IsShown() and m.anchor == anchor then m:Hide(); return end
+  m.anchor = anchor
+  m:SetScale(anchor:GetEffectiveScale() / UIParent:GetEffectiveScale())
+  local w = anchor:GetWidth()
+  for i, e in ipairs(entries) do
+    local r = m.rows[i]
+    if not r then
+      r = CreateFrame("Button", nil, m); r:SetHeight(20)
+      r:SetPoint("TOPLEFT", 1, -1 - (i - 1) * 20); r:SetPoint("RIGHT", -1, 0)
+      r.label = UI.text(r, 13, C.TEXT); r.label:SetPoint("LEFT", 8, 0)
+      local hl = r:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(C.GOLD[1], C.GOLD[2], C.GOLD[3], .12)
+      m.rows[i] = r
+    end
+    r.label:SetText(e[1]); paint(r.label, e[3] and C.GOLD or C.TEXT)
+    r:SetScript("OnClick", function() m:Hide(); e[2]() end)
+    r:Show()
+    w = math.max(w, UI.measure(r.label) + 16)
+  end
+  for i = #entries + 1, #m.rows do m.rows[i]:Hide() end
+  m:SetSize(math.ceil(w) + 2, #entries * 20 + 2)
+  m:ClearAllPoints(); m:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+  m:Show()
+end
+
 function UI.hover(row)
   local t = row:CreateTexture(nil, "BORDER", nil, 1)
   t:SetAllPoints(); t:SetColorTexture(1, 1, 1, .06); t:Hide()

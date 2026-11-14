@@ -182,5 +182,7 @@ HealHPS_Locales.deDE = {
     ["/shps 開關視窗　/shps pct 數字|auto　/shps absorb 數字|auto　/shps targets 2-10　/shps tip　/shps scale 1.2　/shps minimap　/shps downrank　/shps desc incl|base|auto　/shps lang en|zh|stress|auto（stress＝版面壓力測試，英文加長 35%）　/shps debug　/shps reset"] =
       "/shps Fenster umschalten  /shps pct <n>|auto  /shps absorb <n>|auto  /shps targets 2-10  /shps tip  /shps scale 1.2  /shps minimap  /shps downrank  /shps desc incl|base|auto  /shps lang en|zh|stress|auto (stress = Layout-Stresstest, Englisch um 35% verlängert)  /shps debug  /shps reset",
     ["顯示小地圖按鈕"] = "Minikartenknopf anzeigen",
+    ["介面語言"] = "Sprache der Oberfläche",
+    ["跟隨客戶端"] = "Wie Spielclient",
   },
 }

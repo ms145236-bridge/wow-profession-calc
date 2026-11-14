@@ -29,6 +29,23 @@ local function applyLang(lang)
     for k, v in pairs(ui) do L[k] = lang == "stress" and stretch(v) or v end
   end
 end
+-- 設定裡的介面語言：跟隨客戶端，或客戶端字型顯示得出來的語言（中文、韓文、俄文字型以外都是拉丁字母；英文到處都能顯示）
+local LANG_NAMES = { { "auto" }, { "zh", "繁體中文", "zhTW" }, { "zhCN", "简体中文", "zhCN" }, { "en", "English", "enUS" }, { "deDE", "Deutsch", "deDE" },
+  { "frFR", "Français", "frFR" }, { "esES", "Español (EU)", "esES" }, { "esMX", "Español (AL)", "esMX" }, { "ptBR", "Português (BR)", "ptBR" },
+  { "ruRU", "Русский", "ruRU" }, { "koKR", "한국어", "koKR" } }
+local function langOpts(cur)
+  local SCRIPT = { zhTW = "zh", zhCN = "zh", koKR = "ko", ruRU = "ru" }
+  cur = cur == "en" and "enUS" or cur == "zh" and "zhTW" or LOCALES[cur] and cur or nil
+  local out = {}
+  for _, o in ipairs(LANG_NAMES) do
+    local c = o[3]
+    if not c or ((c == "enUS" or (SCRIPT[c] or "latin") == (SCRIPT[GAME_LOCALE] or "latin")) and LOCALES[c]) then
+      out[#out + 1] = { code = o[1], name = o[2] or L["跟隨客戶端"], on = c == cur }
+    end
+  end
+  if not cur then out[1].on = true end
+  return out
+end
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 250, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
   -- 團刷分析：人數、成員／坦克生命、坦克每次傷害與間隔、範圍每次傷害與間隔、範圍命中（0＝全員）、戰鬥長度
@@ -1676,10 +1693,12 @@ local function refreshImpl()
   frame.tgtBtn:SetWidth(lw + 12 + 150 + 6)
   -- 設定面板（齒輪）：由上而下 小地圖按鈕、群補人數、技能提示、情境加成；寬＝最寬的一列＋左右邊距
   local y = -10
-  for _, w in ipairs({ { frame.mmCheck, 24 }, { frame.tgtBtn, 30 }, { frame.tipBtn, 28 }, { frame.oathBtn, 24 } }) do
+  for _, o in ipairs(langOpts(db.lang)) do if o.on then frame.langBtn:SetText(o.name); frame.langBtn:SetWidth(math.ceil(UI.measure(frame.langBtn.label)) + 24) end end
+  frame.langRow:SetWidth(math.ceil(UI.measure(frame.langLabel)) + 8 + frame.langBtn:GetWidth())
+  for _, w in ipairs({ { frame.mmCheck, 24 }, { frame.tgtBtn, 30 }, { frame.tipBtn, 28 }, { frame.oathBtn, 24 }, { frame.langRow, 28 } }) do
     if w[1]:IsShown() then w[1]:ClearAllPoints(); w[1]:SetPoint("TOPLEFT", frame.opts, "TOPLEFT", 12, y); y = y - w[2] end
   end
-  frame.opts:SetSize(math.max(200, frame.mmCheck:GetWidth(), frame.tgtBtn:GetWidth(), frame.tipBtn:GetWidth(), isPal and frame.oathBtn:GetWidth() or 0) + 24, -y + 8)
+  frame.opts:SetSize(math.max(200, frame.mmCheck:GetWidth(), frame.tgtBtn:GetWidth(), frame.tipBtn:GetWidth(), isPal and frame.oathBtn:GetWidth() or 0, frame.langRow:GetWidth()) + 24, -y + 8)
   -- 精神與回藍（每 5 秒，跟角色面板一樣）：停手 5 秒後／施法中；讀不到（秘密值）就不顯示
   local secret = issecretvalue or function() return false end
   local info = string.format(L["%d 級 · 治療效果 %d"], ctx.level, ctx.bonus)
@@ -2033,6 +2052,16 @@ local function buildFrame()
     HealHPS_Refresh()
   end)
   frame.oathBtn = UI.Check(frame.opts, "", function() db.oath = not db.oath; HealHPS_Refresh() end)
+  -- 介面語言：選了就重新載入（語言在載入時決定）
+  frame.langRow = CreateFrame("Frame", nil, frame.opts); frame.langRow:SetHeight(24)
+  frame.langLabel = frame.langRow:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  frame.langLabel:SetPoint("LEFT", 0, 0); frame.langLabel:SetText(L["介面語言"])
+  frame.langBtn = UI.Button(frame.langRow, "", function(self)
+    local es = {}
+    for _, o in ipairs(langOpts(db.lang)) do es[#es + 1] = { o.name, function() if not o.on then db.lang = o.code; ReloadUI() end end, o.on } end
+    UI.Menu(self, es)
+  end)
+  frame.langBtn:SetPoint("LEFT", frame.langLabel, "RIGHT", 8, 0)
   frame.oathBtn:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     local sit = SIT[playerClass()]
