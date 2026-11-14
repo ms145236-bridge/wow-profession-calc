@@ -22,6 +22,7 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 
 **Auto accept / turn in**
 - Quests on the route are accepted and turned in automatically. With more than one reward to choose, you pick.
+- Gray (too low level) quests are not auto-accepted.
 
 **Target macro and quest items**
 - The **Quest Target** macro targets the mob your quest needs and marks nearby quest mobs with a raid icon. Bindable in Key Bindings.
@@ -33,19 +34,22 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 
 **Hints**
 - Detours: a nearby quest worth doing gets **Go**; the bar then shows the original step with **Back** to return to the route.
-- Leaving a zone with quests that matter later, missing prerequisites, class training, repair, new flight masters and danger areas.
+- Leaving a zone with quests that matter later, missing prerequisites, class training, repair, new flight masters and danger areas. Opening the flight map records every flight point you already know.
 - When quest XP will not reach the next zone's level, worthwhile side quests are added back, then a grinding spot is suggested.
 - Optional quests are marked; they stay off the route unless you enable them or need the XP.
 - Bag item tooltips warn when a later quest needs the item.
 
 **Dungeons**
 - Prerequisite quests for 34 dungeons, picked up along the way when you pass by, with a reminder once you are in level range.
-- Inside a dungeon, only that dungeon's quests are shown.
+- Inside a dungeon, only that dungeon's quests are shown, each with a line saying where it is and how to get there; the tooltip shows the kill order.
+- Quests turned in inside the dungeon show who to hand them to; after you leave, ready dungeon turn-ins nearby are suggested as detours.
+- Dungeons with all quests turned in are marked Done.
 
 **Settings**
 - Size, width, font size and fade on the main page; opacity, pin details and positions under Advanced. Hover a setting to see what it does.
 
 **Language**
+- Switch the interface language under Settings › Other (default: client language).
 - English, Traditional and Simplified Chinese, German, French, Spanish (Spain / Mexico), Russian, Korean and Portuguese, following your client language. Quest, NPC and mob names and the target macro use the game's names.
 
 ## Commands
@@ -84,6 +88,7 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 
 **自動接交任務**
 - 路線上的任務自動接、自動交；有多個獎勵可選時由你自己挑。
+- 灰名（差太多等）的任務不會自動接。
 
 **選怪巨集與任務物品**
 - **任務目標**巨集一鍵選取任務要打的怪，並幫附近的任務怪上團隊標記；可以在按鍵設定綁快捷鍵。
@@ -95,19 +100,22 @@ Horde 1–60 leveling route. No guide to look up, no guessing where to go next: 
 
 **提示**
 - 順路任務：附近值得做的任務有**去**按鈕；去了之後提示列顯示原本的步驟，按**返回**回到路線順序。
-- 離開前還有影響後續的任務、少了前置、該去學技能、修裝、還沒開的飛行點、危險區域。
+- 離開前還有影響後續的任務、少了前置、該去學技能、修裝、還沒開的飛行點、危險區域。打開飛行地圖時會記下所有已開的鳥點。
 - 任務經驗不夠到下一區時，自動補回值得做的支線，再不夠就建議練怪地點。
 - 可跳過的任務會標出來；預設不排進路線，除非你在設定開啟或經驗不夠。
 - 背包物品的滑鼠提示會提醒之後的任務要用，別賣。
 
 **副本**
 - 34 個副本的前置任務，經過時順路接，等級到了會提醒。
-- 進副本後只顯示該副本的任務。
+- 進副本後只顯示該副本的任務，每一步寫在副本哪裡、怎麼走；滑鼠提示寫打的順序。
+- 副本內回報的任務寫交給誰；出本後附近可交的副本任務會順路提示。
+- 任務都交完的副本標示「已完成」。
 
 **設定**
 - 主頁面調大小、寬度、字體和淡出；透明度、標點細項和位置收在「進階」。滑鼠移到設定上會顯示說明。
 
 **語言**
+- 設定「其他」可以切換介面語言（預設跟隨客戶端）。
 - 英文、繁體中文、簡體中文、德文、法文、西班牙文（西班牙／墨西哥）、俄文、韓文、葡萄牙文介面，依遊戲語言自動切換；任務、NPC、怪物名稱與選怪巨集使用遊戲裡的名稱。
 
 ## 指令

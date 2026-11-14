@@ -20,9 +20,10 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - Shows how many are listed on the auction house (from Auctionator scans).
 
 **Crafting queue**
-- Add recipes from the Profit or Leveling tab, then press **Craft next** to work through the list.
+- Add recipes from the Profit or Leveling tab, then press **Craft next** to work through the list. Type any count you want.
+- The queue is shared across your characters.
 - **Use bags / Use bank** toggles decide whether materials you already own are subtracted.
-- One click builds an **Auctionator shopping list** for what is still missing.
+- One click builds an **Auctionator shopping list** for what is still missing; **All characters** merges every character's list.
 
 **Leveling**
 - Picks the cheapest leveling route from current Auctionator prices and lists each step and how many to craft.
@@ -50,6 +51,7 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - The gear in the title bar opens settings: open with the profession window, minimap button, guild sharing and gathering tracking.
 
 **Language**
+- Switch the interface language in Settings (default: client language).
 - English, Traditional and Simplified Chinese, German, French, Spanish (Spain / Mexico), Russian, Korean and Portuguese, following your client language. Item, recipe and zone names follow the game language.
 
 ## Commands
@@ -88,9 +90,10 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - 顯示拍賣場在架數量（Auctionator 掃描紀錄）。
 
 **製作佇列**
-- 從「利潤」或「衝級」把配方加進佇列，按**製作下一個**依序做完。
+- 從「利潤」或「衝級」把配方加進佇列，按**製作下一個**依序做完；數量可以自己輸入。
+- 佇列所有角色共用。
 - **扣背包／扣銀行**開關決定已有的材料要不要扣掉。
-- 一鍵把還缺的材料建立成 **Auctionator 購物清單**。
+- 一鍵把還缺的材料建立成 **Auctionator 購物清單**；勾**全部角色**會合併每個角色的清單。
 
 **衝級**
 - 依目前 Auctionator 價格挑最省的衝級路線，列出每一段做什麼、做幾次。
@@ -118,6 +121,7 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - 標題列的齒輪打開設定：跟專業視窗一起開、小地圖按鈕、公會分享、採集追蹤。
 
 **語言**
+- 設定裡可以切換介面語言（預設跟隨客戶端）。
 - 英文、繁體中文、簡體中文、德文、法文、西班牙文（西班牙／墨西哥）、俄文、韓文、葡萄牙文介面，依遊戲語言自動切換；物品、配方、地區名稱跟著遊戲語言。
 
 ## 指令

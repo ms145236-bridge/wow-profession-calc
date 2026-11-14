@@ -37,6 +37,7 @@ Compares **HPS** (healing per second) and **HPM** (healing per mana) for every h
 - Level, healing power, **Spirit** and mana regen (resting / while casting).
 
 **Language**
+- Switch the interface language in Settings (default: client language).
 - English, Traditional and Simplified Chinese, German, French, Spanish (Spain / Mexico), Russian, Korean and Portuguese, following your client language.
 
 Minimap button (left click: open/close, right click: settings), a settings gear in the title bar and a resizable window. Other classes are left alone.
@@ -94,6 +95,7 @@ Minimap button (left click: open/close, right click: settings), a settings gear 
 - 等級、治療效果、**精神**與回藍（停手／施法中）。
 
 **語言**
+- 設定裡可以切換介面語言（預設跟隨客戶端）。
 - 英文、繁體中文、簡體中文、德文、法文、西班牙文（西班牙／墨西哥）、俄文、韓文、葡萄牙文介面，依遊戲語言自動切換。
 
 小地圖按鈕（左鍵開關視窗、右鍵打開設定）、標題列的設定齒輪、可調整大小的視窗。非治療職業不會啟用。
