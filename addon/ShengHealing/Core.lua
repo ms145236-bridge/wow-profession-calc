@@ -643,6 +643,20 @@ local function compute()
       end
     end
   end
+  -- 聖光戒備→震擊：加上最高階神聖震擊本身的治療（「計入」聖光誓約時含誓約加成，同神聖震擊那一列）
+  local hsTop
+  for _, r in ipairs(rows) do if r.key == "hs" and (not hsTop or r.rank > hsTop.rank) then hsTop = r end end
+  if hsTop then
+    for _, r in ipairs(rows) do
+      if r.key == "vigil" then
+        r.shockHeal = hsTop.perHeal
+        r.totalHeal = r.totalHeal + hsTop.perHeal
+        r.shown = r.totalHeal
+        r.hps, r.hpsT = r.totalHeal / r.time, r.totalHeal / r.time
+        r.hpm, r.hpmT = r.totalHeal / r.manaEff, r.totalHeal / r.manaEff
+      end
+    end
+  end
   local hasRgh = {}
   for _, r in ipairs(rows) do if r.key == "rgh" then hasRgh[r.rank] = true end end
   if next(hasRgh) then
@@ -2171,6 +2185,7 @@ local function buildFrame()
         local sit = SIT[playerClass()]
         GameTooltip:AddDoubleLine(sit and L[sit.label] or "", "+" .. fint(r.oathAdd) .. (r.oathRatio and string.format(L["（%d%%）"], math.floor(r.oathRatio * 100 + .5)) or ""), .8, .8, .8, 1, 1, 1)
       end
+      if r.shockHeal then GameTooltip:AddDoubleLine(API.SpellInfo(20473) or "神聖震擊", "+" .. fint(r.shockHeal), .8, .8, .8, 1, 1, 1) end
       if r.srcText ~= "遊戲" then GameTooltip:AddLine(L["部分數值來自資料表（遊戲讀不到）"], 1, .6, .3) end
       if r.f.note ~= "" then GameTooltip:AddLine(L[r.f.note], .6, .6, .6, true) end
       GameTooltip:Show()
