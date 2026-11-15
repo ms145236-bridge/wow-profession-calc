@@ -17,6 +17,7 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 **Step bar**
 - Shows only the current step; accepting, killing and turning in move it forward.
 - Quests close to where you are heading are listed underneath so you can do them together.
+- **On-the-way quests**: kill and collect quests whose mobs are spread over a zone are marked **Roam** and stay at the bottom of the bar with their progress. They don't take over the current step; kill them as you pass and they are turned in once done. Quests that unlock follow-ups are still done in order.
 - Reads your quest log to work out where you are, so going out of order or to the wrong place realigns on its own. Missed quests are listed.
 - Starting zone is your choice, not tied to race; class quests only for your class.
 - When a quest needs an item from a vendor, a **Buy** step shows who sells it and how many you have.
@@ -24,13 +25,14 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 **Auto accept / turn in**
 - Quests on the route are accepted and turned in automatically. With more than one reward to choose, you pick.
 - Gray (too low level) quests are not auto-accepted.
+- In a group, escort and event quests that start for the whole party are not auto-accepted; accept them yourself when everyone is ready.
 
 **Target macro and quest items**
 - The **Quest Target** macro targets the mob your quest needs and marks nearby quest mobs with a raid icon. Bindable in Key Bindings.
 - The current step's quest item gets a button on the step bar (bindable too) and an optional auto-updated macro.
 
 **Map and navigation**
-- Numbered pins for the remaining steps on the world map and the next few on the minimap, including quest objective areas (where to kill or loot). Shape and color show accept / do / turn in.
+- Numbered pins for the remaining steps on the world map and the next few on the minimap, including quest objective areas (where to kill or loot). Shape and color show accept / do / turn in. Spread-out mobs are merged into a few groups; the arrow goes to the nearest one and the others are drawn faded.
 - Waypoint to the current step through **WaypointUI** if installed, otherwise the game's own map pin. Click the step bar to reset it to the current step.
 
 **Hints**
@@ -85,6 +87,7 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 **步驟列**
 - 只顯示目前該做的事，接、殺、交任務後自動往下走。
 - 往目的地附近可以一起做的任務列在下面。
+- **順路任務**：怪散在整區的殺怪、收集任務標成「順」，常駐在步驟列下方顯示進度，不搶目前步驟，路上遇到就打，打完才排去交；會開後續任務的照順序先做。
 - 照任務日誌判斷你走到哪，跳著做、跑錯地方都會自己對齊；漏掉的任務會列出來。
 - 新手村可以自選，不綁種族；職業任務只顯示你這個職業的。
 - 任務要用的東西需要向商人買時，會有一步**買**，寫跟誰買、背包裡有幾個。
@@ -92,13 +95,14 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 **自動接交任務**
 - 路線上的任務自動接、自動交；有多個獎勵可選時由你自己挑。
 - 灰名（差太多等）的任務不會自動接。
+- 組隊時，護送和會讓全隊一起開始的任務不自動接，等大家準備好再自己按接受。
 
 **選怪巨集與任務物品**
 - **任務目標**巨集一鍵選取任務要打的怪，並幫附近的任務怪上團隊標記；可以在按鍵設定綁快捷鍵。
 - 目前步驟要用的任務物品會出現在步驟列旁的按鈕（也能綁鍵），也可以自動建立任務物品巨集。
 
 **地圖與導航**
-- 世界地圖標出本區剩下的步驟、小地圖標出接下來幾步，包含任務目標地點（去哪裡打怪、撿東西）。形狀和顏色區分接、做、交。
+- 世界地圖標出本區剩下的步驟、小地圖標出接下來幾步，包含任務目標地點（去哪裡打怪、撿東西）。形狀和顏色區分接、做、交。散開的怪點合成幾群，箭頭指向最近的一群，其他群畫成淡點。
 - 有 **WaypointUI** 就用它導航到目前步驟，沒有就用遊戲內建的地圖標記。點一下步驟列，導航重設回目前步驟。
 
 **提示**
