@@ -22,6 +22,7 @@ Compares **HPS** (healing per second) and **HPM** (healing per mana) for every h
 
 **Comparison table**
 - Every spell and rank at once, sortable by amount, HPS or HPM.
+- **Filter**: show only the top 3 by HPS or HPM, or pick which spells to show. On the Single tab, Regrowth is listed both with and without its HoT.
 - **Single**, **Group** and **Cooldown** tabs. Group size 2–10; HoTs count how many targets you can keep them rolling on.
 - Class bonuses the tooltip does not show can be counted: **Oath of Light** (Paladin), Holy Binding (Priest), Riptide bonus (Shaman), Bloom (Druid).
 
