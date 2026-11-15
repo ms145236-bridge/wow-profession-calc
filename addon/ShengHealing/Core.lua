@@ -49,7 +49,7 @@ end
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 250, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
   -- 團刷分析：人數、成員／坦克生命、坦克每次傷害與間隔、範圍每次傷害與間隔、範圍命中（0＝全員）、戰鬥長度
-  anaGroup = false, gN = 5, gHp = 3200, gTankHp = 5500, gTankHit = 400, gTankGap = 2, gAoe = 150, gAoeGap = 3, gAoeK = 0, gFight = 45, lang = "auto", top3 = false, noHot = false }
+  anaGroup = false, gN = 5, gHp = 3200, gTankHp = 5500, gTankHit = 400, gTankGap = 2, gAoe = 150, gAoeGap = 3, gAoeK = 0, gFight = 45, lang = "auto", top3 = false }
 local LOGO = "Interface\\AddOns\\ShengHealing\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
@@ -649,7 +649,7 @@ local function compute()
     local kept, alt = {}, {}
     for _, r in ipairs(rows) do if r.key == "rg" and hasRgh[r.rank] then alt[r.rank] = r else table.insert(kept, r) end end
     rows = kept
-    rows.alt = alt -- 篩選「不含 HoT」時換成這些列
+    rows.alt = alt -- 比較表另列「癒合（不含HoT）」；分析不用（施放癒合一定帶 HoT）
     byId = {}
     for _, r in ipairs(rows) do if r.id then byId[r.id] = byId[r.id] or {}; table.insert(byId[r.id], r) end end
   end
@@ -667,9 +667,9 @@ local SORT_LABEL = { hps = "HPS", hpm = "HPM", heal = "有效量" }
 local function skillOf(r) return r.f.ids and r.f.ids[1] or r.key end
 -- raw：不套篩選（篩選選單列技能用）
 local function filterRows(rows, mode, raw)
-  local list = {}
-  for _, r in ipairs(rows) do
-    if not raw and db.noHot and r.key == "rgh" and rows.alt and rows.alt[r.rank] then r = rows.alt[r.rank] end
+  local list, src = {}, { unpack(rows) }
+  for _, r in pairs(rows.alt or {}) do src[#src + 1] = r end
+  for _, r in ipairs(src) do
     local f = r.f
     local ok
     if mode == "cd" then ok = r.isCd
@@ -1880,7 +1880,7 @@ local function refreshImpl()
     h.fs:SetText((on and ARROW or "") .. h.label) -- 箭頭放左邊，右邊緣才會跟數字對齊
     h.fs:SetTextColor(unpack(on and GOLD or DIM))
   end
-  UI.look(frame.filterBtn, (db.top3 or db.noHot or next(db.hide)) and "applied" or nil)
+  UI.look(frame.filterBtn, (db.top3 or next(db.hide)) and "applied" or nil)
   local bh, bm = bests(list)
   -- 最多幾列照螢幕高度（放大後不會超出螢幕），多的用滾輪捲動
   local vis = visibleRows()
@@ -2045,14 +2045,11 @@ local function buildFrame()
     end
     HealHPS_Refresh()
   end, frame.cdModeBtn)
-  -- 篩選（分頁列右邊）：HPS／HPM 前 3、癒合含不含 HoT、要看哪些技能；選單點了不收起來，可以連續勾
+  -- 篩選（分頁列右邊）：HPS／HPM 前 3、要看哪些技能；選單點了不收起來，可以連續勾
   frame.filterBtn = button(frame, 0, L["篩選"], function(self)
     UI.Menu(self, function()
       local rows = compute()
       local es = { { L["HPS、HPM 前 3"], function() db.top3 = not db.top3; offset = 0; HealHPS_Refresh() end, db.top3, true } }
-      if db.mode == "single" and rows.alt and next(rows.alt) then
-        es[#es + 1] = { L["癒合含 HoT"], function() db.noHot = not db.noHot; HealHPS_Refresh() end, not db.noHot, true }
-      end
       local seen = {}
       for _, r in ipairs(filterRows(rows, db.mode, true)) do
         local k = skillOf(r)

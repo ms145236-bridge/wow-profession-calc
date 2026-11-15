@@ -119,7 +119,6 @@ HealHPS_Locales.deDE = {
     ["這一頁沒有你學會的技能。"] = "Keine erlernten Zauber auf diesem Reiter.",
     ["篩選"] = "Filter",
     ["HPS、HPM 前 3"] = "Top 3 HPS / HPM",
-    ["癒合含 HoT"] = "Nachwachsen inkl. HoT",
     ["篩選後沒有技能。"] = "Nach dem Filtern keine Zauber.",
     ["|cffffd100★ HPS最高|r %s 等級%d"] = "|cffffd100* Höchste HPS|r %s Rang %d", ["|cff66ff66★ HPM最高|r %s 等級%d"] = "|cff66ff66* Höchste HPM|r %s Rang %d",
     ["目前沒有可比較的治療技能（吸收盾不參加比較）"] = "Keine Heilzauber zum Vergleichen (ohne Absorption).",

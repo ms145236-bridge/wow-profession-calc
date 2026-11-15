@@ -124,7 +124,6 @@ HealHPS_Locales.enUS = {
     ["這一頁沒有你學會的技能。"] = "No learned spells on this tab.",
     ["篩選"] = "Filter",
     ["HPS、HPM 前 3"] = "Top 3 HPS / HPM",
-    ["癒合含 HoT"] = "Regrowth incl. HoT",
     ["篩選後沒有技能。"] = "No spells after filtering.",
     ["|cffffd100★ HPS最高|r %s 等級%d"] = "|cffffd100* Best HPS|r %s Rank %d", ["|cff66ff66★ HPM最高|r %s 等級%d"] = "|cff66ff66* Best HPM|r %s Rank %d",
     ["目前沒有可比較的治療技能（吸收盾不參加比較）"] = "No healing spells to compare (absorbs are excluded)",

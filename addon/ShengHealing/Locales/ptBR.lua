@@ -119,7 +119,6 @@ HealHPS_Locales.ptBR = {
     ["這一頁沒有你學會的技能。"] = "Nenhum feitiço aprendido nesta aba.",
     ["篩選"] = "Filtrar",
     ["HPS、HPM 前 3"] = "Top 3 HPS / HPM",
-    ["癒合含 HoT"] = "Recrescimento com HoT",
     ["篩選後沒有技能。"] = "Nenhum feitiço após o filtro.",
     ["|cffffd100★ HPS最高|r %s 等級%d"] = "|cffffd100* Melhor HPS|r %s grau %d", ["|cff66ff66★ HPM最高|r %s 等級%d"] = "|cff66ff66* Melhor HPM|r %s grau %d",
     ["目前沒有可比較的治療技能（吸收盾不參加比較）"] = "Nenhum feitiço de cura para comparar (absorções não entram).",

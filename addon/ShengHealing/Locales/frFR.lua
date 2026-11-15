@@ -119,7 +119,6 @@ HealHPS_Locales.frFR = {
     ["這一頁沒有你學會的技能。"] = "Aucun sort appris dans cet onglet.",
     ["篩選"] = "Filtrer",
     ["HPS、HPM 前 3"] = "Top 3 HPS / HPM",
-    ["癒合含 HoT"] = "Rétablissement avec HoT",
     ["篩選後沒有技能。"] = "Aucun sort après filtrage.",
     ["|cffffd100★ HPS最高|r %s 等級%d"] = "|cffffd100* Meilleur HPS|r %s rang %d", ["|cff66ff66★ HPM最高|r %s 等級%d"] = "|cff66ff66* Meilleur HPM|r %s rang %d",
     ["目前沒有可比較的治療技能（吸收盾不參加比較）"] = "Aucun sort de soin à comparer (hors absorptions).",
