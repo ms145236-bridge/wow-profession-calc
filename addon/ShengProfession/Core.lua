@@ -2128,7 +2128,14 @@ local function merchantUpdate()
   for i = 1, (GetMerchantNumItems and GetMerchantNumItems() or 0) do
     local id = GetMerchantItemID and GetMerchantItemID(i)
     if id and need[id] then
-      local _, _, p, per, avail = GetMerchantItemInfo(i)
+      local p, per, avail
+      if C_MerchantFrame and C_MerchantFrame.GetItemInfo then -- 新版 API 回傳表格；舊的 GetMerchantItemInfo 已拿掉
+        local info = C_MerchantFrame.GetItemInfo(i)
+        if info then p, per, avail = info.price, info.stackCount, info.numAvailable end
+      elseif GetMerchantItemInfo then
+        local _
+        _, _, p, per, avail = GetMerchantItemInfo(i)
+      end
       per = math.max(1, per or 1)
       local packs = math.ceil(need[id] / per)
       if avail and avail >= 0 then packs = math.min(packs, avail) end
