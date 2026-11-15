@@ -137,6 +137,9 @@ NS.locales.deDE = {
 
   -- 列內容
   ["沒價格"] = "Kein Preis",
+  ["自己做 ×%d"] = "Selbst herstellen ×%d",
+  ["已有／要買"] = "Vorhanden / kaufen",
+  ["買齊佇列材料（%d 種，%s）"] = "Warteschlangen-Material kaufen (%d, %s)",
   ["不知道材料"] = "Unbekannt",
   ["齊了"] = "Bereit",
   ["缺 %d 種"] = "%d fehlen",

@@ -137,6 +137,9 @@ NS.locales.enUS = {
 
   -- 列內容
   ["沒價格"] = "No price",
+  ["自己做 ×%d"] = "Craft ×%d",
+  ["已有／要買"] = "Have / buy",
+  ["買齊佇列材料（%d 種，%s）"] = "Buy queue materials (%d, %s)",
   ["不知道材料"] = "Unknown",
   ["齊了"] = "Ready",
   ["缺 %d 種"] = "Missing %d",

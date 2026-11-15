@@ -137,6 +137,9 @@ NS.locales.ptBR = {
 
   -- 列內容
   ["沒價格"] = "Sem preço",
+  ["自己做 ×%d"] = "Fabricar ×%d",
+  ["已有／要買"] = "Tem / comprar",
+  ["買齊佇列材料（%d 種，%s）"] = "Comprar materiais da fila (%d, %s)",
   ["不知道材料"] = "Desconhecido",
   ["齊了"] = "Pronto",
   ["缺 %d 種"] = "Faltam %d",

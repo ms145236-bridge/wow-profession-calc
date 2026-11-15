@@ -1251,7 +1251,7 @@ local function refreshImpl()
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
   -- 佇列跨專業：不顯示專業切換，勾選框移到第二列，內容往上提一列
   local isQ = db.tab == "queue"
-  for _, w in ipairs({ frame.prevBtn, frame.profBtn, frame.nextBtn }) do w:SetShown(not isQ) end
+  frame.profBtn:SetShown(not isQ)
   local prevR
   for _, c in ipairs({ frame.allBtn, frame.bankBtn, frame.bagBtn, frame.decBtn }) do
     if c:IsShown() then
@@ -1311,6 +1311,11 @@ local function refreshImpl()
     end)
   elseif db.tab == "queue" then
     for _, q in ipairs(db.queue) do table.insert(rows, { queue = q }) end
+    -- 佇列下面接著列材料（同一張表，用一列小表頭隔開）
+    if #rows > 0 and #current.r.list > 0 then
+      table.insert(rows, { matHead = true })
+      for _, it in ipairs(current.r.list) do table.insert(rows, { qmat = it, item = it }) end
+    end
   else
     for _, it in ipairs(current.r.list) do table.insert(rows, { item = it }) end
   end
@@ -1326,7 +1331,20 @@ local function refreshImpl()
     if e then
       shown = i
       local vals
-      if e.recipe then
+      for c = 1, NCOL do l.c[c]:SetTextColor(1, 1, 1) end
+      if e.matHead then
+        l.icon:Hide()
+        vals = { L["材料"], L["需要"], L["來源"], L["已有／要買"] }
+        for c = 1, NCOL do l.c[c]:SetTextColor(.6, .57, .5) end
+      elseif e.qmat then
+        local it = e.qmat
+        local name, icon, col = info("i", it.id)
+        l.icon:SetTexture(icon); l.icon:Show()
+        local src = it.kind == "craft" and string.format(L["自己做 ×%d"], it.n) or (D.vendor[it.id] and L["商人"] or L["拍賣行"])
+        local st = it.kind == "craft" and "—" or it.buy == 0 and ("|cff9fd18b" .. L["齊了"] .. "|r") or ("|cffff9d5c" .. it.have .. " / " .. it.buy .. "|r")
+        vals = { name, it.qty, src, st }
+        l.c[1]:SetTextColor(col[1], col[2], col[3])
+      elseif e.recipe then
         local rec = e.recipe
         local name, icon, col
         if rec.out then name, icon, col = info("i", rec.out) else name, icon, col = info("s", e.id); name = rec.name or name end
@@ -1387,7 +1405,7 @@ local function refreshImpl()
     end
   end
   -- 視窗寬：表格（佇列頁每列右端多一個「×」）、每一排橫向串接的元件（分頁列、第二、三列）、總計那行（數字不截，最多撐到螢幕寬）取最大
-  local row2 = { { frame.prevBtn, 12 }, { frame.profBtn, 2 }, { frame.nextBtn, 2 }, { frame.fromLbl, 12, measure(frame.fromLbl) }, { frame.fromBox, 8 },
+  local row2 = { { frame.profBtn, 12 },{ frame.fromLbl, 12, measure(frame.fromLbl) }, { frame.fromBox, 8 },
     { frame.toLbl, 8, measure(frame.toLbl) }, { frame.toBox, 8 }, { frame.nowBtn, 6 } }
   local warnW = frame.warn:IsShown() and frame.warn:GetWidth() + 6 or 0
   frame.total:SetText(totalFull or "")
@@ -1603,23 +1621,18 @@ local function buildFrame()
   end)
   gather.trackBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 第二列：專業切換、起點、目標
-  frame.prevBtn = button(main, 8, "<", function() end)
-  frame.prevBtn:SetPoint("TOPLEFT", 12, -60)
-  frame.profBtn = button(main, 130, "", function() end)
-  frame.profBtn:SetPoint("LEFT", frame.prevBtn, "RIGHT", 2, 0)
-  frame.nextBtn = button(main, 8, ">", function() end)
-  frame.nextBtn:SetPoint("LEFT", frame.profBtn, "RIGHT", 2, 0)
-  local function cycle(d)
-    local list = profList(learnedProfs())
-    local idx = 1
-    for i, p in ipairs(list) do if p.key == db.prof then idx = i end end
-    db.prof = list[(idx - 1 + d) % #list + 1].key; offset = 0; ProfLevel_Refresh()
-  end
-  frame.prevBtn:SetScript("OnClick", function() cycle(-1) end)
-  frame.nextBtn:SetScript("OnClick", function() cycle(1) end)
-  frame.profBtn:SetScript("OnClick", function() cycle(1) end)
+  -- 專業：下拉選單（學會的在前面，括號寫目前點數）
+  frame.profBtn = button(main, 130, "", function(self)
+    local learned, es = learnedProfs(), {}
+    for _, p in ipairs(profList(learned)) do
+      local sk = learned[p.key]
+      es[#es + 1] = { p.name .. (sk and string.format(L["（%d）"], sk.cur) or L["（沒學）"]), function() db.prof = p.key; offset = 0; ProfLevel_Refresh() end, p.key == db.prof }
+    end
+    UI.Menu(self, es)
+  end)
+  frame.profBtn:SetPoint("TOPLEFT", 12, -60)
   local fromLbl = main:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fromLbl:SetText(L["從"]); frame.fromLbl = fromLbl
-  fromLbl:SetPoint("LEFT", frame.nextBtn, "RIGHT", 12, 0)
+  fromLbl:SetPoint("LEFT", frame.profBtn, "RIGHT", 12, 0)
   frame.fromBox = numBox(main, function(v) db.from[db.prof] = v end)
   frame.fromBox:SetPoint("LEFT", fromLbl, "RIGHT", 8, 0)
   local toLbl = main:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); toLbl:SetText(L["到"]); frame.toLbl = toLbl
@@ -1831,7 +1844,7 @@ local function buildFrame()
           local function dv(x) return (x == nil or x == "" or x == "–") and "—" or x end
           GameTooltip:AddLine(string.format(L["難度："] .. "|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", dv(s.d[1]), dv(s.d[2]), dv(s.d[3]), dv(s.d[4])), .8, .8, .8)
         end
-      else
+      elseif e.item then
         pcall(GameTooltip.SetItemByID, GameTooltip, e.item.id)
         local c = e.item
         if c.who and #c.who > 0 then
@@ -2104,6 +2117,53 @@ function NS.quiet(where, fn, ...) -- 跟 safe 一樣記錯誤，但不在聊天�
 end
 function NS.profName(k) return (PROF_BY_KEY[k] or (k == MINING.key and MINING) or { name = k }).name end
 
+-- ── 商人：佇列缺的材料這個商人有賣，就在商人視窗上方顯示「買齊佇列材料」 ─────────────────
+-- 數量照佇列頁（含拆中間材料、扣背包／銀行的設定）；限量的買到剩下的為止
+local buyBtn
+local function merchantUpdate()
+  if not (MerchantFrame and MerchantFrame:IsShown()) or not db.queue or #db.queue == 0 then if buyBtn then buyBtn:Hide() end; return end
+  local need = {}
+  for _, it in ipairs(queueNeeds(learnedProfs()).list) do if it.buy > 0 then need[it.id] = it.buy end end
+  local plan, cost = {}, 0
+  for i = 1, (GetMerchantNumItems and GetMerchantNumItems() or 0) do
+    local id = GetMerchantItemID and GetMerchantItemID(i)
+    if id and need[id] then
+      local _, _, p, per, avail = GetMerchantItemInfo(i)
+      per = math.max(1, per or 1)
+      local packs = math.ceil(need[id] / per)
+      if avail and avail >= 0 then packs = math.min(packs, avail) end
+      if packs > 0 then
+        plan[#plan + 1] = { i = i, id = id, packs = packs, per = per }
+        cost = cost + (p or 0) * packs
+      end
+    end
+  end
+  if #plan == 0 then if buyBtn then buyBtn:Hide() end; return end
+  if not buyBtn then
+    buyBtn = UI.Button(MerchantFrame, "", function(self)
+      for _, x in ipairs(self.plan) do
+        if x.per > 1 then for _ = 1, x.packs do BuyMerchantItem(x.i, 1) end
+        else
+          local left, stack = x.packs, math.max(1, GetMerchantItemMaxStack and GetMerchantItemMaxStack(x.i) or 20)
+          while left > 0 do local n = math.min(left, stack); BuyMerchantItem(x.i, n); left = left - n end
+        end
+      end
+      self:Hide()
+    end)
+    buyBtn:SetPoint("BOTTOMLEFT", MerchantFrame, "TOPLEFT", 0, 4)
+    buyBtn:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      for _, x in ipairs(self.plan) do GameTooltip:AddDoubleLine((info("i", x.id)), "×" .. x.packs * x.per, 1, 1, 1, 1, 1, 1) end
+      GameTooltip:Show()
+    end)
+    buyBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+  buyBtn.plan = plan
+  buyBtn:SetText(string.format(L["買齊佇列材料（%d 種，%s）"], #plan, money(cost)))
+  buyBtn:SetWidth(math.ceil(UI.measure(buyBtn.label)) + 24)
+  buyBtn:Show()
+end
+
 -- ── 事件 ───────────────────────────────────────────────────────────────────
 local ev = CreateFrame("Frame")
 local SCAN_EVENTS = { TRADE_SKILL_SHOW = true, TRADE_SKILL_LIST_UPDATE = true, TRADE_SKILL_DATA_SOURCE_CHANGED = true }
@@ -2149,11 +2209,16 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     local spellID = select(2, ...) -- 參數：unit（a1）, castGUID, spellID；限制中（戰鬥、副本）是秘密值，不能比較，跳過
     if issecretvalue and (issecretvalue(a1) or issecretvalue(spellID)) then return end
     if a1 == "player" and spellID and onCrafted(spellID) and frame and frame:IsShown() then ProfLevel_Refresh() end
+  elseif e == "MERCHANT_SHOW" or e == "MERCHANT_UPDATE" then
+    safe("商人", merchantUpdate)
+  elseif e == "MERCHANT_CLOSED" then
+    if buyBtn then buyBtn:Hide() end
   elseif REFRESH_EVENTS[e] then
+    if e == "BAG_UPDATE_DELAYED" and MerchantFrame and MerchantFrame:IsShown() then safe("商人", merchantUpdate) end
     if frame and frame:IsShown() then ProfLevel_Refresh() end
   end
 end)
-for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN" }) do pcall(ev.RegisterEvent, ev, e) end
+for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED" }) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(REFRESH_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(SCAN_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 if ev.RegisterUnitEvent then pcall(ev.RegisterUnitEvent, ev, "UNIT_SPELLCAST_SUCCEEDED", "player") else pcall(ev.RegisterEvent, ev, "UNIT_SPELLCAST_SUCCEEDED") end

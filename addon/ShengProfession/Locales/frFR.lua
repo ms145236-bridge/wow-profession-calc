@@ -137,6 +137,9 @@ NS.locales.frFR = {
 
   -- 列內容
   ["沒價格"] = "Sans prix",
+  ["自己做 ×%d"] = "Fabriquer ×%d",
+  ["已有／要買"] = "Possédé / à acheter",
+  ["買齊佇列材料（%d 種，%s）"] = "Acheter les composants de la file (%d, %s)",
   ["不知道材料"] = "Inconnu",
   ["齊了"] = "Prêt",
   ["缺 %d 種"] = "%d manquant(s)",
