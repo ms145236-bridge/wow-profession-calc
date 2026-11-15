@@ -49,7 +49,7 @@ end
 local DEFAULTS = { mode = "single", tipLevel = 3, fight = 180, anaHp = 3000, anaHit = 300, anaGap = 2, rate = "cast", sort = "hps", targets = 5, downrank = true, tip = true,
   includeCd = false, pct = nil, absorb = nil, minimapAngle = 250, minimapHide = false, oath = false, scale = 1.25, anaDetail = false,
   -- 團刷分析：人數、成員／坦克生命、坦克每次傷害與間隔、範圍每次傷害與間隔、範圍命中（0＝全員）、戰鬥長度
-  anaGroup = false, gN = 5, gHp = 3200, gTankHp = 5500, gTankHit = 400, gTankGap = 2, gAoe = 150, gAoeGap = 3, gAoeK = 0, gFight = 45, lang = "auto" }
+  anaGroup = false, gN = 5, gHp = 3200, gTankHp = 5500, gTankHit = 400, gTankGap = 2, gAoe = 150, gAoeGap = 3, gAoeK = 0, gFight = 45, lang = "auto", top3 = false, noHot = false }
 local LOGO = "Interface\\AddOns\\ShengHealing\\Media\\Logo"
 local db
 -- 設定：每個角色一份。任何地方用到前都先確保已經建立（不依賴事件順序）
@@ -81,6 +81,7 @@ local function ensureDB()
   applyLang(db.lang)
   if type(db.targets) ~= "number" or db.targets < 2 then db.targets = 2 elseif db.targets > 10 then db.targets = 10 end -- 群補至少 2 人
   if type(db.expanded) ~= "table" then db.expanded = {} end -- 展開了哪些技能
+  if type(db.hide) ~= "table" then db.hide = {} end -- 篩選掉的技能（法術 ID）
   return db
 end
 
@@ -607,19 +608,20 @@ local function compute()
         local hotFrac = 1
         if row.hotPart then
           if spreading then hotFrac = math.min(1, used * occupy / row.dur) end
-          total = row.directPart + row.hotPart * hotFrac
+          total = (row.directPart + row.hotPart * hotFrac) * (spreading and used or 1) -- 群補：輪流放給每個人一次的總量
         elseif spreading then total = per * used end
         row.totalHeal, row.targets = total, used
         -- 情境加成；綻放在 HoT 自然結束才回：鋪幾人回幾次，癒合被蓋掉就沒有
         local sitTimes = row.hotPart and (hotFrac >= 1 and 1 or 0) or (spreading and used or 1)
         if row.withOath then per = per + sitAdd; total = total + sitAdd * sitTimes; row.perHeal, row.totalHeal = per, total end
         local manaEff = row.mana
-        if spreading and not row.hotPart then manaEff = manaEff * used end -- 鋪幾個人就施放幾次（癒合已經是每發的量）
+        if spreading then manaEff = manaEff * used end -- 鋪幾個人就施放幾次
         if f.key == "vigil" and hsMana then manaEff = manaEff + hsMana; occupy = occupy + 1.5 end
         local t = occupy
         -- 純 HoT 用效果期間：總量 ÷ 持續時間（冷卻比持續時間長就用冷卻）；群補 HoT 的總量已乘上目標數
         if f.kind == "hot" and not row.hotPart and (row.dur or 0) > 0 then t = math.max(row.dur, occupy)
-        elseif f.kind == "absorb" then t = math.max(row.cd, occupy, 15) end -- 同一目標受虛弱靈魂限制 15 秒一次
+        elseif f.kind == "absorb" then t = math.max(row.cd, occupy, 15) -- 同一目標受虛弱靈魂限制 15 秒一次
+        elseif row.hotPart and spreading then t = used * occupy end -- 癒合輪流放一圈的時間
         row.manaEff, row.time = manaEff, t
         local shown = (f.key == "bh" or ((db.mode == "group" or isCd) and (f.group or row.spread))) and total or per
         row.shown = shown
@@ -631,7 +633,7 @@ local function compute()
           -- 直接 ÷ 施法時間 ＋ HoT ÷ 持續時間（群補輪流時 HoT 乘人數）；HPM 用每發的有效量
           local bloom = row.withOath and sitAdd * sitTimes or 0
           row.shown = total
-          row.hps = row.directPart / t + ((spreading and used or 1) * row.hotPart + bloom) / row.dur
+          row.hps = spreading and total / t or row.directPart / t + (row.hotPart + bloom) / row.dur
           row.hpsT = row.hps
           row.hpm = manaEff > 0 and total / manaEff or 0
           row.hpmT = row.hpm
@@ -644,9 +646,10 @@ local function compute()
   local hasRgh = {}
   for _, r in ipairs(rows) do if r.key == "rgh" then hasRgh[r.rank] = true end end
   if next(hasRgh) then
-    local kept = {}
-    for _, r in ipairs(rows) do if not (r.key == "rg" and hasRgh[r.rank]) then table.insert(kept, r) end end
+    local kept, alt = {}, {}
+    for _, r in ipairs(rows) do if r.key == "rg" and hasRgh[r.rank] then alt[r.rank] = r else table.insert(kept, r) end end
     rows = kept
+    rows.alt = alt -- 篩選「不含 HoT」時換成這些列
     byId = {}
     for _, r in ipairs(rows) do if r.id then byId[r.id] = byId[r.id] or {}; table.insert(byId[r.id], r) end end
   end
@@ -661,16 +664,30 @@ end
 
 local SORT_LABEL = { hps = "HPS", hpm = "HPM", heal = "有效量" }
 
-local function filterRows(rows, mode)
+local function skillOf(r) return r.f.ids and r.f.ids[1] or r.key end
+-- raw：不套篩選（篩選選單列技能用）
+local function filterRows(rows, mode, raw)
   local list = {}
   for _, r in ipairs(rows) do
+    if not raw and db.noHot and r.key == "rgh" and rows.alt and rows.alt[r.rank] then r = rows.alt[r.rank] end
     local f = r.f
     local ok
     if mode == "cd" then ok = r.isCd
     elseif r.isCd then ok = false
     elseif mode == "group" then ok = f.group or r.spread
     else ok = not f.group end
-    if ok then table.insert(list, r) end
+    if ok and (raw or not db.hide[skillOf(r)]) then table.insert(list, r) end
+  end
+  if db.top3 and not raw then -- HPS 或 HPM 前 3 名
+    local keep = {}
+    for _, k in ipairs({ "hps", "hpm" }) do
+      local s2 = { unpack(list) }
+      table.sort(s2, function(a, b) return a[k] > b[k] end)
+      for i = 1, math.min(3, #s2) do keep[s2[i]] = true end
+    end
+    local kept = {}
+    for _, r in ipairs(list) do if keep[r] then table.insert(kept, r) end end
+    list = kept
   end
   local k = db.sort == "heal" and "shown" or db.sort
   table.sort(list, function(a, b) return a[k] > b[k] end)
@@ -1714,7 +1731,7 @@ local function refreshImpl()
   end
   if frame.tgtSlider:GetValue() ~= (db.targets or 5) then frame.tgtSlider:SetValue(db.targets or 5) end
   local ana = db.mode == "analysis"
-  frame.ana:SetShown(ana); frame.head:SetShown(not ana); frame.foot:SetShown(not ana); frame.sb:Hide()
+  frame.ana:SetShown(ana); frame.filterBtn:SetShown(not ana); frame.head:SetShown(not ana); frame.foot:SetShown(not ana); frame.sb:Hide()
   if ana then
     for i = 1, MAXLINES do frame.lines[i]:Hide(); frame.lines[i].row = nil end
     local g = db.anaGroup and true or false
@@ -1863,6 +1880,7 @@ local function refreshImpl()
     h.fs:SetText((on and ARROW or "") .. h.label) -- 箭頭放左邊，右邊緣才會跟數字對齊
     h.fs:SetTextColor(unpack(on and GOLD or DIM))
   end
+  UI.look(frame.filterBtn, (db.top3 or db.noHot or next(db.hide)) and "applied" or nil)
   local bh, bm = bests(list)
   -- 最多幾列照螢幕高度（放大後不會超出螢幕），多的用滾輪捲動
   local vis = visibleRows()
@@ -1894,7 +1912,7 @@ local function refreshImpl()
     else l:Hide(); l.row = nil end
   end
   -- 底部只在沒有結果時說明（有結果時，最高的那兩格已經有星號和高亮）；多的列用滾輪捲動，右緣捲動條
-  frame.footLines = #list == 0 and { L["這一頁沒有你學會的技能。"] } or not (bh and bm) and { L["目前沒有可比較的治療技能（吸收盾不參加比較）"] } or {}
+  frame.footLines = #list == 0 and { next(db.hide) and L["篩選後沒有技能。"] or L["這一頁沒有你學會的技能。"] } or not (bh and bm) and { L["目前沒有可比較的治療技能（吸收盾不參加比較）"] } or {}
   frame.foot:ClearAllPoints()
   frame.foot:SetPoint("TOPLEFT", 14, -(TOP + n * ROW_H + 10))
   autoFit()
@@ -2027,11 +2045,31 @@ local function buildFrame()
     end
     HealHPS_Refresh()
   end, frame.cdModeBtn)
+  -- 篩選（分頁列右邊）：HPS／HPM 前 3、癒合含不含 HoT、要看哪些技能；選單點了不收起來，可以連續勾
+  frame.filterBtn = button(frame, 0, L["篩選"], function(self)
+    UI.Menu(self, function()
+      local rows = compute()
+      local es = { { L["HPS、HPM 前 3"], function() db.top3 = not db.top3; offset = 0; HealHPS_Refresh() end, db.top3, true } }
+      if db.mode == "single" and rows.alt and next(rows.alt) then
+        es[#es + 1] = { L["癒合含 HoT"], function() db.noHot = not db.noHot; HealHPS_Refresh() end, not db.noHot, true }
+      end
+      local seen = {}
+      for _, r in ipairs(filterRows(rows, db.mode, true)) do
+        local k = skillOf(r)
+        if not seen[k] then
+          seen[k] = true
+          es[#es + 1] = { r.label, function() db.hide[k] = not db.hide[k] or nil; offset = 0; HealHPS_Refresh() end, not db.hide[k], true }
+        end
+      end
+      return es
+    end)
+  end)
+  frame.filterBtn:SetPoint("TOPRIGHT", -12, -29)
   local tabLine = frame:CreateTexture(nil, "ARTWORK")
   tabLine:SetColorTexture(UI.C.EDGE2[1], UI.C.EDGE2[2], UI.C.EDGE2[3], 1); tabLine:SetHeight(1)
   tabLine:SetPoint("TOPLEFT", 12, -54); tabLine:SetPoint("TOPRIGHT", -12, -54)
   -- 分頁列的總寬（含間距）：內容寬度至少要這麼寬，分頁才不會疊在一起（英文字比較寬）
-  frame.topW = frame.singleBtn:GetWidth() + frame.groupBtn:GetWidth() + frame.cdModeBtn:GetWidth() + frame.anaBtn:GetWidth() + 6
+  frame.topW = frame.singleBtn:GetWidth() + frame.groupBtn:GetWidth() + frame.cdModeBtn:GetWidth() + frame.anaBtn:GetWidth() + 6 + frame.filterBtn:GetWidth() + 16
   -- 捲動條（比較表、分析的詳細列表共用一條）
   frame.sb = UI.Scrollbar(frame)
   -- 資訊列：等級與治療效果；天賦加成滑鼠移上去才顯示

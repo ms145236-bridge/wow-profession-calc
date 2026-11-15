@@ -208,7 +208,10 @@ end
 
 -- 列表的滑過高亮（列是 Frame，自己顯示／隱藏）
 -- 下拉選單：entries = { { 文字, 動作, 目前選的（金字） } }，開在 anchor 下方；再按 anchor 或點外面就關
+-- entries：{ 文字, 點了做什麼, 選中, 點了不收起來 }；不收起來的選單要傳函式，點完重新產生內容
 function UI.Menu(anchor, entries)
+  local build = type(entries) == "function" and entries
+  if build then entries = build() end
   local m = UI.menu
   if not m then
     m = CreateFrame("Frame", nil, UIParent)
@@ -233,7 +236,7 @@ function UI.Menu(anchor, entries)
       m.rows[i] = r
     end
     r.label:SetText(e[1]); paint(r.label, e[3] and C.GOLD or C.TEXT)
-    r:SetScript("OnClick", function() m:Hide(); e[2]() end)
+    r:SetScript("OnClick", function() m:Hide(); e[2](); if e[4] and build then UI.Menu(anchor, build) end end)
     r:Show()
     w = math.max(w, UI.measure(r.label) + 16)
   end
