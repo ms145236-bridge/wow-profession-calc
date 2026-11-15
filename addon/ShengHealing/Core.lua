@@ -593,7 +593,7 @@ local function compute()
         -- 單體 HoT（含癒合這種直接＋HoT）在群補模式：持續時間內能輪流施放給幾個人（每次占用施法時間／公共冷卻，有冷卻就受冷卻限制），
         -- 最多到群補人數；鋪不到 2 人的（例如激流：冷卻 12 秒、持續 15 秒）不算群補
         -- 冷卻技能（有冷卻、不是吸收盾）另列一頁，照施放時的 HPS 算
-        local isCd = row.cd > 0 and f.kind ~= "absorb"
+        local isCd = row.cd > 0 and f.kind ~= "absorb" and not f.groupTab -- 聖光戒備雖有冷卻，列在群補
         row.isCd = isCd or nil
         local reach = not isCd and f.kind == "hot" and not f.group and (row.dur or 0) > 0 and math.floor(row.dur / math.max(occupy, row.cd)) or 0
         row.spread = reach >= 2 or nil

@@ -35,7 +35,7 @@ HealHPS_Data = { families = {
       [3] = { learn = 48, mana = 275, cast = 0, cd = 10, min = 221, max = 239, coeff = 0.429, dur = nil, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
       [4] = { learn = 56, mana = 325, cast = 0, cd = 10, min = 307, max = 333, coeff = 0.429, dur = nil, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
     } },
-  { key = "vigil", label = "聖光戒備→震擊", class = "PALADIN", kind = "direct", group = true, groupModel = "full_each", maxTargets = 5,
+  { key = "vigil", label = "聖光戒備→震擊", class = "PALADIN", kind = "direct", group = true, groupTab = true, groupModel = "full_each", maxTargets = 5,
     talent = true, healPct = false, absorbPct = false, gcd = 1.5, parse = nil, fallback = nil, note = "戒備 CD 6s；只計小隊治療",
     ids = { 1310911 }, names = { "聖光戒備", "聖光守望" },
     ranks = {
