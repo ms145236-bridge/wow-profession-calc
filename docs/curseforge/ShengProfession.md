@@ -22,6 +22,8 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 **Crafting queue**
 - Add recipes from the Profit or Leveling tab, then press **Craft next** to work through the list. Type any count you want.
 - The queue is shared across your characters.
+- The Queue tab also lists the materials you need, where to get them and how many are still missing.
+- When a vendor sells materials your queue is missing, a **Buy queue materials** button appears above the merchant window and buys them in one click.
 - **Use bags / Use bank** toggles decide whether materials you already own are subtracted.
 - One click builds an **Auctionator shopping list** for what is still missing; **All characters** merges every character's list.
 
@@ -92,6 +94,8 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 **製作佇列**
 - 從「利潤」或「衝級」把配方加進佇列，按**製作下一個**依序做完；數量可以自己輸入。
 - 佇列所有角色共用。
+- 佇列頁下面同時列出要用的材料、來源和還缺多少。
+- 商人有賣佇列缺的材料時，商人視窗上方會出現**買齊佇列材料**，按一下買足。
 - **扣背包／扣銀行**開關決定已有的材料要不要扣掉。
 - 一鍵把還缺的材料建立成 **Auctionator 購物清單**；勾**全部角色**會合併每個角色的清單。
 
