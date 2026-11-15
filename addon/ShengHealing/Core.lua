@@ -2013,7 +2013,20 @@ local function buildFrame()
   frame.singleBtn = tab(L["單補"], function() db.mode = "single"; offset = 0; HealHPS_Refresh() end)
   frame.groupBtn = tab(L["群補"], function() db.mode = "group"; offset = 0; HealHPS_Refresh() end, frame.singleBtn)
   frame.cdModeBtn = tab(L["冷卻"], function() db.mode = "cd"; offset = 0; HealHPS_Refresh() end, frame.groupBtn)
-  frame.anaBtn = tab(L["分析"], function() db.mode = "analysis"; frame.anaKey = nil; HealHPS_Refresh() end, frame.cdModeBtn)
+  frame.anaBtn = tab(L["分析"], function()
+    db.mode = "analysis"; frame.anaKey = nil
+    -- 第一次打開：單坦、團刷都先套「小怪／群怪」預設（依等級），不要停在初始的 3000 生命；動過數值的不碰
+    if not db.anaInit then
+      db.anaInit = true
+      local function first(row) local b = row and row[1]; local f = b and b:GetScript("OnClick"); if f then f(b) end end
+      if db.anaPreset == nil and db.anaHp == DEFAULTS.anaHp and db.anaHit == DEFAULTS.anaHit and db.fight == DEFAULTS.fight then
+        local a, b = frame.anaSets.group, frame.anaSets.single
+        if db.anaGroup then a, b = b, a end
+        first(a); first(b) -- 最後套的是目前這頁，金框標在它上面
+      end
+    end
+    HealHPS_Refresh()
+  end, frame.cdModeBtn)
   local tabLine = frame:CreateTexture(nil, "ARTWORK")
   tabLine:SetColorTexture(UI.C.EDGE2[1], UI.C.EDGE2[2], UI.C.EDGE2[3], 1); tabLine:SetHeight(1)
   tabLine:SetPoint("TOPLEFT", 12, -54); tabLine:SetPoint("TOPRIGHT", -12, -54)
