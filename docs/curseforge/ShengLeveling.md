@@ -33,11 +33,12 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 
 **Map and navigation**
 - Numbered pins for the remaining steps on the world map and the next few on the minimap, including quest objective areas (where to kill or loot). Shape and color show accept / do / turn in. Spread-out mobs are merged into a few groups; the arrow goes to the nearest one and the others are drawn faded.
+- Travel steps are checked against the game’s flight network: a flight is only suggested through flight points you have reached, and anywhere you may not have been yet, the step says how to get there on foot, by boat or by zeppelin.
 - Waypoint to the current step through **WaypointUI** if installed, otherwise the game's own map pin. Click the step bar to reset it to the current step.
 
 **Hints**
 - Detours: a nearby quest worth doing gets **Go**; the bar then shows the original step with **Back** to return to the route.
-- Leaving a zone with quests that matter later, missing prerequisites, class training, repair, new flight masters and danger areas. Opening the flight map records every flight point you already know.
+- Leaving a zone with quests that matter later, missing prerequisites, class training, repair, new flight masters and danger areas. Opening the flight map records every flight point you already know, and warns in chat when the current step’s destination (or a flight point on the way) is not discovered yet.
 - When quest XP will not reach the next zone's level, worthwhile side quests are added back, then a grinding spot is suggested.
 - Optional quests are marked, including long detours with nothing else nearby; they stay off the route unless you enable them or need the XP.
 - Bag item tooltips warn when a later quest needs the item.
@@ -103,11 +104,12 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 
 **地圖與導航**
 - 世界地圖標出本區剩下的步驟、小地圖標出接下來幾步，包含任務目標地點（去哪裡打怪、撿東西）。形狀和顏色區分接、做、交。散開的怪點合成幾群，箭頭指向最近的一群，其他群畫成淡點。
+- 交通步驟照遊戲實際航線核對：只走你開過的鳥點，可能還沒去過的地方，那一步會寫怎麼跑、搭船或搭飛艇過去。
 - 有 **WaypointUI** 就用它導航到目前步驟，沒有就用遊戲內建的地圖標記。點一下步驟列，導航重設回目前步驟。
 
 **提示**
 - 順路任務：附近值得做的任務有**去**按鈕；去了之後提示列顯示原本的步驟，按**返回**回到路線順序。
-- 離開前還有影響後續的任務、少了前置、該去學技能、修裝、還沒開的飛行點、危險區域。打開飛行地圖時會記下所有已開的鳥點。
+- 離開前還有影響後續的任務、少了前置、該去學技能、修裝、還沒開的飛行點、危險區域。打開飛行地圖時會記下所有已開的鳥點；這一步要飛的地方還沒開過（或中間的鳥點沒開）會在聊天框提醒。
 - 任務經驗不夠到下一區時，自動補回值得做的支線，再不夠就建議練怪地點。
 - 可跳過的任務會標出來，包括要特地繞路、附近又沒別的任務的；預設不排進路線，除非你在設定開啟或經驗不夠。
 - 背包物品的滑鼠提示會提醒之後的任務要用，別賣。
