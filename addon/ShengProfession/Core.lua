@@ -727,10 +727,13 @@ local function queueRoute()
 end
 
 -- 佇列項目的配方：這隻角色學會的，沒有就看帳號裡其他角色記下的（佇列跨角色共用）
+-- 都還沒學（沒有角色打開過那個配方）就用插件內建的衝級資料
 local function queueRec(q)
-  if not q.id then return nil end
   local own, shared = db.recipes[q.prof], ShengProfessionDB.recipes[q.prof]
-  return (own and own[q.id]) or (shared and shared[q.id])
+  local rec = q.id and ((own and own[q.id]) or (shared and shared[q.id]))
+  if rec then return rec end
+  local r = q.out and recipes()[q.out]
+  if r and r.prof == q.prof then return { out = q.out, mats = r.mats, qmin = r.yield, qmax = r.yield } end
 end
 -- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
 local function queueNeeds(learned)
