@@ -73,7 +73,8 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 
 ## Notes
 
-- The addon loads only your own faction's route.
+- The addon loads only your own faction's route. Both routes include WoW Forever's new zones Riverglades and Mount Hyjal.
+- Hearthstone steps: "Hearth to X" ticks when you arrive in X; "Set hearth" ticks when you bind at the inn.
 - The Alliance route is built on the quest order of the TUGs Guidelime guide and has not been played through in game yet; reports are welcome.
 - Route order follows the WoW Forever leveling videos by Bilibili creator 奇怪小鸭, refined with other public routes. Quest, NPC and coordinate data from Questie / QuestieDB (GPL-3.0).
 
@@ -144,7 +145,8 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 
 ## 注意
 
-- 插件只載入自己陣營的路線。
+- 插件只載入自己陣營的路線。兩個陣營都含永恆版新區域大河林地和海加爾山。
+- 爐石步驟：「爐石回 X」到了 X 才打勾；「綁爐石」在旅店綁好就打勾。
 - 聯盟路線以 TUGs Guidelime 攻略的任務順序為骨架，還沒有在遊戲裡完整走過，歡迎回報問題。
 - 路線站序參考 Bilibili UP 主「奇怪小鸭」的《魔兽世界无限》練級路線影片，並參考其他公開練級路線優化；任務、NPC、座標資料取自 Questie／QuestieDB（GPL-3.0）。
 
