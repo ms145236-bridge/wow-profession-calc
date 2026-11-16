@@ -32,7 +32,7 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 - The current step's quest item gets a button on the step bar (bindable too) and an optional auto-updated macro.
 
 **Map and navigation**
-- Numbered pins for the remaining steps on the world map and the next few on the minimap, including quest objective areas (where to kill or loot). Shape and color show accept / do / turn in. Spread-out mobs are merged into a few groups; the arrow goes to the nearest one and the others are drawn faded.
+- Numbered pins for the current step and the next 10 steps on the world map (adjustable) and the next few on the minimap, including quest objective areas (where to kill or loot). Shape and color show accept / do / turn in. Spread-out mobs are merged into a few groups; the arrow goes to the nearest one and the others are drawn faded.
 - Travel steps are checked against the game’s flight network: a flight is only suggested through flight points you have reached, and anywhere you may not have been yet, the step says how to get there on foot, by boat or by zeppelin.
 - Waypoint to the current step through **WaypointUI** if installed, otherwise the game's own map pin. Click the step bar to reset it to the current step.
 
@@ -104,7 +104,7 @@ Horde and Alliance 1–60 leveling route. No guide to look up, no guessing where
 - 目前步驟要用的任務物品會出現在步驟列旁的按鈕（也能綁鍵），也可以自動建立任務物品巨集。
 
 **地圖與導航**
-- 世界地圖標出本區剩下的步驟、小地圖標出接下來幾步，包含任務目標地點（去哪裡打怪、撿東西）。形狀和顏色區分接、做、交。散開的怪點合成幾群，箭頭指向最近的一群，其他群畫成淡點。
+- 世界地圖標出目前這步和後面 10 步（可在設定調整）、小地圖標出接下來幾步，包含任務目標地點（去哪裡打怪、撿東西）。形狀和顏色區分接、做、交。散開的怪點合成幾群，箭頭指向最近的一群，其他群畫成淡點。
 - 交通步驟照遊戲實際航線核對：只走你開過的鳥點，可能還沒去過的地方，那一步會寫怎麼跑、搭船或搭飛艇過去。
 - 有 **WaypointUI** 就用它導航到目前步驟，沒有就用遊戲內建的地圖標記。點一下步驟列，導航重設回目前步驟。
 
