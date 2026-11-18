@@ -100,7 +100,7 @@ HealHPS_Locales.deDE = {
     ["直接 %s（每秒 %s）＋ %d 秒 %s（每秒 %s）\n輪流補不同目標時每秒 %s"] = "Direkt %s (%s/Sek.) + %d Sek. HoT %s (%s/Sek.)\nBei Zielwechsel: %s/Sek.",
     ["%d 秒內補完；鋪 %d 人"] = "Heilt über %d Sek., verteilt auf %d Ziele",
     ["%d 秒內補完；輪流掛不同目標時每秒 %s"] = "Heilt über %d Sek. Bei Zielwechsel: %s/Sek.",
-    ["同一目標 15 秒一次；輪流上不同目標時每秒 %s"] = "Pro Ziel einmal in 15 Sek. Bei Zielwechsel: %s/Sek.",
+    ["輪流上不同目標；同一目標 15 秒一次時每秒 %s"] = "Bei Zielwechsel; einmal pro 15 Sek. auf ein Ziel: %s/Sek.",
     -- spell tooltip
     ["（吸收）"] = " (Absorption)", ["（%d人）"] = " (%d Ziele)", ["|cffd9b25fHPS ／ HPM|r"] = "|cffd9b25fHPS / HPM|r",
     ["降級"] = "Niedrigerer Rang", ["治療效果只算 %d%%"] = "%d%% der Bonusheilung",

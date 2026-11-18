@@ -105,7 +105,7 @@ HealHPS_Locales.enUS = {
     ["直接 %s（每秒 %s）＋ %d 秒 %s（每秒 %s）\n輪流補不同目標時每秒 %s"] = "Direct %s (%s/s) + %d sec HoT %s (%s/s)\nRotating targets: %s/s",
     ["%d 秒內補完；鋪 %d 人"] = "Heals over %d sec; spread on %d targets",
     ["%d 秒內補完；輪流掛不同目標時每秒 %s"] = "Heals over %d sec; rotating targets: %s/s",
-    ["同一目標 15 秒一次；輪流上不同目標時每秒 %s"] = "Once per 15 sec per target; rotating targets: %s/s",
+    ["輪流上不同目標；同一目標 15 秒一次時每秒 %s"] = "Rotating targets; once per 15 sec on one target: %s/s",
     -- spell tooltip
     ["（吸收）"] = " (absorb)", ["（%d人）"] = " (%d targets)", ["|cffd9b25fHPS ／ HPM|r"] = "|cffd9b25fHPS / HPM|r",
     ["降級"] = "Downrank", ["治療效果只算 %d%%"] = "%d%% of Bonus Healing",

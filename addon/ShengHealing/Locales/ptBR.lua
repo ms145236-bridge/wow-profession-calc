@@ -100,7 +100,7 @@ HealHPS_Locales.ptBR = {
     ["直接 %s（每秒 %s）＋ %d 秒 %s（每秒 %s）\n輪流補不同目標時每秒 %s"] = "Cura direta %s (%s/s) + %d s de cura periódica %s (%s/s)\nAo alternar alvos: %s/s",
     ["%d 秒內補完；鋪 %d 人"] = "Cura ao longo de %d s em %d alvos",
     ["%d 秒內補完；輪流掛不同目標時每秒 %s"] = "Cura ao longo de %d s. Alternando alvos: %s/s",
-    ["同一目標 15 秒一次；輪流上不同目標時每秒 %s"] = "Uma vez a cada 15 s por alvo. Alternando: %s/s",
+    ["輪流上不同目標；同一目標 15 秒一次時每秒 %s"] = "Alternando alvos; uma vez a cada 15 s no mesmo alvo: %s/s",
     -- spell tooltip
     ["（吸收）"] = " (absorção)", ["（%d人）"] = " (%d alvos)", ["|cffd9b25fHPS ／ HPM|r"] = "|cffd9b25fHPS / HPM|r",
     ["降級"] = "Grau inferior", ["治療效果只算 %d%%"] = "%d%% do bônus de cura",

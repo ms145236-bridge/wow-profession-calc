@@ -100,7 +100,7 @@ HealHPS_Locales.esMX = {
     ["直接 %s（每秒 %s）＋ %d 秒 %s（每秒 %s）\n輪流補不同目標時每秒 %s"] = "Sanación directa %s (%s/s) + %d s de sanación periódica %s (%s/s)\nAl alternar objetivos: %s/s",
     ["%d 秒內補完；鋪 %d 人"] = "Sana en %d s, repartido entre %d objetivos",
     ["%d 秒內補完；輪流掛不同目標時每秒 %s"] = "Sana en %d s. Al alternar objetivos: %s/s",
-    ["同一目標 15 秒一次；輪流上不同目標時每秒 %s"] = "Una vez cada 15 s por objetivo. Al alternar: %s/s",
+    ["輪流上不同目標；同一目標 15 秒一次時每秒 %s"] = "Alternando objetivos; una vez cada 15 s en un objetivo: %s/s",
     -- spell tooltip
     ["（吸收）"] = " (absorción)", ["（%d人）"] = " (%d objetivos)", ["|cffd9b25fHPS ／ HPM|r"] = "|cffd9b25fHPS / HPM|r",
     ["降級"] = "Rango inferior", ["治療效果只算 %d%%"] = "%d%% de la bonificación de sanación",

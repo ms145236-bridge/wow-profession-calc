@@ -620,7 +620,7 @@ local function compute()
         local t = occupy
         -- 純 HoT 用效果期間：總量 ÷ 持續時間（冷卻比持續時間長就用冷卻）；群補 HoT 的總量已乘上目標數
         if f.kind == "hot" and not row.hotPart and (row.dur or 0) > 0 then t = math.max(row.dur, occupy)
-        elseif f.kind == "absorb" then t = math.max(row.cd, occupy, 15) -- 同一目標受虛弱靈魂限制 15 秒一次
+        elseif f.kind == "absorb" then t = occupy -- 吸收量 ÷ 一個 GCD（輪流上不同目標）；同一目標 15 秒一次的速度放在提示
         elseif row.hotPart and spreading then t = used * occupy end -- 癒合輪流放一圈的時間
         row.manaEff, row.time = manaEff, t
         local shown = (f.key == "bh" or ((db.mode == "group" or isCd) and (f.group or row.spread))) and total or per
@@ -1482,7 +1482,7 @@ local function breakdown(r)
   elseif r.f.kind == "hot" and (r.dur or 0) > 0 then
     return string.format(L["%d 秒內補完；輪流掛不同目標時每秒 %s"], r.dur, fmt1(r.perHeal / busy))
   elseif r.f.kind == "absorb" then
-    return string.format(L["同一目標 15 秒一次；輪流上不同目標時每秒 %s"], fmt1(r.perHeal / busy))
+    return string.format(L["輪流上不同目標；同一目標 15 秒一次時每秒 %s"], fmt1(r.perHeal / math.max(r.cd or 0, 15)))
   end
 end
 
