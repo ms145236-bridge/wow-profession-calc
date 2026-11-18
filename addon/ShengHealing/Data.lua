@@ -98,7 +98,7 @@ HealHPS_Data = { families = {
       [10] = { learn = 60, mana = 410, cast = 0, cd = 0, min = 830, max = 830, coeff = 1, dur = 15, hotBase = nil, hotCoeff = nil, rel = "已交叉核對" },
     } },
   { key = "pws", label = "真言術：盾", class = "PRIEST", kind = "absorb", group = false, groupModel = "none", maxTargets = 1,
-    talent = false, healPct = false, absorbPct = true, gcd = 1.5, parse = "absorb", fallback = nil, note = "吸收；原生CD4；同目標虛弱靈魂15s（永恆待核）",
+    talent = false, healPct = false, absorbPct = true, gcd = 1.5, parse = "absorb", fallback = nil, note = "吸收；原生CD4；同目標虛弱靈魂15s",
     ids = { 17 }, names = { "真言術：盾" },
     ranks = {
       [1] = { learn = 6, mana = 45, cast = 0, cd = 15, min = 44, max = 44, coeff = 0.1, dur = nil, hotBase = nil, hotCoeff = nil, rel = "單一來源待核" },
