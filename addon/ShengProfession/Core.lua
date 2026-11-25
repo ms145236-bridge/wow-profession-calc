@@ -728,7 +728,7 @@ end
 
 -- 佇列項目的配方：這隻角色學會的，沒有就看帳號裡其他角色記下的（佇列跨角色共用）
 -- 都還沒學（沒有角色打開過那個配方）就用遊戲檔的完整配方表（Recipes.lua）
-local FULL, FULL_BY_OUT = ShengProfession_Recipes, nil
+local FULL, FULL_BY_OUT = ShengProfession_Recipes or {}, nil -- 更新插件後只 /reload 不會載入新檔案，要重開遊戲
 local function queueRec(q)
   local own, shared = db.recipes[q.prof], ShengProfessionDB.recipes[q.prof]
   local rec = q.id and ((own and own[q.id]) or (shared and shared[q.id]))
