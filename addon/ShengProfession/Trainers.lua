@@ -314,7 +314,7 @@ ProfLevel_Trainers = {
       quest_ptBR = "Escondidinho Marisquete", questID = 6610,
       note = "巨蛋 ×12、美味的蚌肉 ×10、奧特蘭克冷酪 ×20；奧格瑪札姆沙可先接引導任務「加基森之旅！」",
       note_enUS = "Giant Egg ×12, Zesty Clam Meat ×10, Alterac Swiss ×20; Zamja in Orgrimmar offers the lead-in quest \"To Gadgetzan You Go!\"",
-      note_zhCN = "巨蛋 ×12、美味的蚌肉 ×10、奥特兰克冷酪 ×20；前置任务“加基森之旅！”由奥格瑞玛的扎姆沙发布",
+      note_zhCN = "巨蛋 ×12、美味的蚌肉 ×10、奥特兰克冷酪 ×20；前置任务“加基森之旅！”由奥格瑞玛的札姆沙发布",
       note_deDE = "Riesenei ×12, Scharfes Muschelfleisch ×10, Alteraclochkäse ×20; die Vorquest „Ab mit Euch nach Gadgetzan!“ gibt Zamja in Orgrimmar",
       note_frFR = "Oeuf géant ×12, Chair de palourde piquante ×10, Emmental d'Alterac ×20 ; Zamja à Orgrimmar donne la quête préalable « Vers Gadgetzan vous allez ! »",
       note_esES = "Huevo gigante ×12, Carne de almeja sabrosa ×10, Queso suizo de Alterac ×20; Zamja, en Orgrimmar, da la misión previa «Ve a Gadgetzan»",
