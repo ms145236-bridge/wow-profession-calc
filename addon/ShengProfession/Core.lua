@@ -28,7 +28,7 @@ local MINING = { key = "mining", name = "採礦", line = 186 }
 PROF_BY_LINE[186] = MINING; PROF_BY_NAME["採礦"] = MINING
 local SRC = { ["训练师"] = "訓練師", ["商人"] = "商人", ["拍卖行"] = "拍賣行" }
 local QUALITY = { poor = { .62, .62, .62 }, common = { 1, 1, 1 }, uncommon = { .12, 1, 0 }, rare = { 0, .44, .87 }, epic = { .64, .21, .93 } }
-local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 225, minimapHide = false, scale = 1.25, decompose = true, useBag = true, useBank = true, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
+local DEFAULTS = { prof = nil, from = {}, to = {}, tab = "profit", minimapAngle = 225, minimapHide = false, scale = 1.25, decompose = true, useBag = true, useBank = true, useMail = true, mail = {}, recipes = {}, queue = {}, psort = "profit", pdesc = true, dock = false }
 local db
 
 local function msg(s) DEFAULT_CHAT_FRAME:AddMessage(L["|cff4fc3f7阿聖|r|cffd9b25f專業幫手|r "] .. s) end
@@ -291,20 +291,38 @@ local function ahStats(id)
   return { last = last, avg = days > 0 and sum / days or 0, days = days }
 end
 
--- 已有的數量：可設定要不要扣掉背包、銀行裡的
+-- 已有的數量：可設定要不要扣掉背包、銀行、信箱裡的（信箱是上次打開信箱時記下的附件）
 local function have(id)
+  local mail = db.useMail and db.mail[id] or 0
   local f = (C_Item and C_Item.GetItemCount) or GetItemCount
-  if not f or not (db.useBag or db.useBank) then return 0 end
+  if not f or not (db.useBag or db.useBank) then return mail end
   local okA, all = pcall(f, id, true) -- 背包＋銀行
   local okB, bag = pcall(f, id, false) -- 只有背包
   all, bag = okA and all or 0, okB and bag or 0
-  return (db.useBag and bag or 0) + (db.useBank and math.max(0, all - bag) or 0)
+  return (db.useBag and bag or 0) + (db.useBank and math.max(0, all - bag) or 0) + mail
 end
-local function haveText() -- 「已扣掉背包和銀行」這類說明
-  if db.useBag and db.useBank then return L["已扣掉背包和銀行裡的數量"] end
-  if db.useBag then return L["已扣掉背包裡的數量（不扣銀行）"] end
-  if db.useBank then return L["已扣掉銀行裡的數量（不扣背包）"] end
-  return L["沒有扣掉背包和銀行裡的數量"]
+local function haveText() -- 「已扣掉背包、銀行」這類說明
+  local parts = {}
+  if db.useBag then parts[#parts + 1] = L["背包"] end
+  if db.useBank then parts[#parts + 1] = L["銀行"] end
+  if db.useMail then parts[#parts + 1] = L["信箱"] end
+  if #parts == 0 then return L["沒有扣掉已有的數量"] end
+  return string.format(L["已扣掉%s裡的數量"], table.concat(parts, L["、"]))
+end
+-- 打開信箱時記下附件（貨到付款的不算，要付錢才拿得到）
+local function scanMail()
+  local n = GetInboxNumItems and GetInboxNumItems() or 0
+  local counts = {}
+  for i = 1, n do
+    local cod = select(6, GetInboxHeaderInfo(i))
+    if not (cod and cod > 0) then
+      for j = 1, ATTACHMENTS_MAX_RECEIVE or 16 do
+        local _, id, _, count = GetInboxItem(i, j)
+        if id and count then counts[id] = (counts[id] or 0) + count end
+      end
+    end
+  end
+  db.mail = counts
 end
 
 -- 名稱、圖示、品質：遊戲讀得到就用遊戲的，讀不到用資料表
@@ -1324,22 +1342,22 @@ local function refreshImpl()
   end
   frame.warn.lines = warns; frame.warn:SetShown(#warns > 0 and totalFull ~= nil)
   -- 第三列：左邊衝級的子分頁（步驟／材料），右邊開關（勾選框，靠右對齊）
-  frame.decBtn:SetCheck(db.decompose); frame.bagBtn:SetCheck(db.useBag); frame.bankBtn:SetCheck(db.useBank)
-  frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue")
+  frame.decBtn:SetCheck(db.decompose); frame.bagBtn:SetCheck(db.useBag); frame.bankBtn:SetCheck(db.useBank); frame.mailBtn:SetCheck(db.useMail)
+  frame.bagBtn:SetShown(db.tab == "queue"); frame.bankBtn:SetShown(db.tab == "queue"); frame.mailBtn:SetShown(db.tab == "queue")
   frame.allBtn:SetCheck(db.shopAll); frame.allBtn:SetShown(db.tab == "shop" and #others > 0)
   for _, w in ipairs({ frame.fromLbl, frame.fromBox, frame.toLbl, frame.toBox, frame.nowBtn, frame.stepsBtn, frame.shopBtn }) do w:SetShown(isLv) end
   -- 佇列跨專業：不顯示專業切換，勾選框移到第二列，內容往上提一列
   local isQ = db.tab == "queue"
   frame.profBtn:SetShown(not isQ)
   local prevR
-  for _, c in ipairs({ frame.allBtn, frame.bankBtn, frame.bagBtn, frame.decBtn }) do
+  for _, c in ipairs({ frame.allBtn, frame.mailBtn, frame.bankBtn, frame.bagBtn, frame.decBtn }) do
     if c:IsShown() then
       c:ClearAllPoints()
       if prevR then c:SetPoint("RIGHT", prevR, "LEFT", -14, 0) else c:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -14, isQ and -61 or -89) end
       prevR = c
     end
   end
-  local row3 = { { frame.stepsBtn, 8 }, { frame.shopBtn, 2 }, { frame.decBtn, 24 }, { frame.bagBtn, 14 }, { frame.bankBtn, 14 }, { frame.allBtn, 14 } }
+  local row3 = { { frame.stepsBtn, 8 }, { frame.shopBtn, 2 }, { frame.decBtn, 24 }, { frame.bagBtn, 14 }, { frame.bankBtn, 14 }, { frame.mailBtn, 14 }, { frame.allBtn, 14 } }
   frame.atrBtn:SetShown(api ~= nil and api.CreateShoppingList ~= nil)
   -- 由上往下：升階提示／價格警告那行（有才佔位）、總計那行（利潤頁沒有）、表頭、表格
   local tr, low, R, short = rankText(p.key, sk)
@@ -1748,6 +1766,12 @@ local function buildFrame()
   -- 佇列：材料要不要扣掉背包、銀行已有的（衝級路線也照這個設定）
   frame.bagBtn = UI.Check(main, L["扣背包"], function() db.useBag = not db.useBag; ProfLevel_Refresh() end)
   frame.bankBtn = UI.Check(main, L["扣銀行"], function() db.useBank = not db.useBank; ProfLevel_Refresh() end)
+  frame.mailBtn = UI.Check(main, L["扣信箱"], function() db.useMail = not db.useMail; ProfLevel_Refresh() end)
+  frame.mailBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["扣信箱"])
+    GameTooltip:AddLine(L["算的是上次打開信箱時看到的附件（貨到付款的不算）"], 1, 1, 1, true); GameTooltip:Show()
+  end)
+  frame.mailBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
   -- 材料頁：合併同伺服器、同陣營其他角色要買的（有其他角色的清單才出現）
   frame.allBtn = UI.Check(main, L["全部角色"], function() db.shopAll = not db.shopAll; offset = 0; ProfLevel_Refresh() end)
   frame.allBtn:SetScript("OnEnter", function(self)
@@ -2324,12 +2348,15 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     safe("商人", merchantUpdate)
   elseif e == "MERCHANT_CLOSED" then
     if buyBtn then buyBtn:Hide() end
+  elseif e == "MAIL_INBOX_UPDATE" then
+    safe("信箱", scanMail)
+    if frame and frame:IsShown() then ProfLevel_Refresh() end
   elseif REFRESH_EVENTS[e] then
     if e == "BAG_UPDATE_DELAYED" and MerchantFrame and MerchantFrame:IsShown() then safe("商人", merchantUpdate) end
     if frame and frame:IsShown() then ProfLevel_Refresh() end
   end
 end)
-for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED" }) do pcall(ev.RegisterEvent, ev, e) end
+for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED", "MAIL_INBOX_UPDATE" }) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(REFRESH_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(SCAN_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 if ev.RegisterUnitEvent then pcall(ev.RegisterUnitEvent, ev, "UNIT_SPELLCAST_SUCCEEDED", "player") else pcall(ev.RegisterEvent, ev, "UNIT_SPELLCAST_SUCCEEDED") end
