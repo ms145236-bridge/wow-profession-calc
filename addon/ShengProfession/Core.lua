@@ -443,9 +443,10 @@ local SMELT = { -- { 產物, 一次做幾個, 最低點數, { 材料, 數量 }..
   { 12359, 1, 250, { 10620, 1 } },           -- 瑟銀錠 ← 瑟銀礦石
 }
 local RECIPES -- [產物] = { prof, minSkill, yield, mats = { {id, 每次數量} } }
+local SPELL_RECIPES -- [法術] = { prof, mats }：附魔這類沒有產物的配方
 local function recipes()
   if RECIPES then return RECIPES end
-  RECIPES = {}
+  RECIPES, SPELL_RECIPES = {}, {}
   for _, r in ipairs(SMELT) do
     local mats = {}
     for i = 4, #r do table.insert(mats, { r[i][1], r[i][2] }) end
@@ -463,6 +464,10 @@ local function recipes()
           elseif cur.prof == prof and st.f < cur.minSkill then
             cur.minSkill = st.f
           end
+        elseif st.k == "s" and #st.m > 0 and not SPELL_RECIPES[st.id] then
+          local mats = {}
+          for _, m in ipairs(st.m) do table.insert(mats, { m[1], m[2] / st.c }) end
+          SPELL_RECIPES[st.id] = { prof = prof, mats = mats }
         end
       end
     end
@@ -734,6 +739,9 @@ local function queueRec(q)
   if rec then return rec end
   local r = q.out and recipes()[q.out]
   if r and r.prof == q.prof then return { out = q.out, mats = r.mats, qmin = r.yield, qmax = r.yield } end
+  recipes()
+  local sp = not q.out and q.id and SPELL_RECIPES[q.id]
+  if sp and sp.prof == q.prof then return { mats = sp.mats, qmin = 1, qmax = 1 } end
 end
 -- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
 local function queueNeeds(learned)
