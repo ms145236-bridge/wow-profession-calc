@@ -241,6 +241,8 @@ local function vendorsOf(id)
   table.sort(list, function(a, b) return a.d < b.d end)
   return list
 end
+-- 最近的商人名字（放在 NS：比較表重整函式的 upvalue 已經到 Lua 5.1 的 60 個上限）
+function NS.vendorName(id) local v = vendorsOf(id)[1]; return v and loc(v, "name") end
 -- 滑鼠提示：最近的幾個商人（最多 4 個）＋「點一下設導航」
 local function vendorTip(id, head)
   local list = vendorsOf(id)
@@ -1439,8 +1441,8 @@ local function refreshImpl()
         local it = e.qmat
         local name, icon, col = info("i", it.id)
         l.icon:SetTexture(icon); l.icon:Show()
-        local nv = it.kind ~= "craft" and D.vendor[it.id] and vendorsOf(it.id)[1]
-        local src = it.kind == "craft" and string.format(L["自己做 ×%d"], it.n) or (nv and loc(nv, "name")) or (D.vendor[it.id] and L["商人"] or L["拍賣行"])
+        local nv = it.kind ~= "craft" and D.vendor[it.id] and NS.vendorName(it.id)
+        local src = it.kind == "craft" and string.format(L["自己做 ×%d"], it.n) or nv or (D.vendor[it.id] and L["商人"] or L["拍賣行"])
         local st = it.kind == "craft" and "—" or it.buy == 0 and ("|cff9fd18b" .. L["齊了"] .. "|r") or ("|cffff9d5c" .. it.have .. " / " .. it.buy .. "|r")
         vals = { name, it.qty, src, st }
         l.c[1]:SetTextColor(col[1], col[2], col[3])
@@ -1481,8 +1483,8 @@ local function refreshImpl()
         local lo, hi = math.max(s.f, S), math.min(s.t, T)
         local name, icon, col = info(s.k, s.id)
         l.icon:SetTexture(icon); l.icon:Show()
-        local pv = e.pat and vendorsOf(e.pat)[1]
-        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, pv and string.format(L["%s（商人）"], loc(pv, "name")) or srcName(s.src),
+        local pv = e.pat and NS.vendorName(e.pat)
+        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, pv and string.format(L["%s（商人）"], pv) or srcName(s.src),
           e.val and ("|cff9fd18b" .. money(e.val) .. "|r") or "—" }
         l.c[2]:SetTextColor(col[1], col[2], col[3])
       else
