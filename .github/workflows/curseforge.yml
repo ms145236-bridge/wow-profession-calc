@@ -27,6 +27,7 @@ jobs:
         run: |
           sudo apt-get install -y -qq lua5.1 >/dev/null
           find addon -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+      - name: 打包並上傳有改版號的插件
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_GAME_VERSION: ${{ vars.CF_GAME_VERSION }}
