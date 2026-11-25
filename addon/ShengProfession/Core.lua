@@ -443,10 +443,9 @@ local SMELT = { -- { 產物, 一次做幾個, 最低點數, { 材料, 數量 }..
   { 12359, 1, 250, { 10620, 1 } },           -- 瑟銀錠 ← 瑟銀礦石
 }
 local RECIPES -- [產物] = { prof, minSkill, yield, mats = { {id, 每次數量} } }
-local SPELL_RECIPES -- [法術] = { prof, mats }：附魔這類沒有產物的配方
 local function recipes()
   if RECIPES then return RECIPES end
-  RECIPES, SPELL_RECIPES = {}, {}
+  RECIPES = {}
   for _, r in ipairs(SMELT) do
     local mats = {}
     for i = 4, #r do table.insert(mats, { r[i][1], r[i][2] }) end
@@ -464,10 +463,6 @@ local function recipes()
           elseif cur.prof == prof and st.f < cur.minSkill then
             cur.minSkill = st.f
           end
-        elseif st.k == "s" and #st.m > 0 and not SPELL_RECIPES[st.id] then
-          local mats = {}
-          for _, m in ipairs(st.m) do table.insert(mats, { m[1], m[2] / st.c }) end
-          SPELL_RECIPES[st.id] = { prof = prof, mats = mats }
         end
       end
     end
@@ -732,16 +727,29 @@ local function queueRoute()
 end
 
 -- 佇列項目的配方：這隻角色學會的，沒有就看帳號裡其他角色記下的（佇列跨角色共用）
--- 都還沒學（沒有角色打開過那個配方）就用插件內建的衝級資料
+-- 都還沒學（沒有角色打開過那個配方）就用遊戲檔的完整配方表（Recipes.lua）
+local FULL, FULL_BY_OUT = ShengProfession_Recipes, nil
 local function queueRec(q)
   local own, shared = db.recipes[q.prof], ShengProfessionDB.recipes[q.prof]
   local rec = q.id and ((own and own[q.id]) or (shared and shared[q.id]))
   if rec then return rec end
-  local r = q.out and recipes()[q.out]
-  if r and r.prof == q.prof then return { out = q.out, mats = r.mats, qmin = r.yield, qmax = r.yield } end
-  recipes()
-  local sp = not q.out and q.id and SPELL_RECIPES[q.id]
-  if sp and sp.prof == q.prof then return { mats = sp.mats, qmin = 1, qmax = 1 } end
+  local id = q.id
+  if not (id and FULL[id]) and q.out then -- 只知道產物：取同專業做這個產物的配方
+    if not FULL_BY_OUT then
+      FULL_BY_OUT = {}
+      for sid, f in pairs(FULL) do
+        local k = f[1] .. ":" .. f[2]
+        if f[2] > 0 and not (FULL_BY_OUT[k] and FULL_BY_OUT[k] < sid) then FULL_BY_OUT[k] = sid end
+      end
+    end
+    id = FULL_BY_OUT[q.prof .. ":" .. q.out]
+  end
+  local f = id and FULL[id]
+  if f and f[1] == q.prof then
+    local mats = {}
+    for i = 4, #f, 2 do table.insert(mats, { f[i], f[i + 1] }) end
+    return { out = f[2] > 0 and f[2] or nil, mats = mats, qmin = f[3], qmax = f[3] }
+  end
 end
 -- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
 local function queueNeeds(learned)
