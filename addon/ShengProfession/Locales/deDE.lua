@@ -187,6 +187,7 @@ NS.locales.deDE = {
   ["這個遊戲版本不支援從插件製作"] = "Diese Spielversion erlaubt Add-ons keine Herstellung.",
   ["開始製作 %s ×%d"] = "Handwerk %s ×%d",
   ["佇列裡沒有%s要做的東西"] = "Nichts in der Warteschlange für %s",
+  ["改做%s"] = "Zu %s wechseln",
 
   -- 專業視窗面板
   ["關閉幫手"] = "Helfer schließen",

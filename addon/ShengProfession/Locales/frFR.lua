@@ -187,6 +187,7 @@ NS.locales.frFR = {
   ["這個遊戲版本不支援從插件製作"] = "Cette version du jeu empêche la fabrication via un addon.",
   ["開始製作 %s ×%d"] = "Fabrication %s ×%d",
   ["佇列裡沒有%s要做的東西"] = "Rien dans la file d'attente pour %s",
+  ["改做%s"] = "Passer à %s",
 
   -- 專業視窗面板
   ["關閉幫手"] = "Fermer l’assistant",

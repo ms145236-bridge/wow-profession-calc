@@ -782,11 +782,33 @@ local function queueNeeds(learned)
   return r
 end
 
+-- 專業視窗開著時，把它切到這個配方（別的專業也會自動換過去）；這隻角色沒學的不動
+local function showInProf(prof, id)
+  if not (id and prof and ProfessionsFrame and ProfessionsFrame:IsShown() and C_TradeSkillUI and C_TradeSkillUI.OpenRecipe) then return end
+  if not (db.recipes[prof] and db.recipes[prof][id]) then return end
+  C_TradeSkillUI.OpenRecipe(id)
+  return true
+end
+-- 目前專業佇列裡沒東西時，下一個這隻角色會做的別的專業項目（目前專業還有東西就不換）
+local function otherQueued(pkey)
+  for _, q in ipairs(db.queue) do if q.count > 0 and q.prof == pkey then return end end
+  for _, q in ipairs(db.queue) do
+    if q.count > 0 then
+      local id = q.id or findRecipe(q.prof, q.out)
+      if id and db.recipes[q.prof] and db.recipes[q.prof][id] then return q, id end
+    end
+  end
+end
+local function profName(key) return key == "mining" and MINING.name or (PROF_BY_KEY[key] and PROF_BY_KEY[key].name or key) end
+
 -- 製作下一個：佇列裡第一個「目前開著的專業」的項目，一次做完（材料夠多少做多少）
 -- 失敗原因寫在視窗總計那行（琥珀色、5 秒）；成功不說話（佇列數字自己會變）
+-- 目前專業沒有要做的，就把專業視窗切到下一個別的專業項目（再按一次才做）
 local function craftNext()
   local p = openProf()
   if not p then flashNote(L["先打開專業視窗"]); return end
+  local oq, oid = otherQueued(p.key)
+  if oq and showInProf(oq.prof, oid) then return end
   local T = C_TradeSkillUI
   for _, q in ipairs(db.queue) do
     if q.count > 0 and q.prof == p.key then
@@ -1479,7 +1501,10 @@ local function refreshImpl()
     setLabel(frame.act1, frame.altArm and L["再按一次清空"] or L["清除其他角色"], 110); frame.act1.fn = clearOthers; frame.act1:Show()
     if frame.altArm then UI.look(frame.act1, "danger") end
   elseif db.tab == "queue" then
-    setLabel(frame.act1, L["製作下一個"], 120); frame.act1.fn = craftNext; frame.act1:Show()
+    -- 開著的專業佇列裡沒東西、別的專業還有：按鈕改成切過去
+    local p = openProf()
+    local oq = p and otherQueued(p.key)
+    setLabel(frame.act1, oq and string.format(L["改做%s"], profName(oq.prof)) or L["製作下一個"], 120); frame.act1.fn = craftNext; frame.act1:Show()
     setLabel(frame.act2, frame.clearArm and L["再按一次清空"] or L["清空佇列"], 90); frame.act2.fn = clearQueue; frame.act2:Show()
     if frame.clearArm then UI.look(frame.act2, "danger") end
   end
@@ -1797,6 +1822,14 @@ local function buildFrame()
     l:EnableMouse(true); l.sprofRow = true
     -- 浮窗只在圖示和名稱上出現（l.nameHit 蓋住名稱欄，位置在 autoFit 排）；整列只有滑過高亮
     l.nameHit = CreateFrame("Frame", nil, l); l.nameHit:EnableMouse(true); l.nameHit:SetSize(1, ROW_H)
+    -- 點佇列或利潤的列：專業視窗切到那個配方
+    local function pick(_, btn)
+      local e = l.e
+      if btn ~= "LeftButton" or not e then return end
+      if e.queue then showInProf(e.queue.prof, e.queue.id or findRecipe(e.queue.prof, e.queue.out))
+      elseif e.recipe then showInProf(e.prof, e.id) end
+    end
+    l:SetScript("OnMouseUp", pick); l.nameHit:SetScript("OnMouseUp", pick)
     l:SetScript("OnEnter", function(self) if self.e then self.hov:Show() end end)
     l.nameHit:SetScript("OnEnter", function()
       local self = l
@@ -1932,8 +1965,9 @@ local function updateProfUI()
   -- 面板 360 寬：放不下就截斷，滑鼠移上去看全文
   fitTextTip(profUI.text, 356, txt .. (qn > 0 and (L["　"] .. "|cffffd100" .. string.format(L["佇列 ×%d"], qn) .. "|r") or ""))
 end
+-- 打開專業視窗時照上次關專業視窗時的樣子：幫手開著就跟著開（已經開著的也貼過去）
 local function dockOpen(force)
-  if (not force and not db.dock) or not ProfessionsFrame then return end
+  if (not force and not db.dock and not (frame and frame:IsShown())) or not ProfessionsFrame then return end
   local p = openProf()
   if p then db.prof = p.key end
   if not frame then buildFrame() end
@@ -1947,6 +1981,7 @@ local function dockOpen(force)
   frame:Show(); ProfLevel_Refresh()
 end
 local function dockClose()
+  db.dock = frame and frame:IsShown() and true or false -- 記住幫手開或關，下次打開專業視窗照做
   if docked and frame then frame:Hide() end
   docked = false
 end
