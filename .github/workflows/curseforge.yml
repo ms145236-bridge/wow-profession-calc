@@ -22,7 +22,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: 打包並上傳有改版號的插件
+      # 遊戲用 Lua 5.1：一個函式最多 60 個 upvalue、200 個 local，超過整個檔案載不進來（1.8.0 出過事）
+      - name: 用 Lua 5.1 編譯檢查
+        run: |
+          sudo apt-get install -y -qq lua5.1 >/dev/null
+          find addon -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_GAME_VERSION: ${{ vars.CF_GAME_VERSION }}
