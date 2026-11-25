@@ -812,6 +812,26 @@ local function queueRec(q)
     return { out = f[2] > 0 and f[2] or nil, mats = mats, qmin = f[3], qmax = f[3] }
   end
 end
+-- 佇列一列的「材料」欄：製作只能用背包裡的，背包不夠時分三種：真的缺、在銀行／信箱、等佇列裡別的項目做出來
+-- （放在 NS：比較表重整函式的 upvalue 已經到 Lua 5.1 的 60 個上限）
+function NS.queueMatText(rec, count)
+  local made = {}
+  for _, q in ipairs(db.queue) do
+    local r = q.count > 0 and queueRec(q)
+    if r and r.out then made[r.out] = true end
+  end
+  local short, fetch, wait = 0, 0, 0
+  for _, m in ipairs(rec.mats) do
+    local need = m[2] * count
+    if bagCount(m[1]) < need then
+      if made[m[1]] then wait = wait + 1 elseif have(m[1]) >= need then fetch = fetch + 1 else short = short + 1 end
+    end
+  end
+  if short > 0 then return "|cffff9d5c" .. string.format(L["缺 %d 種"], short) .. "|r" end
+  if fetch > 0 then return "|cffffd100" .. L["在銀行／信箱"] .. "|r" end
+  if wait > 0 then return "|cffffd100" .. L["等前面做"] .. "|r" end
+  return "|cff9fd18b" .. L["齊了"] .. "|r"
+end
 -- 佇列要用的材料（扣掉佇列裡自己會做出來的中間材料）
 local function queueNeeds(learned)
   local need, made, order, unknown = {}, {}, {}, 0
@@ -1464,11 +1484,7 @@ local function refreshImpl()
         if q.out then name, icon, col = info("i", q.out) else name, icon, col = info("s", q.id or 0); name = q.name or name end
         l.icon:SetTexture(icon); l.icon:Show()
         local pn = q.prof == "mining" and MINING.name or (PROF_BY_KEY[q.prof] and PROF_BY_KEY[q.prof].name or q.prof)
-        local miss, matTxt = 0, "|cffff9d5c" .. L["不知道材料"] .. "|r"
-        if rec then
-          for _, m in ipairs(rec.mats) do if bagCount(m[1]) < m[2] * q.count then miss = miss + 1 end end
-          matTxt = miss == 0 and ("|cff9fd18b" .. L["齊了"] .. "|r") or ("|cffff9d5c" .. string.format(L["缺 %d 種"], miss) .. "|r")
-        end
+        local matTxt = rec and NS.queueMatText(rec, q.count) or ("|cffff9d5c" .. L["不知道材料"] .. "|r")
         vals = { name, "", pn, matTxt, mine and canMakeNow(mine) or "—" } -- 次數：輸入框（l.cnt）
         l.c[1]:SetTextColor(col[1], col[2], col[3])
       elseif e.prep then
