@@ -22,6 +22,8 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 **Crafting queue**
 - Add recipes from the Profit or Leveling tab, then press **Craft next** to work through the list. Type any count you want.
 - The queue is shared across your characters.
+- When the open profession has nothing left, **Craft next** turns into **Switch to Mining** (or another profession) so you can craft across professions.
+- Even recipes no character has learned yet show their materials (built-in WoW Forever recipe table).
 - The Queue tab also lists the materials you need, where to get them and how many are still missing.
 - When a vendor sells materials your queue is missing, a **Buy queue materials** button appears above the merchant window and buys them in one click.
 - **Use bags / Use bank** toggles decide whether materials you already own are subtracted.
@@ -47,7 +49,8 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - Profit and queue rows and item tooltips show who in your guild can craft it.
 
 **Profession window**
-- The helper can open next to the profession window so you can queue recipes straight from it.
+- The helper can open next to the profession window so you can queue recipes straight from it; it remembers whether you left it open.
+- Click a queue or profit row to jump the profession window to that recipe.
 
 **Settings**
 - The gear in the title bar opens settings: open with the profession window, minimap button, guild sharing and gathering tracking.
@@ -94,6 +97,8 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 **製作佇列**
 - 從「利潤」或「衝級」把配方加進佇列，按**製作下一個**依序做完；數量可以自己輸入。
 - 佇列所有角色共用。
+- 開著的專業做完了，**製作下一個**會變成**改做採礦**這類按鈕，不同專業可以接著做。
+- 還沒有角色學過的配方也算得出材料（內建 WoW Forever 完整配方表）。
 - 佇列頁下面同時列出要用的材料、來源和還缺多少。
 - 商人有賣佇列缺的材料時，商人視窗上方會出現**買齊佇列材料**，按一下買足。
 - **扣背包／扣銀行**開關決定已有的材料要不要扣掉。
@@ -119,7 +124,8 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - 利潤、佇列和物品滑鼠提示會顯示公會裡誰會做。
 
 **專業視窗**
-- 可以跟專業視窗一起打開，直接把配方加進佇列。
+- 可以跟專業視窗一起打開，直接把配方加進佇列；會記住上次開著還是關著。
+- 點佇列或利潤頁的一列，專業視窗就切到那個配方。
 
 **設定**
 - 標題列的齒輪打開設定：跟專業視窗一起開、小地圖按鈕、公會分享、採集追蹤。
