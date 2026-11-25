@@ -188,6 +188,9 @@ NS.locales.ptBR = {
   ["開始製作 %s ×%d"] = "Fabricação %s ×%d",
   ["佇列裡沒有%s要做的東西"] = "Nada na fila para %s",
   ["改做%s"] = "Mudar para %s",
+  ["訓練師不教，要跟商人買「%s」："] = "Os instrutores não ensinam; compre \"%s\" de um vendedor:",
+  ["點一下設導航到最近的商人"] = "Clique para marcar o vendedor mais próximo",
+  ["哪裡買："] = "Onde comprar:",
 
   -- 專業視窗面板
   ["關閉幫手"] = "Fechar assistente",

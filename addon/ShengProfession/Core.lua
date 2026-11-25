@@ -209,6 +209,47 @@ local function goTo(a)
     C_SuperTrack.SetSuperTrackedUserWaypoint(true)
   end)
 end
+-- 賣這個東西的商人（RecipeVendors.lua）：只留這個陣營買得到的，近的排前面（同一塊大陸比直線距離，別塊大陸排最後）
+local VENDORS = {}
+local function worldPos(map, x, y)
+  local ok, cont, pos = pcall(C_Map.GetWorldPosFromMapPos, map, CreateVector2D(x, y))
+  if ok and cont and pos then return cont, pos.x, pos.y end
+end
+local function vendorsOf(id)
+  local raw = (ShengProfession_RecipeVendors or {})[id] -- 更新後只 /reload 讀不到新檔案
+  if not raw then return {} end
+  if not VENDORS[id] then
+    local side = UnitFactionGroup("player") == "Alliance" and "A" or "H"
+    VENDORS[id] = {}
+    for _, r in ipairs(raw) do
+      if r[1]:find(side) then
+        local mi = C_Map.GetMapInfo(r[4])
+        local v = { name = r[2], name_enUS = r[3], map = r[4], x = r[5], y = r[6], place = mi and mi.name or "" }
+        v.cont, v.wx, v.wy = worldPos(r[4], r[5] / 100, r[6] / 100)
+        table.insert(VENDORS[id], v)
+      end
+    end
+  end
+  local list = VENDORS[id]
+  local m = C_Map.GetBestMapForUnit("player")
+  local p = m and C_Map.GetPlayerMapPosition(m, "player")
+  local cont, px, py
+  if p then cont, px, py = worldPos(m, p.x, p.y) end
+  for _, v in ipairs(list) do
+    v.d = (cont and v.cont == cont) and ((v.wx - px) ^ 2 + (v.wy - py) ^ 2) or (v.map == m and 0 or math.huge)
+  end
+  table.sort(list, function(a, b) return a.d < b.d end)
+  return list
+end
+-- 滑鼠提示：最近的幾個商人（最多 4 個）＋「點一下設導航」
+local function vendorTip(id, head)
+  local list = vendorsOf(id)
+  if #list == 0 then return end
+  GameTooltip:AddLine(" ")
+  GameTooltip:AddLine(head, 1, .82, 0, true)
+  for i = 1, math.min(4, #list) do GameTooltip:AddDoubleLine(whoAt(list[i]), string.format("%.1f, %.1f", list[i].x, list[i].y), 1, 1, 1, .6, .6, .6) end
+  GameTooltip:AddLine(L["點一下設導航到最近的商人"], .6, .6, .6)
+end
 
 local function auctionator()
   return Auctionator and Auctionator.API and Auctionator.API.v1 and Auctionator.API.v1.GetAuctionPriceByItemID and Auctionator.API.v1 or nil
@@ -1326,9 +1367,11 @@ local function refreshImpl()
     for i = #cs, 1, -1 do -- 先做最底層的（例如先冶煉銅錠、錫錠，再做青銅錠）
       if cs[i].n > 0 then table.insert(rows, { prep = cs[i] }) end
     end
+    local patOf = {} -- 步驟 → 要先買的配方
+    for rid, idxs in pairs(route.recipes) do for _, i in ipairs(idxs) do patOf[i] = rid end end
     for i, s in ipairs(route.steps) do
       local n = r.stepCrafts[i] + r.extraCrafts[i]
-      if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i], val = stepVal[i] }) end
+      if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i], val = stepVal[i], pat = s.src == "商人" and patOf[i] or nil }) end
     end
   elseif db.tab == "profit" then
     local qc = {}
@@ -1378,7 +1421,8 @@ local function refreshImpl()
         local it = e.qmat
         local name, icon, col = info("i", it.id)
         l.icon:SetTexture(icon); l.icon:Show()
-        local src = it.kind == "craft" and string.format(L["自己做 ×%d"], it.n) or (D.vendor[it.id] and L["商人"] or L["拍賣行"])
+        local nv = it.kind ~= "craft" and D.vendor[it.id] and vendorsOf(it.id)[1]
+        local src = it.kind == "craft" and string.format(L["自己做 ×%d"], it.n) or (nv and loc(nv, "name")) or (D.vendor[it.id] and L["商人"] or L["拍賣行"])
         local st = it.kind == "craft" and "—" or it.buy == 0 and ("|cff9fd18b" .. L["齊了"] .. "|r") or ("|cffff9d5c" .. it.have .. " / " .. it.buy .. "|r")
         vals = { name, it.qty, src, st }
         l.c[1]:SetTextColor(col[1], col[2], col[3])
@@ -1419,7 +1463,9 @@ local function refreshImpl()
         local lo, hi = math.max(s.f, S), math.min(s.t, T)
         local name, icon, col = info(s.k, s.id)
         l.icon:SetTexture(icon); l.icon:Show()
-        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, srcName(s.src), e.val and ("|cff9fd18b" .. money(e.val) .. "|r") or "—" }
+        local pv = e.pat and vendorsOf(e.pat)[1]
+        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, pv and string.format(L["%s（商人）"], loc(pv, "name")) or srcName(s.src),
+          e.val and ("|cff9fd18b" .. money(e.val) .. "|r") or "—" }
         l.c[2]:SetTextColor(col[1], col[2], col[3])
       else
         local it = e.item
@@ -1822,12 +1868,14 @@ local function buildFrame()
     l:EnableMouse(true); l.sprofRow = true
     -- 浮窗只在圖示和名稱上出現（l.nameHit 蓋住名稱欄，位置在 autoFit 排）；整列只有滑過高亮
     l.nameHit = CreateFrame("Frame", nil, l); l.nameHit:EnableMouse(true); l.nameHit:SetSize(1, ROW_H)
-    -- 點佇列或利潤的列：專業視窗切到那個配方
+    -- 點佇列或利潤的列：專業視窗切到那個配方；點要跟商人買的東西：設導航到最近的商人
     local function pick(_, btn)
       local e = l.e
       if btn ~= "LeftButton" or not e then return end
+      local buy = (e.qmat and e.qmat.kind ~= "craft" and e.qmat.id) or (e.item and e.item.kind ~= "craft" and e.item.id) or e.pat
       if e.queue then showInProf(e.queue.prof, e.queue.id or findRecipe(e.queue.prof, e.queue.out))
-      elseif e.recipe then showInProf(e.prof, e.id) end
+      elseif e.recipe then showInProf(e.prof, e.id)
+      elseif buy then goTo(vendorsOf(buy)[1]) end
     end
     l:SetScript("OnMouseUp", pick); l.nameHit:SetScript("OnMouseUp", pick)
     l:SetScript("OnEnter", function(self) if self.e then self.hov:Show() end end)
@@ -1893,9 +1941,14 @@ local function buildFrame()
           local function dv(x) return (x == nil or x == "" or x == "–") and "—" or x end
           GameTooltip:AddLine(string.format(L["難度："] .. "|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", dv(s.d[1]), dv(s.d[2]), dv(s.d[3]), dv(s.d[4])), .8, .8, .8)
         end
+        if e.pat then vendorTip(e.pat, string.format(L["訓練師不教，要跟商人買「%s」："], (info("i", e.pat)))) end
+      elseif e.qmat then
+        pcall(GameTooltip.SetItemByID, GameTooltip, e.qmat.id)
+        if e.qmat.kind ~= "craft" then vendorTip(e.qmat.id, L["哪裡買："]) end
       elseif e.item then
         pcall(GameTooltip.SetItemByID, GameTooltip, e.item.id)
         local c = e.item
+        if c.kind ~= "craft" then vendorTip(c.id, L["哪裡買："]) end
         if c.who and #c.who > 0 then
           GameTooltip:AddLine(" ")
           for _, w in ipairs(c.who) do GameTooltip:AddDoubleLine(w[1], "×" .. w[2], 1, 1, 1, 1, 1, 1) end

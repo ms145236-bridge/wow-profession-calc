@@ -188,6 +188,9 @@ NS.locales.enUS = {
   ["開始製作 %s ×%d"] = "Crafting %s ×%d",
   ["佇列裡沒有%s要做的東西"] = "Nothing in the queue for %s",
   ["改做%s"] = "Switch to %s",
+  ["訓練師不教，要跟商人買「%s」："] = "Trainers don't teach this; buy \"%s\" from a vendor:",
+  ["點一下設導航到最近的商人"] = "Click to set a waypoint to the nearest vendor",
+  ["哪裡買："] = "Where to buy:",
 
   -- 專業視窗面板
   ["關閉幫手"] = "Close helper",

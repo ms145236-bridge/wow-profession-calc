@@ -188,6 +188,9 @@ NS.locales.esMX = {
   ["開始製作 %s ×%d"] = "Elaboración %s ×%d",
   ["佇列裡沒有%s要做的東西"] = "No hay nada en la cola para %s",
   ["改做%s"] = "Cambiar a %s",
+  ["訓練師不教，要跟商人買「%s」："] = "Los instructores no lo enseñan; compra «%s» a un vendedor:",
+  ["點一下設導航到最近的商人"] = "Haz clic para marcar el vendedor más cercano",
+  ["哪裡買："] = "Dónde comprar:",
 
   -- 專業視窗面板
   ["關閉幫手"] = "Cerrar asistente",

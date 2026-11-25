@@ -188,6 +188,9 @@ NS.locales.frFR = {
   ["開始製作 %s ×%d"] = "Fabrication %s ×%d",
   ["佇列裡沒有%s要做的東西"] = "Rien dans la file d'attente pour %s",
   ["改做%s"] = "Passer à %s",
+  ["訓練師不教，要跟商人買「%s」："] = "Les maîtres ne l'enseignent pas ; achetez « %s » chez un marchand :",
+  ["點一下設導航到最近的商人"] = "Cliquez pour placer un point de passage vers le marchand le plus proche",
+  ["哪裡買："] = "Où acheter :",
 
   -- 專業視窗面板
   ["關閉幫手"] = "Fermer l’assistant",
