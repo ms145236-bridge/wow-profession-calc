@@ -26,11 +26,13 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - Even recipes no character has learned yet show their materials (built-in WoW Forever recipe table).
 - The Queue tab also lists the materials you need, where to get them and how many are still missing.
 - When a vendor sells materials your queue is missing, a **Buy queue materials** button appears above the merchant window and buys them in one click.
-- **Use bags / Use bank** toggles decide whether materials you already own are subtracted.
+- **Use bags / Use bank / Use mail** toggles decide whether materials you already own are subtracted (mail counts the attachments seen the last time you opened your mailbox).
+- Vendor-sold materials name the nearest vendor; the tooltip lists where to buy and a click sets a waypoint.
 - One click builds an **Auctionator shopping list** for what is still missing; **All characters** merges every character's list.
 
 **Leveling**
 - Picks the cheapest leveling route from current Auctionator prices and lists each step and how many to craft.
+- Steps that need a vendor-sold pattern name the nearest vendor that sells it.
 - Shows the total cost and what the crafted items sell back for; intermediate materials can be broken down into raw materials.
 - Materials tab with the full shopping list.
 
@@ -101,11 +103,13 @@ Answers the usual profession questions: what is worth crafting, what leveling wi
 - 還沒有角色學過的配方也算得出材料（內建 WoW Forever 完整配方表）。
 - 佇列頁下面同時列出要用的材料、來源和還缺多少。
 - 商人有賣佇列缺的材料時，商人視窗上方會出現**買齊佇列材料**，按一下買足。
-- **扣背包／扣銀行**開關決定已有的材料要不要扣掉。
+- **扣背包／扣銀行／扣信箱**開關決定已有的材料要不要扣掉（信箱算上次打開信箱時看到的附件）。
+- 要跟商人買的材料會寫最近的商人，滑鼠提示列出哪裡買，點一下設導航。
 - 一鍵把還缺的材料建立成 **Auctionator 購物清單**；勾**全部角色**會合併每個角色的清單。
 
 **衝級**
 - 依目前 Auctionator 價格挑最省的衝級路線，列出每一段做什麼、做幾次。
+- 要跟商人買圖樣的步驟，會寫最近哪個商人有賣。
 - 算出總花費和成品賣掉能回收多少；中間材料可以拆成原材料比價。
 - 「材料」頁列出完整購物清單。
 
