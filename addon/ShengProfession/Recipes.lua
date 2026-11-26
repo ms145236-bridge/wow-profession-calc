@@ -1,6 +1,6 @@
--- 由 tools/recipes-data.mjs 從 wago.tools 的 WoW Forever 1.60.1.71091 遊戲檔產生，請勿手改。
+-- 由 tools/recipes-data.mjs 從 wago.tools 的 WoW Forever 1.60.1.71139 遊戲檔產生，請勿手改。
 -- [法術] = { 專業, 產物（0＝附魔這類沒有產物）, 一次做幾個, 材料, 數量, 材料, 數量 ... }
-ShengProfession_RecipesBuild = "1.60.1.71091"
+ShengProfession_RecipesBuild = "1.60.1.71139"
 ShengProfession_Recipes = {
   [818] = { "cooking", 0, 1, 4470, 1 },
   [2149] = { "leatherworking", 2302, 1, 2318, 2, 2320, 1 },
@@ -2329,6 +2329,7 @@ ShengProfession_Recipes = {
   [1293850] = { "engineering", 274388, 200, 251291, 8, 12365, 8, 7067, 1 },
   [1294014] = { "cooking", 267341, 1, 249796, 3, 3713, 1 },
   [1294054] = { "enchanting", 0, 1, 248822, 1, 14343, 2, 16204, 12, 16202, 4 },
+  [1294289] = { "leatherworking", 274490, 1, 4304, 12, 8343, 2 },
   [1295805] = { "cooking", 274971, 1, 730, 2, 12206, 1, 2692, 1 },
   [1295834] = { "cooking", 274976, 1, 769, 2, 2678, 1 },
   [1297120] = { "tailoring", 275604, 1, 14048, 4, 14343, 1, 7082, 3, 14341, 6 },
