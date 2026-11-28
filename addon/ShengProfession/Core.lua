@@ -2038,8 +2038,10 @@ end
 local function updateProfUI()
   if not profUI or not profUI:IsVisible() then return end
   local open = frame and frame:IsShown() and true or false
+  local ench = openProf()
+  if not InCombatLockdown() then profUI.enchBtn:SetShown(ench and ench.key == "enchanting" or false) end
   profUI.text:SetShown(open); profUI.addBtn:SetShown(open); profUI.text.tip:Hide()
-  setLabel(profUI.openBtn, open and L["關閉幫手"] or L["專業幫手"], 110)
+  setLabel(profUI.openBtn, open and L["關閉幫手"] or L["專業幫手"], 100)
   if not open then return end
   local p, id = openProf(), selectedRecipe()
   profUI.id, profUI.prof, profUI.rec = id, p and p.key, nil
@@ -2091,7 +2093,7 @@ local function setupProfUI()
   profUI.text:SetPoint("TOPLEFT", 2, 0); profUI.text:SetJustifyH("LEFT"); profUI.text:SetWordWrap(false)
   tipArea(profUI.text, profUI)
   local b = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  b:SetSize(110, 24); profUI.addBtn = b
+  b:SetSize(100, 24); profUI.addBtn = b
   b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
   b:SetScript("OnClick", function(_, btn)
     if not profUI.id then return end
@@ -2107,13 +2109,43 @@ local function setupProfUI()
     GameTooltip:AddLine(L["左鍵 +1、Shift+左鍵 +5、右鍵 −1"], 1, 1, 1); GameTooltip:Show()
   end)
   b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  setLabel(b, L["加入佇列"], 110)
+  setLabel(b, L["加入佇列"], 100)
   local o = CreateFrame("Button", nil, profUI, "UIPanelButtonTemplate")
-  o:SetSize(110, 24); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
-  b:SetPoint("LEFT", o, "RIGHT", 6, 0)
+  o:SetSize(100, 24); o:SetPoint("TOPLEFT", 0, -22); profUI.openBtn = o
+  b:SetPoint("LEFT", o, "RIGHT", 4, 0)
   -- 點了才打開（不會改「自動開啟」的設定）
   o:SetScript("OnClick", function() if frame and frame:IsShown() then frame:Hide(); docked = false else dockOpen(true) end end)
-  setLabel(o, L["專業幫手"], 110)
+  setLabel(o, L["專業幫手"], 100)
+  -- 附魔並確認（安全按鈕，也可在按鍵設定綁鍵）：沒有確認框時等於按「附魔」；跳出「替換成相同附魔」的確認框時按它的「是」
+  -- 確認替換是保護功能，插件不能自己按，只能靠玩家按這顆鍵
+  local sameEnchant
+  hooksecurefunc("StaticPopup_Show", function(which, t1, t2)
+    if which == "REPLACE_TRADESKILL_ENCHANT" or which == "REPLACE_ENCHANT" then sameEnchant = t1 ~= nil and t1 == t2 end
+  end)
+  local eb = CreateFrame("Button", "ShengProfEnchantButton", profUI, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+  eb:SetSize(100, 24); eb:SetPoint("LEFT", b, "RIGHT", 4, 0); profUI.enchBtn = eb
+  eb:RegisterForClicks("AnyUp", "AnyDown")
+  eb:SetScript("PreClick", function(self)
+    if InCombatLockdown() then return end
+    local d = StaticPopup_FindVisible("REPLACE_TRADESKILL_ENCHANT") or StaticPopup_FindVisible("REPLACE_ENCHANT")
+    local cp = ProfessionsFrame and ProfessionsFrame.CraftingPage
+    local target
+    if d then
+      if sameEnchant then target = d.button1 or (d.GetButton1 and d:GetButton1()) or (d.ButtonContainer and d.ButtonContainer.Buttons and d.ButtonContainer.Buttons[1]) end
+    elseif cp and cp.CreateButton and cp.CreateButton:IsVisible() and cp.CreateButton:IsEnabled() then
+      target = cp.CreateButton
+    end
+    self:SetAttribute("type", target and "click" or nil)
+    self:SetAttribute("clickbutton", target)
+  end)
+  eb:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP"); GameTooltip:AddLine(L["附魔並確認"])
+    GameTooltip:AddLine(L["按一下附魔；跳出替換成相同附魔的確認時，再按一下確認。可在按鍵設定綁一個鍵連按。"], 1, 1, 1, true); GameTooltip:Show()
+  end)
+  eb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  setLabel(eb, L["附魔並確認"], 100)
+  _G.BINDING_HEADER_SHENGPROF = L["阿聖專業幫手"]
+  _G["BINDING_NAME_CLICK ShengProfEnchantButton:LeftButton"] = L["附魔並確認"]
   if sf.Init then hooksecurefunc(sf, "Init", function() C_Timer.After(0, function() safe("專業視窗", updateProfUI) end) end) end
   profUI:SetScript("OnShow", function() safe("專業視窗", updateProfUI) end)
   ProfessionsFrame:HookScript("OnShow", function() safe("專業視窗", dockOpen) end)

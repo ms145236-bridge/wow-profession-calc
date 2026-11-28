@@ -238,6 +238,8 @@ NS.locales.esMX = {
   -- 採集分頁
   ["沒有學採集或副專業"] = "No has aprendido profesiones de recolección ni secundarias",
   ["採集追蹤提醒"] = "Aviso de rastreo",
+  ["附魔並確認"] = "Encantar y confirmar",
+  ["按一下附魔；跳出替換成相同附魔的確認時，再按一下確認。可在按鍵設定綁一個鍵連按。"] = "Haz clic para encantar; si aparece la confirmación para reemplazar por el mismo encantamiento, vuelve a hacer clic para confirmar. Puedes asignarle una tecla en Asignación de teclas y pulsarla seguido.",
   ["學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕"] = "Muestra un aviso si tienes Minería o Herboristería y Buscar minerales o Buscar hierbas está desactivado.",
   ["/sprof track 看其他設定"] = "/sprof track para más configuraciones",
   ["追蹤提醒：開"] = "Aviso de rastreo: sí",
