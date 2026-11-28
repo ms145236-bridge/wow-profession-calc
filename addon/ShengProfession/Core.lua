@@ -2362,6 +2362,11 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     local spellID = select(2, ...) -- 參數：unit（a1）, castGUID, spellID；限制中（戰鬥、副本）是秘密值，不能比較，跳過
     if issecretvalue and (issecretvalue(a1) or issecretvalue(spellID)) then return end
     if a1 == "player" and spellID and onCrafted(spellID) and frame and frame:IsShown() then ProfLevel_Refresh() end
+  elseif e == "REPLACE_ENCHANT" then
+    -- 衝附魔時同一件裝備一直附同一種：「把耐力+2 替換為耐力+2」直接確認；換成不同附魔照常問
+    local new = ...
+    if issecretvalue and (issecretvalue(a1) or issecretvalue(new)) then return end
+    if a1 and a1 == new then ReplaceEnchant(); StaticPopup_Hide("REPLACE_ENCHANT") end
   elseif e == "MERCHANT_SHOW" or e == "MERCHANT_UPDATE" then
     safe("商人", merchantUpdate)
   elseif e == "MERCHANT_CLOSED" then
@@ -2374,7 +2379,7 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     if frame and frame:IsShown() then ProfLevel_Refresh() end
   end
 end)
-for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED", "MAIL_INBOX_UPDATE" }) do pcall(ev.RegisterEvent, ev, e) end
+for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED", "MAIL_INBOX_UPDATE", "REPLACE_ENCHANT" }) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(REFRESH_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(SCAN_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 if ev.RegisterUnitEvent then pcall(ev.RegisterUnitEvent, ev, "UNIT_SPELLCAST_SUCCEEDED", "player") else pcall(ev.RegisterEvent, ev, "UNIT_SPELLCAST_SUCCEEDED") end
