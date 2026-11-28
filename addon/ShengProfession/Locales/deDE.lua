@@ -238,6 +238,7 @@ NS.locales.deDE = {
   -- 採集分頁
   ["沒有學採集或副專業"] = "Keine Sammel- oder Nebenberufe erlernt",
   ["採集追蹤提醒"] = "Sucherinnerung",
+  ["附相同附魔時自動確認替換"] = "Ersetzen durch dieselbe Verzauberung automatisch bestätigen",
   ["學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕"] = "Erinnert dich an Mineraliensuche oder Kräutersuche, wenn du Bergbau oder Kräuterkunde beherrschst und die Suche aus ist.",
   ["/sprof track 看其他設定"] = "/sprof track für weitere Einstellungen",
   ["追蹤提醒：開"] = "Sucherinnerung: An",
