@@ -161,9 +161,9 @@ local function learnedProfs(all)
 end
 
 -- ── 升階提示 ───────────────────────────────────────────────────────────────
-local TRAIN = ProfLevel_Trainers or {}
--- 下一階的資料：上限 150 要學專家、225 要學大師；其他上限回傳 nil
+-- 下一階的資料：上限 150 要學專家、225 要學大師；其他上限回傳 nil。聯盟用聯盟表
 local function nextRank(key, sk)
+  local TRAIN = (UnitFactionGroup("player") == "Alliance" and ProfLevel_TrainersA) or ProfLevel_Trainers or {}
   local t = sk and TRAIN[key]
   local rk = t and ((sk.max == 150 and "expert") or (sk.max == 225 and "master"))
   if rk and t[rk] then return t[rk], rk == "expert" and L["專家"] or L["大師"] end
