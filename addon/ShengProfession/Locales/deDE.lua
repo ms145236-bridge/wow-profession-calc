@@ -326,4 +326,7 @@ NS.locales.deDE = {
   ["重新載入"] = "Neu laden",
   ["稍後"] = "Später",
   ["介面語言改成 %s，重新載入介面後生效。"] = "Sprache auf %s gestellt. Oberfläche neu laden, um sie zu übernehmen.",
+  ["中立拍賣行"] = "Neutrales Auktionshaus",
+  ["只有部落商人賣，要到中立拍賣行買"] = "Nur Händler der Horde verkaufen das; im neutralen Auktionshaus kaufen",
+  ["只有聯盟商人賣，要到中立拍賣行買"] = "Nur Händler der Allianz verkaufen das; im neutralen Auktionshaus kaufen",
 }

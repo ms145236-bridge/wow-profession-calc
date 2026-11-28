@@ -326,4 +326,7 @@ NS.locales.enUS = {
   ["重新載入"] = "Reload",
   ["稍後"] = "Later",
   ["介面語言改成 %s，重新載入介面後生效。"] = "Interface language set to %s. Reload the interface to apply.",
+  ["中立拍賣行"] = "Neutral auction house",
+  ["只有部落商人賣，要到中立拍賣行買"] = "Only Horde vendors sell this; buy it at a neutral auction house",
+  ["只有聯盟商人賣，要到中立拍賣行買"] = "Only Alliance vendors sell this; buy it at a neutral auction house",
 }

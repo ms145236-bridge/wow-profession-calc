@@ -243,10 +243,19 @@ local function vendorsOf(id)
 end
 -- 最近的商人名字（放在 NS：比較表重整函式的 upvalue 已經到 Lua 5.1 的 60 個上限）
 function NS.vendorName(id) local v = vendorsOf(id)[1]; return v and loc(v, "name") end
+-- 有商人賣、但都是另一陣營的（衝級步驟只用在指定商人的步驟，例如吞克、塔里查、肯多爾·卡邦卡）：回傳「要到中立拍賣行買」的說明（例如聯盟買不到吞克的圖樣）；其他情況回傳 nil
+function NS.otherSideOnly(id)
+  if not (ShengProfession_RecipeVendors or {})[id] or #vendorsOf(id) > 0 then return end
+  return UnitFactionGroup("player") == "Alliance" and L["只有部落商人賣，要到中立拍賣行買"] or L["只有聯盟商人賣，要到中立拍賣行買"]
+end
 -- 滑鼠提示：最近的幾個商人（最多 4 個）＋「點一下設導航」
 local function vendorTip(id, head)
   local list = vendorsOf(id)
-  if #list == 0 then return end
+  if #list == 0 then
+    local other = NS.otherSideOnly(id)
+    if other then GameTooltip:AddLine(" "); GameTooltip:AddLine(other, 1, .62, .42, true) end
+    return
+  end
   GameTooltip:AddLine(" ")
   GameTooltip:AddLine(head, 1, .82, 0, true)
   for i = 1, math.min(4, #list) do GameTooltip:AddDoubleLine(whoAt(list[i]), string.format("%.1f, %.1f", list[i].x, list[i].y), 1, 1, 1, .6, .6, .6) end
@@ -1411,7 +1420,7 @@ local function refreshImpl()
     for rid, idxs in pairs(route.recipes) do for _, i in ipairs(idxs) do patOf[i] = rid end end
     for i, s in ipairs(route.steps) do
       local n = r.stepCrafts[i] + r.extraCrafts[i]
-      if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i], val = stepVal[i], pat = s.src == "商人" and patOf[i] or nil }) end
+      if n > 0 then table.insert(rows, { step = s, n = n, extra = r.extraCrafts[i], val = stepVal[i], pat = s.src == "商人" and patOf[i] or nil, other = s.src ~= "商人" and s.src ~= "拍卖行" and patOf[i] and NS.otherSideOnly(patOf[i]) or nil }) end
     end
   elseif db.tab == "profit" then
     local qc = {}
@@ -1500,7 +1509,7 @@ local function refreshImpl()
         local name, icon, col = info(s.k, s.id)
         l.icon:SetTexture(icon); l.icon:Show()
         local pv = e.pat and NS.vendorName(e.pat)
-        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, pv and string.format(L["%s（商人）"], pv) or srcName(s.src),
+        vals = { hi > lo and (lo .. "–" .. hi) or "—", name, "×" .. e.n, pv and string.format(L["%s（商人）"], pv) or (e.other and L["中立拍賣行"]) or srcName(s.src),
           e.val and ("|cff9fd18b" .. money(e.val) .. "|r") or "—" }
         l.c[2]:SetTextColor(col[1], col[2], col[3])
       else
@@ -1983,7 +1992,8 @@ local function buildFrame()
           local function dv(x) return (x == nil or x == "" or x == "–") and "—" or x end
           GameTooltip:AddLine(string.format(L["難度："] .. "|cffff8040%s|r |cffffff00%s|r |cff40bf40%s|r |cff808080%s|r", dv(s.d[1]), dv(s.d[2]), dv(s.d[3]), dv(s.d[4])), .8, .8, .8)
         end
-        if e.pat then vendorTip(e.pat, string.format(L["訓練師不教，要跟商人買「%s」："], (info("i", e.pat)))) end
+        if e.pat then vendorTip(e.pat, string.format(L["訓練師不教，要跟商人買「%s」："], (info("i", e.pat))))
+        elseif e.other then GameTooltip:AddLine(" "); GameTooltip:AddLine(e.other, 1, .62, .42, true) end
       elseif e.qmat then
         pcall(GameTooltip.SetItemByID, GameTooltip, e.qmat.id)
         if e.qmat.kind ~= "craft" then vendorTip(e.qmat.id, L["哪裡買："]) end

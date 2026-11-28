@@ -326,4 +326,7 @@ NS.locales.esES = {
   ["重新載入"] = "Recargar",
   ["稍後"] = "Más tarde",
   ["介面語言改成 %s，重新載入介面後生效。"] = "Idioma cambiado a %s. Recarga la interfaz para aplicarlo.",
+  ["中立拍賣行"] = "Casa de subastas neutral",
+  ["只有部落商人賣，要到中立拍賣行買"] = "Solo lo venden vendedores de la Horda; cómpralo en una casa de subastas neutral",
+  ["只有聯盟商人賣，要到中立拍賣行買"] = "Solo lo venden vendedores de la Alianza; cómpralo en una casa de subastas neutral",
 }

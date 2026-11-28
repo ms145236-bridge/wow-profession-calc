@@ -326,4 +326,7 @@ NS.locales.frFR = {
   ["重新載入"] = "Recharger",
   ["稍後"] = "Plus tard",
   ["介面語言改成 %s，重新載入介面後生效。"] = "Langue réglée sur %s. Recharge l’interface pour l’appliquer.",
+  ["中立拍賣行"] = "Hôtel des ventes neutre",
+  ["只有部落商人賣，要到中立拍賣行買"] = "Seuls des marchands de la Horde le vendent ; achetez-le à un hôtel des ventes neutre",
+  ["只有聯盟商人賣，要到中立拍賣行買"] = "Seuls des marchands de l’Alliance le vendent ; achetez-le à un hôtel des ventes neutre",
 }

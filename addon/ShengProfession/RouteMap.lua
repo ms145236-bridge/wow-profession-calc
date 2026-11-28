@@ -4,9 +4,18 @@
 
 local _, NS = ...
 local L, loc = NS.L, NS.loc
-local ROUTES = NS.ROUTES or {}
-local BY_ID = {}
-for _, r in ipairs(ROUTES) do BY_ID[r.id] = r end
+-- 依陣營選表：聯盟用 NS.ROUTES_A，部落用 NS.ROUTES（陣營在載入時可能還讀不到，用到時才決定）
+local ROUTES, BY_ID, side = {}, {}, nil
+local function routes()
+  local f = UnitFactionGroup("player")
+  if f and f ~= side then
+    side = f
+    ROUTES = (f == "Alliance" and NS.ROUTES_A) or NS.ROUTES or {}
+    BY_ID = {}
+    for _, r in ipairs(ROUTES) do BY_ID[r.id] = r end
+  end
+  return ROUTES, BY_ID
+end
 local REF = "ShengProfessionRoute"
 local DOT = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask" -- 白色圓點，染色用
 local COLOR = { ore = { .93, .55, .22 }, herb = { .35, .86, .35 }, both = { 1, .82, 0 } }
@@ -20,9 +29,11 @@ local function DB()
     if db.routeShow == false then db.route, db.routePicked = nil, true end
     db.routeShow = nil
   end
+  local _, byId = routes()
+  if db.route and next(byId) and not byId[db.route] then db.route, db.routePicked = nil, nil end -- 選的是另一陣營的路線：重新推薦
   return db
 end
-local function selected() return BY_ID[DB().route] end -- 選了就畫，取消選取就不畫
+local function selected() return select(2, routes())[DB().route] end -- 選了就畫，取消選取就不畫
 
 -- ── 世界地圖 ───────────────────────────────────────────────────────────────
 local wf, wkey -- 畫布上的框、目前畫好的是哪條路線（加上畫布尺寸）
@@ -223,7 +234,7 @@ local function build(g)
   end
   -- 「去」：放在選中那列的右端（設航點到路線起點）
   u.go = NS.button(g, 20, L["去"], function()
-    local r = BY_ID[DB().route]
+    local r = selected()
     if r then NS.goTo({ map = r.map, x = r.pts[1][1], y = r.pts[1][2], name = zoneName(r) .. " " .. loc(r, "short") }) end
   end)
   u.go:SetHeight(20); u.go:Hide()
@@ -267,7 +278,7 @@ function NS.routeLayout(g, fw, y, all)
   y = y - 28
   -- 目前技能符合的排前面（第一條是推薦），其他照技能區間
   local fit, rest = {}, {}
-  for _, r in ipairs(ROUTES) do
+  for _, r in ipairs((routes())) do
     if r.kind == kind then table.insert(fits(r, all) and fit or rest, r) end
   end
   local byMin = function(a, b) if a.min ~= b.min then return a.min < b.min end return a.id < b.id end

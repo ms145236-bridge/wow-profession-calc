@@ -326,4 +326,7 @@ NS.locales.ptBR = {
   ["重新載入"] = "Recarregar",
   ["稍後"] = "Depois",
   ["介面語言改成 %s，重新載入介面後生效。"] = "Idioma definido como %s. Recarregue a interface para aplicar.",
+  ["中立拍賣行"] = "Casa de leilões neutra",
+  ["只有部落商人賣，要到中立拍賣行買"] = "Só comerciantes da Horda vendem; compre numa casa de leilões neutra",
+  ["只有聯盟商人賣，要到中立拍賣行買"] = "Só comerciantes da Aliança vendem; compre numa casa de leilões neutra",
 }
