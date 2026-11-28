@@ -238,7 +238,6 @@ NS.locales.enUS = {
   -- 採集分頁
   ["沒有學採集或副專業"] = "No gathering or secondary professions learned",
   ["採集追蹤提醒"] = "Tracking reminder",
-  ["附相同附魔時自動確認替換"] = "Auto-confirm replacing an enchant with the same one",
   ["學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕"] = "Shows a reminder button when you know Mining or Herbalism but Find Minerals / Find Herbs is off",
   ["/sprof track 看其他設定"] = "/sprof track for more settings",
   ["追蹤提醒：開"] = "Tracking reminder: On",

@@ -238,7 +238,6 @@ NS.locales.frFR = {
   -- 採集分頁
   ["沒有學採集或副專業"] = "Aucun métier de collecte ou secondaire appris",
   ["採集追蹤提醒"] = "Rappel de pistage",
-  ["附相同附魔時自動確認替換"] = "Confirmer automatiquement le remplacement d'un enchantement identique",
   ["學了採礦／草藥學但小地圖沒開尋找礦物／草藥時，畫面上出現提醒按鈕"] = "Affiche un rappel si tu as Minage ou Herboristerie et que Découverte de gisements ou Découverte d’herbes est désactivée.",
   ["/sprof track 看其他設定"] = "/sprof track pour plus de paramètres",
   ["追蹤提醒：開"] = "Rappel de pistage : activé",

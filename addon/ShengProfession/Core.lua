@@ -1703,7 +1703,6 @@ local function buildFrame()
   opt(L["分享我的配方給公會"], function() return NS.guildSharing() end, function(v) NS.guildShare(v) end)
   opt(L["採集追蹤提醒"], function() return NS.trackOn() end, function() NS.trackToggle() end)
   opt(L["自動開啟採集追蹤"], function() return NS.trackAutoOn() end, function() NS.trackAutoToggle() end)
-  opt(L["附相同附魔時自動確認替換"], function() return not db.noAutoEnchant end, function(v) db.noAutoEnchant = not v end)
   -- 介面語言：載入時決定，選好後跳出確認框重新載入
   local o = frame.opts
   o.langRow = CreateFrame("Frame", nil, o); o.langRow:SetHeight(24)
@@ -2332,13 +2331,6 @@ local function queueScan()
     if frame and frame:IsShown() then ProfLevel_Refresh() end
   end)
 end
--- 衝附魔時同一件裝備一直附同一種：「把耐力+2 替換為耐力+2」直接確認；換成不同附魔照常問（設定可關）
--- 事件和確認框誰先到不一定：兩邊都接，確認框跳出來時也會被關掉
-local function autoEnchant(old, new)
-  if db.noAutoEnchant or not old or (issecretvalue and (issecretvalue(old) or issecretvalue(new))) or old ~= new then return end
-  ReplaceEnchant()
-  StaticPopup_Hide("REPLACE_ENCHANT")
-end
 local REFRESH_EVENTS = { SKILL_LINES_CHANGED = true, BAG_UPDATE_DELAYED = true,
   GET_ITEM_INFO_RECEIVED = true, AUCTION_HOUSE_CLOSED = true, CHAT_MSG_SKILL = true, PLAYER_LEVEL_UP = true }
 ev:SetScript("OnEvent", function(_, e, a1, ...)
@@ -2357,7 +2349,6 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     -- 小地圖按鈕舊預設 200° 和練等幫手疊在一起：沒拖過（剛好 200）的改成新預設 225°（只遷移一次）
     if not db.mmV then if db.minimapAngle == 200 then db.minimapAngle = 225 end; db.mmV = 1 end
     safe("小地圖按鈕", buildMinimapButton)
-    hooksecurefunc("StaticPopup_Show", function(which, t1, t2) if which == "REPLACE_ENCHANT" then autoEnchant(t1, t2) end end)
   elseif e == "ADDON_LOADED" and a1 == "Blizzard_Professions" then
     safe("專業視窗", setupProfUI)
   elseif SCAN_EVENTS[e] then
@@ -2371,8 +2362,6 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     local spellID = select(2, ...) -- 參數：unit（a1）, castGUID, spellID；限制中（戰鬥、副本）是秘密值，不能比較，跳過
     if issecretvalue and (issecretvalue(a1) or issecretvalue(spellID)) then return end
     if a1 == "player" and spellID and onCrafted(spellID) and frame and frame:IsShown() then ProfLevel_Refresh() end
-  elseif e == "REPLACE_ENCHANT" then
-    autoEnchant(a1, (...))
   elseif e == "MERCHANT_SHOW" or e == "MERCHANT_UPDATE" then
     safe("商人", merchantUpdate)
   elseif e == "MERCHANT_CLOSED" then
@@ -2385,7 +2374,7 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     if frame and frame:IsShown() then ProfLevel_Refresh() end
   end
 end)
-for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED", "MAIL_INBOX_UPDATE", "REPLACE_ENCHANT" }) do pcall(ev.RegisterEvent, ev, e) end
+for _, e in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED", "MAIL_INBOX_UPDATE" }) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(REFRESH_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 for e in pairs(SCAN_EVENTS) do pcall(ev.RegisterEvent, ev, e) end
 if ev.RegisterUnitEvent then pcall(ev.RegisterUnitEvent, ev, "UNIT_SPELLCAST_SUCCEEDED", "player") else pcall(ev.RegisterEvent, ev, "UNIT_SPELLCAST_SUCCEEDED") end
